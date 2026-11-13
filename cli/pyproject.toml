@@ -13,5 +13,12 @@ dependencies = ["libtorrent==2.1.1"]
 [project.scripts]
 modelswarm = "modelswarm.cli:main"
 
+[tool.setuptools]
+include-package-data = false
+
 [tool.setuptools.packages.find]
 where = ["src"]
+namespaces = false
+
+[tool.setuptools.package-data]
+modelswarm = ["bridge/index.mjs", "bridge/protocol.mjs", "bridge/package.json", "bridge/yarn.lock", "bridge/.yarnrc.yml"]

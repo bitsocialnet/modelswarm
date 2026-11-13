@@ -12,8 +12,9 @@ Durations are rough estimates of focused work, not dates. Last reviewed 2026-11-
 - [x] Unsigned [manifest v0 and CLI](cli/README.md): `make`, `verify`, `pull`, nested files, format policy, resumable transfers and a verified Hugging Face-compatible cache (2026-11-13).
 
 - [x] [Local Hugging Face endpoint prototype](cli/ENDPOINT.md): `serve`/`HF_ENDPOINT`, registered manifests, verified public upstream fallback and real SDK end-to-end downloads (2026-11-13).
+- [x] [Signed publisher release prototype](cli/RELEASES.md): local keys, delegated profile setup, signed publication, profile/version/CID pulls and endpoint registration through a private real PKC node (2026-11-13).
 
-The experimental CLI and SDK endpoint are implemented. Signed publishing, catalogue and desktop client are not built. The prototypes do not complete the measurements milestone.
+The experimental CLI, SDK endpoint and signed publishing are implemented. Public operation, catalogue and desktop client remain. The prototypes do not complete the measurements milestone.
 
 ## What Blocks What
 
@@ -66,14 +67,15 @@ After this milestone the tool is useful to one person with no network of publish
 
 ### 4. Publishing and reading releases
 
-- [ ] RPC connection settings: Forge RPC by default, with another compatible provider or a self-hosted node selectable. Publishers retain their keys.
-- [ ] `modelswarm publish`: post a release to the publisher's profile on a node they run, or a compatible hosted profile once supported.
-- [ ] `pull` and the endpoint resolve releases from profiles.
+- [x] Explicit RPC connection settings (`--rpc`/`MODELSWARM_RPC`); publishers retain their keys locally.
+- [ ] A validated hosted Forge default and provider-hosted profile onboarding.
+- [x] `keygen`, `profile-init` and `modelswarm publish`: initialize a delegated author profile and post a locally signed manifest announcement on an operator-controlled PKC node.
+- [x] `pull pkc://…` and `serve --release` resolve explicit publisher/version or CID-pinned releases, verify signatures and bind the manifest before downloading.
 - [ ] Mirror records v0: publish one when seeding a Hugging Face model, and check records on completed downloads.
 - [ ] A demo publisher profile on a Bitsocial node we run, with real releases of permissively licensed models, the way WeTube's demo channel works.
 - [ ] Web client, read-only: publisher pages, release pages with the model card, file list, format flags and sources. On the stack of 5chan and WeTube.
 
-Estimate: 3 to 4 weeks. Blocked by: the name question in [open-questions.md](open-questions.md#names-and-impersonation) needs a prototype answer.
+The signed CLI/profile slice is implemented; see [evidence and remaining scope](cli/RELEASES-EVALUATION.md). It uses explicit bare publisher keys rather than unproven human-readable names. Tests use a private real PKC/Kubo network, not public hosting. Mirror records, a public demo, name proofs and the read-only web client remain. The original 3–4 week estimate covered this broader milestone.
 
 ### 5. Hubs and search
 

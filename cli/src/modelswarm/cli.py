@@ -143,7 +143,15 @@ def release_lock(directory, digest):
 
 
 def pull(args):
-    manifest, digest = load_manifest(args.manifest, args.manifest_sha256)
+    provenance = {}
+    if str(args.manifest).startswith("pkc://"):
+        from .releases import resolve
+        manifest, digest, provenance = resolve(str(args.manifest), rpc=args.rpc,
+            timeout=args.rpc_timeout, allow_local=args.allow_local_sources)
+        if args.manifest_sha256 and args.manifest_sha256 != digest:
+            raise ValueError("signed manifest does not match the requested SHA-256")
+    else:
+        manifest, digest = load_manifest(args.manifest, args.manifest_sha256)
     entries = select(manifest, args.file)
     flagged = [entry["path"] for entry in entries if is_flagged(entry["format"]) or is_flagged_path(entry["path"])]
     if flagged and args.file and not args.allow_unsafe:
@@ -163,17 +171,19 @@ def pull(args):
     for signum in (signal.SIGINT, signal.SIGTERM):
         original_handlers[signum] = signal.signal(signum, lambda *_: cancel.set())
     try:
-        return pull_release(manifest, digest, entries, skipped, args.cache_dir, peers=peers,
+        result = pull_release(manifest, digest, entries, skipped, args.cache_dir, peers=peers,
                             discovery=not args.no_discovery, timeout=args.timeout,
                             rate=args.rate_limit, checkpoint_interval=args.checkpoint_interval,
-                            cancel=cancel, emit=progress)
+                            cancel=cancel, emit=progress,
+                            allow_local_sources=not provenance or args.allow_local_sources)
+        return {**result, **provenance}
     finally:
         for signum, handler in original_handlers.items():
             signal.signal(signum, handler)
 
 
 def pull_release(manifest, digest, entries, skipped, cache, *, peers, discovery,
-                 timeout, rate, checkpoint_interval, cancel, emit):
+                 timeout, rate, checkpoint_interval, cancel, emit, allow_local_sources=True):
     """Pull a validated selection; reusable by worker threads without signal hooks."""
     root = ensure_directory(cache_root(cache))
     state = ensure_directory(root / ".modelswarm")
@@ -198,13 +208,20 @@ def pull_release(manifest, digest, entries, skipped, cache, *, peers, discovery,
                 continue
             verified[entry["path"]] = download_file(entry, directory, peers=peers,
                 discovery=discovery, timeout=timeout, rate=rate,
-                checkpoint_interval=checkpoint_interval, cancel=cancel, emit=emit)
+                checkpoint_interval=checkpoint_interval, cancel=cancel, emit=emit,
+                allow_local_sources=allow_local_sources)
         if cancel.is_set():
             raise InterruptedDownload("interrupted before cache publication; verified data retained")
         snapshot = materialize(root, manifest, digest, verified)
         return {"command": "pull", "name": manifest["name"], "manifest_sha256": digest,
                 "revision": snapshot_revision(digest), "cache_dir": str(root), "snapshot": str(snapshot),
                 "files": [entry["path"] for entry in entries], "skipped_flagged": skipped, "signed": False}
+
+
+def publisher_options(command):
+    command.add_argument("--rpc", help="PKC WebSocket RPC URL; defaults to MODELSWARM_RPC")
+    command.add_argument("--rpc-timeout", type=float, default=120)
+    command.add_argument("--allow-local-sources", action="store_true", help="explicitly permit loopback manifest URLs and private-network payload sources")
 
 
 def parser():
@@ -222,13 +239,14 @@ def parser():
     command.set_defaults(function=make)
     for name, function in (("verify", verify), ("pull", pull)):
         command = commands.add_parser(name, help="verify local files" if name == "verify" else "download a manifest into the model cache")
-        command.add_argument("manifest", type=Path)
+        command.add_argument("manifest", type=Path if name == "verify" else str)
         command.add_argument("--manifest-sha256", help="optional out-of-band digest of the manifest bytes")
         command.add_argument("--file", action="append", default=[], help="select an exact manifest path; repeat for several files")
         command.set_defaults(function=function)
         if name == "verify":
             command.add_argument("directory", type=Path)
         else:
+            publisher_options(command)
             command.add_argument("--cache-dir", type=Path)
             command.add_argument("--allow-unsafe", action="store_true", help="explicitly include code, pickle and unknown formats; never execute them")
             command.add_argument("--peer", action="append", default=[], help="explicit peer host:port or [IPv6]:port")
@@ -238,6 +256,8 @@ def parser():
             command.add_argument("--checkpoint-interval", type=float, default=15, help="seconds between flushed resume checkpoints; minimum one")
     command = commands.add_parser("serve", help="serve a loopback Hugging Face-compatible read-only model endpoint")
     command.add_argument("--manifest", type=Path, action="append", default=[], help="register a local manifest; repeat for different model names")
+    command.add_argument("--release", action="append", default=[], help="register a signed pkc:// publisher release; repeat for different model names")
+    publisher_options(command)
     command.add_argument("--cache-dir", type=Path)
     command.add_argument("--host", default="127.0.0.1")
     command.add_argument("--port", type=int, default=8866, help="loopback HTTP port; zero selects a free port")
@@ -250,6 +270,22 @@ def parser():
     command.add_argument("--rate-limit", type=int, default=0)
     command.add_argument("--checkpoint-interval", type=float, default=15)
     command.set_defaults(function=serve)
+    from .releases import keygen, profile_init, publish
+    command = commands.add_parser("keygen", help="create a local Ed25519 publisher key; never overwrite")
+    command.add_argument("--output", "-o", type=Path, required=True)
+    command.add_argument("--rpc-timeout", type=float, default=120)
+    command.set_defaults(function=keygen)
+    command = commands.add_parser("profile-init", help="create and start your delegated publisher profile on your RPC node")
+    command.add_argument("--key", type=Path, required=True)
+    publisher_options(command)
+    command.set_defaults(function=profile_init)
+    command = commands.add_parser("publish", help="publish a signed manifest announcement to your publisher profile")
+    command.add_argument("manifest", type=Path)
+    command.add_argument("--key", type=Path, required=True)
+    command.add_argument("--manifest-url", required=True, help="existing public HTTPS or ipfs:// manifest location")
+    command.add_argument("--card", type=Path, help="optional UTF-8 model card, at most 24 KiB")
+    publisher_options(command)
+    command.set_defaults(function=publish)
     return result
 
 

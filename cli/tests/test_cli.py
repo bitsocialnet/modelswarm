@@ -304,7 +304,10 @@ print(json.dumps({'snapshot':snapshot,'file':file}))
                     stream.write(bytes([byte[0] ^ 255]))
             resumed, logs = self.pull("--file", "weights.gguf")
             completions = [json.loads(line) for line in logs.splitlines() if line.startswith('{"event": "file_complete"')]
-            self.assertNotIn('"event": "checkpoint_saved"', logs)
+            checkpoints = [json.loads(line) for line in logs.splitlines() if line.startswith('{"event": "checkpoint_saved"')]
+            # Periodic pause/resume resets payload counters; completion flushes
+            # without resuming, so the recovered-byte assertion remains valid.
+            self.assertEqual([event["reason"] for event in checkpoints], ["complete"])
             self.assertLess(completions[0]["payload_bytes_since_resume"], 32 * MIB + 319)
             self.command("verify", self.manifest, resumed["snapshot"], "--file", "weights.gguf")
 

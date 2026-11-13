@@ -7,7 +7,7 @@ export function Roadmap() {
   return (
     <section id='roadmap' className={section.section} aria-labelledby='roadmap-title'>
       <div className='wrap'>
-        <SectionHead source='roadmap.md' id='roadmap-title' lede='The engine, CLI and SDK endpoint have prototypes. Publishing and the full hub remain. Estimates are focused work, not dates.'>
+        <SectionHead source='roadmap.md' id='roadmap-title' lede='The engine, CLI, SDK endpoint and signed publishing have prototypes. Public hosting and the full hub remain. Estimates are focused work, not dates.'>
           What gets built, in order
         </SectionHead>
         <ol className={styles.steps}>

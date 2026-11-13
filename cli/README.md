@@ -1,6 +1,6 @@
 # Modelswarm CLI prototype
 
-`modelswarm make`, `verify` and `pull` implement the unsigned manifest/CLI milestone with Python 3.11+ and pinned libtorrent 2.1.1. `modelswarm serve` now exposes a [local Hugging Face endpoint with verified public fallback](ENDPOINT.md). The landing page remains a separate static app. See [MANIFEST.md](MANIFEST.md) for v0 and [EVALUATION.md](EVALUATION.md) for tested behavior and remaining work.
+`modelswarm make`, `verify` and `pull` implement the unsigned manifest/CLI milestone with Python 3.11+ and pinned libtorrent 2.1.1. `modelswarm serve` now exposes a [local Hugging Face endpoint with verified public fallback](ENDPOINT.md). The [signed publisher release milestone](RELEASES.md) adds `keygen`, `profile-init`, `publish`, profile/CID pulls and signed endpoint registration. The landing page remains a separate static app. See [MANIFEST.md](MANIFEST.md) for v0 and [EVALUATION.md](EVALUATION.md) for tested behavior and remaining work.
 
 ## Install locally
 
@@ -63,7 +63,7 @@ Rerun the same pull with the same cache to resume. Existing staged data is reche
 
 ### Use the verified cache
 
-The default root is `~/.cache/modelswarm/hub`, overridden by `MODELSWARM_CACHE` or `--cache-dir`. This keeps Modelswarm's unsigned namespace separate from the normal Hugging Face cache. JSON output provides `cache_dir`, `revision` and `snapshot`:
+The default root is `~/.cache/modelswarm/hub`, overridden by `MODELSWARM_CACHE` or `--cache-dir`. This keeps Modelswarm's declared model namespace separate from the normal Hugging Face cache. JSON output provides `cache_dir`, `revision` and `snapshot`:
 
 ```text
 models--example--model/
@@ -90,7 +90,7 @@ The cache rejects unexpected symlink ancestors, foreign snapshot entries and cor
 
 ## Trust boundary
 
-Manifests are **unsigned** in v0. A local manifest is trusted input; an independently obtained `--manifest-sha256` pins its exact bytes. A digest received from the same untrusted source does not establish publisher identity. Embedded torrent roots and final SHA-256 checks bind downloaded bytes to that manifest. The displayed owner/model and license are declarations, not independently verified claims.
+Manifests are **unsigned** in v0. A local manifest is trusted input; an independently obtained `--manifest-sha256` pins its exact bytes. A digest received from the same untrusted source does not establish publisher identity. Embedded torrent roots and final SHA-256 checks bind downloaded bytes to that manifest. The displayed owner/model and license are declarations, not independently verified claims. [Publisher release URIs](RELEASES.md) authenticate the manifest digest against an explicit signing key; they do not prove upstream organization ownership or model safety.
 
 ## Tests
 
@@ -99,4 +99,4 @@ uv pip install --python cli/.venv/bin/python -r cli/requirements-test.txt
 cli/.venv/bin/python -m unittest discover -s cli/tests -v
 ```
 
-Tests use local servers and explicit loopback peers with DHT disabled. They exercise the installed package in subprocesses, safe/flagged selection, nested files, metadata rejection, cache reuse, corrupted sources, checkpoint recovery and the real Hugging Face SDK with networking disabled. The separate real-model experiment in [EVALUATION.md](EVALUATION.md) uses a pinned public HTTPS model.
+Tests use local servers and explicit loopback peers with DHT disabled. They exercise the installed package in subprocesses, safe/flagged selection, nested files, metadata rejection, cache reuse, corrupted sources, checkpoint recovery and the real Hugging Face SDK with networking disabled. The separate real-model experiment in [EVALUATION.md](EVALUATION.md) uses a pinned public HTTPS model. Signed profile tests need the optional Node bridge and Kubo 0.43.1; see [release test setup](RELEASES.md#reproduce-the-tests). Without that Kubo version they explicitly skip.

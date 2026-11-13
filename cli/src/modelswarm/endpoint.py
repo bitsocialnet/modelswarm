@@ -51,6 +51,7 @@ class Endpoint:
         self.cancel = threading.Event()
         self.transfers = threading.Lock()
         self.registered = {}
+        self.provenance = {}
         # Freeze manifests at startup; request workers never reread mutable input.
         self.scratch = tempfile.TemporaryDirectory(prefix="endpoint-", dir=ensure_directory(self.cache / ".modelswarm"))
         try:
@@ -59,6 +60,14 @@ class Endpoint:
                 if manifest["name"] in self.registered:
                     raise ValueError("register at most one manifest per model name")
                 self.registered[manifest["name"]] = (manifest, digest)
+            from .releases import resolve
+            for uri in args.release:
+                manifest, digest, provenance = resolve(uri, rpc=args.rpc, timeout=args.rpc_timeout,
+                                                      allow_local=args.allow_local_sources)
+                if manifest["name"] in self.registered:
+                    raise ValueError("register at most one manifest or release per model name")
+                self.registered[manifest["name"]] = (manifest, digest)
+                self.provenance[manifest["name"]] = provenance
             self.upstream = None if args.no_upstream else PublicHub(self.cache, base_url=args.upstream, timeout=args.timeout, cancel=self.cancel)
         except Exception:
             self.scratch.cleanup()
@@ -112,7 +121,8 @@ class Endpoint:
                                       peers=self.args.peer, discovery=not self.args.no_discovery,
                                       timeout=self.args.timeout, rate=self.args.rate_limit,
                                       checkpoint_interval=self.args.checkpoint_interval,
-                                      cancel=self.cancel, emit=self.emit)
+                                      cancel=self.cancel, emit=self.emit,
+                                      allow_local_sources=model.repo not in self.provenance or self.args.allow_local_sources)
                 path = Path(result["snapshot"]) / entry.path
                 check_file(selected, path)
                 return path
@@ -321,6 +331,10 @@ def handler_for(backend):
             headers = {"X_Repo_Commit": model.commit, "ETag": f'"{entry.digest}"',
                        "Accept_Ranges": "bytes", "X_Modelswarm_Source": model.source,
                        "X_Modelswarm_Verification": "manifest-sha256" if model.source == "local" else entry.algorithm}
+            provenance = backend.provenance.get(model.repo)
+            if provenance:
+                headers["X_Modelswarm_Publisher"] = provenance["publisher"]
+                headers["X_Modelswarm_Release"] = provenance["release_cid"]
             value = self.headers.get("Range") if self.command == "GET" else None
             if self.headers.get("If-Range") not in (None, headers["ETag"]):
                 value = None

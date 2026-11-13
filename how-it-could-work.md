@@ -23,7 +23,7 @@ Bitsocial carries text, so it holds releases, manifests and discussion. Model fi
 
 ## RPC Provider Choice
 
-The planned client defaults to Forge RPC for its Bitsocial connection, but users can select another compatible RPC provider or self-host a node. Publishers retain their signing keys. Forge is a convenience provider, not a required network operator; model files still move through torrents and HTTP mirrors, independently of RPC choice.
+The planned client defaults to Forge RPC for its Bitsocial connection, but users can select another compatible RPC provider or self-host a node. The current prototype requires an explicit `--rpc` or `MODELSWARM_RPC`; no hosted Forge endpoint has been validated. Publishers retain their signing keys. Forge is a convenience provider, not a required network operator; model files still move through torrents and HTTP mirrors, independently of RPC choice.
 
 Optional paid RPC services, including hosted publisher profiles when supported, are a speculative revenue opportunity. RPC carries metadata and discussion rather than model weights; there is no validated willingness to pay for this hosting, so it is not a strong monetization pitch. Reliable weight seeding, managed distribution and enterprise support would be additional services beyond RPC, not commitments in this design. Provider selection and self-hosting must be available in the client; hosted profiles remain a dependency to implement, not a currently available feature.
 
@@ -42,9 +42,9 @@ A signature proves that the same key published a series of releases. It does not
 
 ## Releases and the Manifest
 
-The experimental CLI implements an unsigned [manifest v0](cli/MANIFEST.md) with complete per-file v2 metadata and explicit sources. It is usable from a trusted local file today. The signed publisher release and lineage sketch below describe later protocol integration, not authentication already supplied by the CLI.
+The experimental CLI implements [manifest v0](cli/MANIFEST.md) with complete per-file v2 metadata and explicit sources. A local manifest is trusted input. The [signed release prototype](cli/RELEASES.md) now authenticates its exact SHA-256 through an owner-signed post in a PKC author profile. Readers independently verify the record CID, native Ed25519 signature, publisher/community identity and manifest name/version before downloading. The richer lineage/schema sketch below remains future design.
 
-A release is a post in the publisher's profile. Its text is the model card. It references a manifest, and because the release is signed, the manifest is covered by the same signature.
+A release is a post in the publisher's profile. In the prototype its signed content is a JSON envelope containing the model card, name/version and manifest URL/digest. The manifest is fetched separately from HTTPS or IPFS and checked against that authenticated digest.
 
 A manifest could look like this:
 
@@ -147,28 +147,31 @@ Most people do not download models by visiting a website. They run `transformers
 
 The CLI now implements a [loopback endpoint](cli/ENDPOINT.md), tested with `huggingface_hub` 2.4.0. The desktop integration and other consumers remain future work. In the prototype:
 
-- model information is built from the manifest;
+- model information is built from a local manifest or a verified publisher release registered with `--release`;
 - a local file is acquired from torrent peers and mirrors, with piece checks and full-file verification before any response body is served;
 - unregistered public models fall back to pinned Hugging Face downloads, verified against upstream whole-file metadata;
 - uploads and account requests are refused.
 
 With `HF_ENDPOINT` set before importing the SDK, SDK downloads use this endpoint. Cold downloads need a longer client timeout because the prototype waits for whole-file verification. Registered local names take precedence and never silently fall back on a missing file or revision. Broader tool compatibility is still to be tested. This idea comes from [HuggingSocial](https://github.com/Rinse12/huggingsocial).
 
-A name such as `example/example-7b` has to resolve to one publisher's release. How names map is [open](open-questions.md#names-and-impersonation).
+A name such as `example/example-7b` has to resolve to one publisher's release. The prototype requires explicit `pkc://PUBLISHER/example/example-7b@VERSION[#CID]` registration, scoped to a bare publisher key. Human-readable name proofs remain [open](open-questions.md#names-and-impersonation).
 
 ## Command Line
 
-`make`, `verify` and `pull` from a manifest file are implemented in the [Python CLI](cli/README.md); see its [evaluation](cli/EVALUATION.md). They support nested files, format checks, checkpoint recovery and verified cache snapshots. The commands below sketch the eventual interface; publisher name resolution and `publish` remain future work; `serve` is now implemented as described above. The current forms are `make DIR -o MANIFEST --name OWNER/MODEL --license LICENSE`, `verify MANIFEST DIR`, and `pull MANIFEST`.
+The [Python CLI](cli/README.md) supports local manifests and [signed publisher releases](cli/RELEASES.md), with nested files, format checks, checkpoint recovery and verified snapshots. Current command shapes are:
 
-```
-modelswarm make <dir>      hash the files, build the torrent, write a manifest
-modelswarm publish <dir>   post the release to the publisher's profile
-modelswarm pull <name>     download and verify into the cache layout existing tools read
-modelswarm verify <dir>    check files on disk against a release
-modelswarm serve           run the local Hugging Face endpoint
+```text
+modelswarm make DIR -o MANIFEST --name OWNER/MODEL --version VERSION --license LICENSE
+modelswarm verify MANIFEST DIR
+modelswarm keygen -o KEY
+modelswarm profile-init --key KEY --rpc RPC_URL
+modelswarm publish MANIFEST --key KEY --manifest-url URL --rpc RPC_URL
+modelswarm pull MANIFEST
+modelswarm pull pkc://PUBLISHER/OWNER/MODEL@VERSION#CID --rpc RPC_URL
+modelswarm serve --release pkc://PUBLISHER/OWNER/MODEL@VERSION#CID --rpc RPC_URL
 ```
 
-`make`, `verify` and `pull` from a manifest file need no Bitsocial node, so they can exist first.
+Local manifest commands need no Bitsocial node. Publisher commands require a compatible RPC node; `publish` posts a signed reference to already-hosted manifest bytes and does not upload weights. Bare-name lookup, hosted defaults and profile lifecycle management remain future work.
 
 ## Search and Discovery
 

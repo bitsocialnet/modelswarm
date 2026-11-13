@@ -21,7 +21,7 @@ The hardest question is not technical. Publishers already have their audience on
 
 ## Manifest
 
-The unsigned CLI now implements [manifest v0](cli/MANIFEST.md): a separate portable JSON file, required name/version/license/files, one embedded v2 torrent per nonempty file, and explicit per-file HTTP sources. Nested files/shards work. Publisher signatures, protocol storage and the following release semantics remain undecided.
+The CLI implements [manifest v0](cli/MANIFEST.md): a separate portable JSON file, required name/version/license/files, one embedded v2 torrent per nonempty file, and explicit per-file HTTP sources. Nested files/shards work. The [release prototype](cli/RELEASES.md) authenticates its digest in native owner-signed PKC profile posts; manifests live separately at HTTPS/IPFS locations. This is a tested prototype convention, not a finalized BSIP. The following richer release semantics remain undecided.
 
 - Is the manifest a field of the comment, or a separate document referenced by its content identifier? Which fields may a comment carry beyond those in BSIP-2?
 - Which fields are required?
@@ -32,7 +32,7 @@ The unsigned CLI now implements [manifest v0](cli/MANIFEST.md): a separate porta
 
 ## Torrents
 
-The [download-engine prototype](prototypes/download-engine/EVALUATION.md) established libtorrent 2.1.1 as a viable candidate on macOS arm64. The [CLI](cli/EVALUATION.md) now implements releases containing several files using one embedded v2-only torrent per file, 1 MiB pieces by default (configurable), and complete piece layers for HTTP-only startup. Manifests remain unsigned. Cross-platform packaging, production-scale shard counts and WAN operation remain untested; this is a provisional engine choice.
+The [download-engine prototype](prototypes/download-engine/EVALUATION.md) established libtorrent 2.1.1 as a viable candidate on macOS arm64. The [CLI](cli/EVALUATION.md) now implements releases containing several files using one embedded v2-only torrent per file, 1 MiB pieces by default (configurable), and complete piece layers for HTTP-only startup. Standalone manifests remain unsigned; profile releases now authenticate their exact digest. Cross-platform packaging, production-scale shard counts and WAN operation remain untested; this is a provisional engine choice.
 
 - BitTorrent v2 only, or hybrid torrents that v1 clients can join? Hybrid torrents add padding files and a second set of hashes.
 - Which piece size, given that the piece layer has to be fetched before the first piece can be checked?
@@ -51,6 +51,8 @@ The [download-engine prototype](prototypes/download-engine/EVALUATION.md) establ
 - Should the client offer to publish a mirror record automatically when a user seeds, or only on request?
 
 ## Names and Impersonation
+
+The prototype requires a full publisher Peer ID and explicit version, with optional immutable CID pinning. It checks that the requested key signed the release in its own profile; this prevents another key from claiming that namespace but does not prove ownership of a human-readable name. Version scans can detect observed conflicts, not feed completeness/freshness.
 
 - Existing tools ask for `organization/model`. What does that resolve to: a publisher's `.bso` name, a name in a list the reader chose, or a mapping kept by each hub?
 - Anyone can publish a release called `llama-4`. How does a reader tell the real publisher from an imitator before `.bso` names are common?

@@ -129,7 +129,7 @@ def _atomic_checkpoint(path, data):
         Path(temporary).unlink(missing_ok=True)
 
 
-def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoint_interval, cancel, emit):
+def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoint_interval, cancel, emit, allow_local_sources=True):
     """Write only to private staging; expose bytes to consumers after validation."""
     payload_dir = directory / "payload"
     payload_dir.mkdir(exist_ok=True)
@@ -177,6 +177,22 @@ def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoi
     # Attach network sources only after any existing file has been rechecked.
     params.flags |= lt.torrent_flags.disable_dht
     session = lt.session(session_settings(discovery, rate))
+    if not allow_local_sources:
+        # Applied by the native engine to actual connection endpoints;
+        # a DNS preflight alone would leave a re-resolution race.
+        blocked = lt.ip_filter()
+        for network in ("0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8",
+                        "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.2.0/24",
+                        "192.88.99.0/24", "192.168.0.0/16", "198.18.0.0/15", "198.51.100.0/24",
+                        "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4", "::/0"):
+            subnet = ipaddress.ip_network(network)
+            blocked.add_rule(str(subnet.network_address), str(subnet.broadcast_address), 1)
+        # Only global-unicast IPv6, excluding documentation/special-use space.
+        blocked.add_rule("2000::", "3fff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 0)
+        for network in ("2001::/23", "2001:db8::/32", "2002::/16", "3fff::/20"):
+            subnet = ipaddress.ip_network(network)
+            blocked.add_rule(str(subnet.network_address), str(subnet.broadcast_address), 1)
+        session.set_ip_filter(blocked)
     classes = lt.ip_filter()
     classes.add_rule("0.0.0.0", "255.255.255.255", 1)
     classes.add_rule("::", "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 1)
@@ -223,6 +239,14 @@ def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoi
                 elif isinstance(alert, lt.save_resume_data_alert) and stopping:
                     _atomic_checkpoint(checkpoint, bytes(lt.write_resume_data_buf(alert.params)))
                     emit("checkpoint_saved", path=entry["path"], verified_pieces=sum(alert.params.have_pieces), reason=stopping)
+                    if stopping == "complete":
+                        if cancel.is_set():
+                            raise InterruptedDownload("interrupted before final verification; downloaded data retained")
+                        check_file(entry, destination, check_root=False)
+                        emit("file_complete", path=entry["path"], size=entry["size"],
+                             payload_bytes_since_resume=handle.status().total_payload_download,
+                             hash_failures=hash_failures, seconds=round(now - started, 3))
+                        return destination
                     if stopping == "periodic":
                         stopping = None
                         last_checkpoint = time.monotonic()
@@ -260,11 +284,11 @@ def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoi
             if stopping and now >= stop_deadline:
                 raise TimeoutError("checkpoint shutdown timed out; partial files remain available for recheck")
             if ready and not stopping and status.is_seeding:
-                check_file(entry, destination, check_root=False)
-                emit("file_complete", path=entry["path"], size=entry["size"],
-                     payload_bytes_since_resume=status.total_payload_download, hash_failures=hash_failures,
-                     seconds=round(now - started, 3))
-                return destination
+                # Hash completion can precede disk writes. Wait for native disk
+                # shutdown and a flushed checkpoint before reading final bytes.
+                stopping = "complete"
+                stop_deadline = now + 15
+                handle.pause()
             if now - last_progress >= 2:
                 emit("progress", path=entry["path"], verified_pieces=status.num_pieces,
                      total_pieces=info.num_pieces(), payload_bytes_since_resume=status.total_payload_download)

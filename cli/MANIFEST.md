@@ -53,4 +53,4 @@ The chain is: trusted manifest bytes → validated v2 metadata/root → verified
 
 `pull` omits flagged files by default, also checking risky filename suffixes independently of the declared format. Selected flagged files require explicit `--allow-unsafe`. No model or code file is executed. Unknown formats and malformed safe-format headers are flagged; parser safety and malware scanning are separate concerns.
 
-Sources are untrusted byte suppliers. The unsigned manifest's author is not authenticated, and the library's parsed model format is not a safety verdict. Publisher signatures, key proofs, withdrawal, lineage/base links, model-card conventions, upstream mirror attestations and signed scan results remain for later milestones.
+Sources are untrusted byte suppliers. The unsigned manifest's author is not authenticated, and the library's parsed model format is not a safety verdict. The [signed release envelope](RELEASES.md) now authenticates the exact manifest digest and a model card through an explicit publisher key. Human-readable key proofs, withdrawal, lineage/base links, upstream mirror attestations and signed scan results remain for later milestones.
