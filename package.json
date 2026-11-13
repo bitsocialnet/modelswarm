@@ -1,0 +1,22 @@
+{
+  "name": "modelswarm",
+  "version": "0.0.1",
+  "private": true,
+  "description": "An idea for a hub of open AI models that nobody owns",
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "packageManager": "yarn@4.17.1",
+  "scripts": {
+    "agent:verify": "node scripts/agent-verify.mjs",
+    "deps:check-pinned": "node scripts/check-pinned-versions.mjs",
+    "ai-workflow:sync": "node scripts/sync-ai-workflow.mjs",
+    "ai-workflow:check": "node scripts/validate-ai-workflow.mjs",
+    "ai-workflow:test": "node --test --test-concurrency=1 scripts/__tests__/*.node-test.mjs"
+  },
+  "devDependencies": {
+    "@playwright/cli": "0.1.22",
+    "cross-spawn": "7.0.6",
+    "js-yaml": "5.5.0",
+    "smol-toml": "1.9.1"
+  }
+}

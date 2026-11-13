@@ -1,0 +1,8 @@
+# scripts/ is the agent and dev tooling shared with the other Bitsocial repositories.
+/scripts/** linguist-vendored
+
+# Shared AI sources and generated compatibility files must agree across platforms, as in 5chan.
+/.agents/** text=auto eol=lf
+/.claude/** text=auto eol=lf
+/.codex/** text=auto eol=lf
+/.cursor/** text=auto eol=lf
