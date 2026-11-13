@@ -17,11 +17,15 @@ class FixtureNode:
     and then resumed with its Kubo identity, PKC database and minter keys.
     """
 
-    def __init__(self, data, log_path, *, kubo_bin=None, node_bin=None):
+    def __init__(self, data, log_path, *, kubo_bin=None, node_bin=None, swarm_key=None, peers=()):
         self.data = Path(data)
         self.log_path = Path(log_path)
         self.kubo_bin = kubo_bin
         self.node_bin = node_bin or os.environ.get("MODELSWARM_NODE_BIN", "node")
+        # Join another fixture's private swarm; applied when the repo is created.
+        self.join = [item for peer in peers for item in ("--peer", peer)]
+        if swarm_key:
+            self.join += ["--swarm-key", str(swarm_key)]
         self.process = None
         self.logs = None
 
@@ -29,13 +33,17 @@ class FixtureNode:
         if self.process is not None:
             raise RuntimeError("PKC fixture is already running")
         args = [self.node_bin, str(Path(__file__).with_suffix(".mjs")), "--data-dir", str(self.data)]
-        if resume:
-            args.append("--resume")
+        args.extend(["--resume"] if resume else self.join)
         if self.kubo_bin:
             args.extend(["--kubo", str(self.kubo_bin)])
         self.logs = self.log_path.open("a+")
-        self.process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=self.logs, text=True,
-                                        start_new_session=True)
+        try:
+            self.process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=self.logs, text=True,
+                                            start_new_session=True)
+        except BaseException:
+            self.logs.close()
+            self.logs = None
+            raise
         try:
             readable, _, _ = select.select([self.process.stdout], [], [], 60)
             if not readable:

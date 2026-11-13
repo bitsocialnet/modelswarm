@@ -109,6 +109,17 @@ class ReleaseCommands:
         return self.command("pull", uri, *self.rpc_options(), *options, "--no-discovery",
                             "--cache-dir", self.root / cache, "--timeout", "15", ok=ok)
 
+    def ipfs_add(self, path):
+        """Pin a file in the current node's Kubo and return its ipfs:// URL."""
+        boundary = "modelswarm-private-ipfs-fixture"
+        data = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"release.json\"\r\n"
+                "Content-Type: application/json\r\n\r\n").encode()
+        data += path.read_bytes() + f"\r\n--{boundary}--\r\n".encode()
+        request = Request(self.fixture["kubo_api"] + "/add?pin=true&progress=false&cid-version=0&raw-leaves=false",
+                          data=data, headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        with urlopen(request, timeout=10) as response:
+            return "ipfs://" + json.loads(response.read())["Hash"]
+
     def assert_snapshot(self, result, expected):
         self.assertTrue(result["signed"])
         self.assertEqual(result["publisher"], self.publisher)
@@ -187,15 +198,7 @@ try {
         self.assert_snapshot(downloaded, ["config.json"])
 
     def test_ipfs_manifest_roundtrip_uses_its_content_address(self):
-        boundary = "modelswarm-private-ipfs-fixture"
-        data = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"release.json\"\r\n"
-                "Content-Type: application/json\r\n\r\n").encode()
-        data += self.manifest.read_bytes() + f"\r\n--{boundary}--\r\n".encode()
-        request = Request(self.fixture["kubo_api"] + "/add?pin=true&progress=false&cid-version=0&raw-leaves=false",
-                          data=data, headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
-        with urlopen(request, timeout=10) as response:
-            added = json.loads(response.read())
-        published = self.publish(manifest_url="ipfs://" + added["Hash"])
+        published = self.publish(manifest_url=self.ipfs_add(self.manifest))
         self.assertEqual(self.requests, [], "IPFS manifest publication must not fetch the HTTP manifest")
         downloaded = self.pull(published["release_uri"], file="nested/readme.txt")
         self.assert_snapshot(downloaded, ["nested/readme.txt"])

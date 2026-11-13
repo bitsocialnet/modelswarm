@@ -285,6 +285,7 @@ def parser():
     command.set_defaults(function=profile_start)
     command = commands.add_parser("profile-renew", help="sign and publish a newer delegation to the same node-held minter")
     command.add_argument("--key", type=Path, required=True)
+    command.add_argument("--minter", required=True, help="the node-held minter Peer ID printed by profile-init")
     publisher_options(command)
     command.set_defaults(function=profile_renew)
     command = commands.add_parser("publish", help="publish a signed manifest announcement to your publisher profile")

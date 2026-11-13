@@ -1,6 +1,6 @@
 # Modelswarm CLI prototype
 
-`modelswarm make`, `verify` and `pull` implement the unsigned manifest/CLI milestone with Python 3.11+ and pinned libtorrent 2.1.1. `modelswarm serve` now exposes a [local Hugging Face endpoint with verified public fallback](ENDPOINT.md). The [signed publisher release milestone](RELEASES.md) adds `keygen`, `profile-init`, `publish`, profile/CID pulls and signed endpoint registration. The landing page remains a separate static app. See [MANIFEST.md](MANIFEST.md) for v0 and [EVALUATION.md](EVALUATION.md) for tested behavior and remaining work.
+`modelswarm make`, `verify` and `pull` implement the unsigned manifest/CLI milestone with Python 3.11+ and pinned libtorrent 2.1.1. `modelswarm serve` now exposes a [local Hugging Face endpoint with verified public fallback](ENDPOINT.md). The [signed publisher release milestone](RELEASES.md) adds `keygen`, `profile-init`, `profile-start`, `profile-renew`, `publish`, profile/CID pulls and signed endpoint registration. The landing page remains a separate static app. See [MANIFEST.md](MANIFEST.md) for v0 and [EVALUATION.md](EVALUATION.md) for tested behavior and remaining work.
 
 ## Install locally
 

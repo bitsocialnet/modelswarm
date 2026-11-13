@@ -70,6 +70,7 @@ After this milestone the tool is useful to one person with no network of publish
 - [x] Explicit RPC connection settings (`--rpc`/`MODELSWARM_RPC`); publishers retain their keys locally.
 - [ ] A validated hosted Forge default and provider-hosted profile onboarding.
 - [x] `keygen`, `profile-init` and `modelswarm publish`: initialize a delegated author profile and post a locally signed manifest announcement on an operator-controlled PKC node.
+- [x] `profile-start` and `profile-renew`: a publisher node keeps its profile, delegation and releases across clean restarts and hard kills, the owner can renew the delegation, and a separate reader node resolves all of it over a private swarm (2026-11-13). Tested with both nodes on one machine; see the [evaluation](cli/PERSISTENCE-EVALUATION.md). Cross-machine and public-network runs remain to do.
 - [x] `pull pkc://…` and `serve --release` resolve explicit publisher/version or CID-pinned releases, verify signatures and bind the manifest before downloading.
 - [ ] Mirror records v0: publish one when seeding a Hugging Face model, and check records on completed downloads.
 - [ ] A demo publisher profile on a Bitsocial node we run, with real releases of permissively licensed models, the way WeTube's demo channel works.

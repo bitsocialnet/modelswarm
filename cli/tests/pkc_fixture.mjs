@@ -6,6 +6,7 @@ import { once } from "node:events";
 import { createWriteStream } from "node:fs";
 import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import http from "node:http";
+import net from "node:net";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -86,15 +87,28 @@ async function stop(exitCode) {
 for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => { void stop(0); });
 
 function argumentsFrom(argv) {
-    const usage = "usage: pkc_fixture.mjs [--kubo PATH] [--data-dir EMPTY_DIRECTORY | --data-dir FIXTURE_DIRECTORY --resume]";
-    const options = { kubo: process.env.MODELSWARM_KUBO_BIN || "ipfs", dataDir: undefined, resume: false };
+    const usage = "usage: pkc_fixture.mjs [--kubo PATH] [--data-dir EMPTY_DIRECTORY | --data-dir FIXTURE_DIRECTORY --resume]"
+        + " [--swarm-key FILE] [--swarm-listen MULTIADDR] [--peer MULTIADDR]...";
+    const names = { "--kubo": "kubo", "--data-dir": "dataDir", "--swarm-key": "swarmKey", "--swarm-listen": "swarmListen" };
+    const options = { kubo: process.env.MODELSWARM_KUBO_BIN || "ipfs", dataDir: undefined, resume: false,
+                      swarmKey: undefined, swarmListen: "/ip4/127.0.0.1/tcp/0", peers: [] };
     for (let index = 0; index < argv.length; index++) {
         const name = argv[index];
         if (name === "--resume") { options.resume = true; continue; }
-        if (!["--kubo", "--data-dir"].includes(name) || !argv[index + 1]) throw new Error(usage);
-        options[name === "--kubo" ? "kubo" : "dataDir"] = argv[++index];
+        if (!(name in names || name === "--peer") || !argv[index + 1]) throw new Error(usage);
+        if (name === "--peer") options.peers.push(argv[++index]);
+        else options[names[name]] = argv[++index];
     }
-    if (options.resume && !options.dataDir) throw new Error(usage);
+    if (options.resume && (!options.dataDir || options.swarmKey || options.peers.length || argv.includes("--swarm-listen")))
+        throw new Error("a resumed fixture keeps its data directory, swarm key, swarm address and peers");
+    // Peers are other fixtures of the same private swarm, addressed as /ip4/ADDRESS/tcp/PORT/p2p/ID.
+    options.peers = options.peers.map((address) => {
+        const match = /^(\/ip4\/\d{1,3}(?:\.\d{1,3}){3}\/tcp\/\d{1,5})\/p2p\/([1-9A-HJ-NP-Za-km-z]{46,52})$/.exec(address);
+        if (!match) throw new Error("--peer must be /ip4/ADDRESS/tcp/PORT/p2p/PEER_ID");
+        return { ID: match[2], Addrs: [match[1]] };
+    });
+    if (!/^\/ip4\/\d{1,3}(?:\.\d{1,3}){3}\/tcp\/\d{1,5}$/.test(options.swarmListen))
+        throw new Error("--swarm-listen must be /ip4/ADDRESS/tcp/PORT");
     return options;
 }
 
@@ -142,7 +156,7 @@ async function main() {
     const repo = path.join(dataDir, "kubo");
     const environment = { ...process.env, IPFS_PATH: repo, LIBP2P_FORCE_PNET: "1",
                           GOLOG_LOG_LEVEL: "error", IPFS_LOGGING: "error", GOMAXPROCS: "2" };
-    if (!options.resume) await initializeRepository(options.kubo, repo, environment);
+    if (!options.resume) await initializeRepository(options, repo, environment);
     // A killed daemon leaves its old API address behind; never probe a stale port.
     await rm(path.join(repo, "api"), { force: true });
     for (const name of ["kubo.stdout.log", "kubo.stderr.log"])
@@ -155,6 +169,7 @@ async function main() {
         if (!stopping) { report("kubo_exited", { code, signal }); void stop(1); }
     });
     const kuboApi = await waitForKubo(repo);
+    const identity = await (await fetch(`${kuboApi}/id`, { method: "POST", signal: AbortSignal.timeout(5000) })).json();
     const { default: RPC } = await import(pathToFileURL(require.resolve("@pkcprotocol/pkc-js/rpc")));
     if (stopping) return;
     httpServer = http.createServer();
@@ -175,18 +190,33 @@ async function main() {
     const address = httpServer.address();
     originalStdout(JSON.stringify({ event: "pkc_fixture_ready", rpc_url: `ws://127.0.0.1:${address.port}/${token}`,
                                    kubo_api: kuboApi, data_dir: dataDir, pid: process.pid,
-                                   kubo_pid: kubo.pid, resumed: options.resume }) + "\n");
+                                   kubo_pid: kubo.pid, resumed: options.resume,
+                                   // Where other fixtures of this private swarm can dial this node.
+                                   swarm: identity.Addresses.filter((address) => address.startsWith("/ip4/")) }) + "\n");
 }
 
-async function initializeRepository(kuboBinary, repo, environment) {
-    await run(kuboBinary, ["init", "--profile=test,autoconf-off"], { env: environment, timeout: 15000 });
+// A node must keep its swarm address across restarts or its peers cannot find
+// it again, so an unspecified port is chosen once and written to the config.
+async function fixedSwarmAddress(address) {
+    if (!address.endsWith("/tcp/0")) return address;
+    const probe = net.createServer();
+    probe.listen(0, address.split("/")[2]);
+    await once(probe, "listening");
+    const { port } = probe.address();
+    await new Promise((resolve) => probe.close(resolve));
+    return address.replace(/0$/, String(port));
+}
+
+async function initializeRepository(options, repo, environment) {
+    await run(options.kubo, ["init", "--profile=test,autoconf-off"], { env: environment, timeout: 15000 });
     const configPath = path.join(repo, "config");
     const config = JSON.parse(await readFile(configPath, "utf8"));
     config.Addresses = { ...config.Addresses, API: "/ip4/127.0.0.1/tcp/0",
-                         Gateway: "/ip4/127.0.0.1/tcp/0", Swarm: ["/ip4/127.0.0.1/tcp/0"],
+                         Gateway: "/ip4/127.0.0.1/tcp/0", Swarm: [await fixedSwarmAddress(options.swarmListen)],
                          Announce: [], AppendAnnounce: [], NoAnnounce: [] };
     config.Bootstrap = [];
-    config.Peering = { Peers: [] };
+    // Kubo keeps dialing configured peers, so a swarm heals after either side restarts.
+    config.Peering = { Peers: options.peers };
     config.AutoConf = { ...config.AutoConf, Enabled: false };
     config.AutoTLS = { ...config.AutoTLS, Enabled: false };
     config.Discovery = { ...config.Discovery, MDNS: { Enabled: false } };
@@ -196,8 +226,11 @@ async function initializeRepository(kuboBinary, repo, environment) {
     config.Swarm = { ...config.Swarm, DisableNatPortMap: true,
                      RelayClient: { Enabled: false }, RelayService: { Enabled: false } };
     await writeFile(configPath, JSON.stringify(config, null, 2), { mode: 0o600 });
-    await writeFile(path.join(repo, "swarm.key"),
-                    `/key/swarm/psk/1.0.0/\n/base16/\n${randomBytes(32).toString("hex")}\n`, { mode: 0o600 });
+    // A joining fixture reuses another fixture's key; without it the nodes cannot talk at all.
+    const swarmKey = options.swarmKey ? await readFile(options.swarmKey, "utf8")
+        : `/key/swarm/psk/1.0.0/\n/base16/\n${randomBytes(32).toString("hex")}\n`;
+    if (!/^\/key\/swarm\/psk\/1\.0\.0\/\n\/base16\/\n[0-9a-f]{64}\n$/.test(swarmKey)) throw new Error("invalid swarm key file");
+    await writeFile(path.join(repo, "swarm.key"), swarmKey, { mode: 0o600 });
 }
 
 main().catch(async (error) => {

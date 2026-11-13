@@ -30,7 +30,7 @@ function rpcUrl(value) {
   return value;
 }
 function timeoutResult() {
-  process.stdout.write(JSON.stringify({ok:false,error:'PKC operation timed out; a publish may have succeeded. Resolve its version before retrying.'})+'\n');
+  process.stdout.write(JSON.stringify({ok:false,error:'PKC operation timed out; a publish or renewal may have succeeded. Check its result before retrying.'})+'\n');
   process.exit(1);
 }
 async function client(rpc) {
@@ -163,12 +163,17 @@ async function main(request) {
   if(request.op==='profile-renew') {
     const owner=await signer(request.privateKey);
     const profile=await hostedProfile(owner.address);
+    // The minter and both sequences below are the RPC's claims, and the result
+    // is a delegation signed by the owner. Renew only the minter the owner
+    // names, so a wrong or dishonest node cannot have a new one delegated to.
+    if(profile.signer.address!==parsePublisher(request.minter)) fail('This RPC node holds a different minter than the one given; refusing to delegate to it');
     const previous=profile.anchorRecordSequence;
-    if(typeof previous!=='string'||!/^\d+$/.test(previous)) fail('Profile has no anchor record to renew; run profile-init first');
+    if(typeof previous!=='string'||!/^\d{1,15}$/.test(previous)) fail('Profile has no anchor record to renew; run profile-init first');
     // Only the node, the online party, knows which sequence beats every record
-    // already published. Never sign one it did not ask for, or one that goes back.
+    // already published. Never sign one that goes back, nor a jump far beyond
+    // the SDK's margin of five: an inflated sequence can never be taken back.
     const {nextSequence}=await profile.prepareAnchorPublish();
-    if(typeof nextSequence!=='string'||!/^\d{1,18}$/.test(nextSequence)||BigInt(nextSequence)<=BigInt(previous)) fail('RPC returned an invalid anchor sequence');
+    if(typeof nextSequence!=='string'||!/^\d{1,15}$/.test(nextSequence)||BigInt(nextSequence)<=BigInt(previous)||BigInt(nextSequence)-BigInt(previous)>1000n) fail('RPC returned an implausible anchor sequence; refusing to sign it');
     const anchor=await createAnchorIpnsRecord({anchorSigner:owner,minterIpnsName:profile.signer.address,sequence:nextSequence});
     const published=await profile.publishAnchorRecord(anchor);
     if(published?.sequence!==nextSequence||published.value!==`/ipns/${profile.signer.address}`||published.anchorPublicKey!==owner.address) fail('RPC did not accept the renewed anchor record');

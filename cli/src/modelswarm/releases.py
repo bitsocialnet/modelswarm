@@ -22,6 +22,7 @@ from .upstream import PublicHub, UpstreamError
 
 
 BRIDGE = Path(__file__).parent / "bridge" / "index.mjs"
+PEER_ID = r"12D3KooW[1-9A-HJ-NP-Za-km-z]{44}"
 KEY_SCHEMA = "modelswarm/key/v0"
 
 
@@ -67,7 +68,7 @@ def bridge(request, timeout=120):
                                    text=True, env=environment, start_new_session=True)
         output, _ = process.communicate(json.dumps({**request, "timeout": timeout}), timeout=timeout + 8)
     except (subprocess.TimeoutExpired, KeyboardInterrupt):
-        raise ValueError("PKC operation interrupted or timed out; a publish may have succeeded; resolve before retrying")
+        raise ValueError("PKC operation interrupted or timed out; a publish or renewal may have succeeded; check before retrying")
     finally:
         if process is not None and process.poll() is None:
             try:
@@ -128,14 +129,17 @@ def profile_init(args):
 
 
 def profile_start(args):
-    if not re.fullmatch(r"12D3KooW[1-9A-HJ-NP-Za-km-z]{44}", args.publisher):
+    if not re.fullmatch(PEER_ID, args.publisher):
         raise ValueError("publisher must be an Ed25519 Peer ID")
     result = bridge({"op": "profile-start", "publisher": args.publisher, "rpc": rpc_url(args.rpc)}, args.rpc_timeout)
     return {"command": "profile-start", "publisher": result["publisher"], "minter": result["minter"], "started": result["started"]}
 
 
 def profile_renew(args):
-    result = bridge({"op": "profile-renew", "privateKey": read_key(args.key), "rpc": rpc_url(args.rpc)}, args.rpc_timeout)
+    if not re.fullmatch(PEER_ID, args.minter):
+        raise ValueError("minter must be the Ed25519 Peer ID printed by profile-init")
+    result = bridge({"op": "profile-renew", "privateKey": read_key(args.key), "minter": args.minter,
+                     "rpc": rpc_url(args.rpc)}, args.rpc_timeout)
     return {"command": "profile-renew", "publisher": result["publisher"], "minter": result["minter"],
             "sequence": result["sequence"], "previous_sequence": result["previousSequence"]}
 
@@ -143,7 +147,7 @@ def profile_renew(args):
 def parse_uri(value):
     parts = urlsplit(value)
     # Use netloc verbatim: URL hostname normalization would corrupt Base58 keys.
-    if (parts.scheme != "pkc" or not re.fullmatch(r"12D3KooW[1-9A-HJ-NP-Za-km-z]{44}", parts.netloc)
+    if (parts.scheme != "pkc" or not re.fullmatch(PEER_ID, parts.netloc)
             or parts.query or "@" not in parts.path or "%" in parts.netloc):
         raise ValueError("release URI must be pkc://PUBLISHER/owner/model@VERSION[#CID]")
     name, version = unquote(parts.path.lstrip("/")).rsplit("@", 1)

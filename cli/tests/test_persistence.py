@@ -85,9 +85,14 @@ class PersistentNode(ReleaseCommands):
         self.fixture = self.node.start(resume=True)
         self.assertTrue(self.fixture["resumed"])
         self.assertEqual(self.fixture["data_dir"], previous["data_dir"])
-        self.assertNotEqual(self.fixture["rpc_url"], previous["rpc_url"])
         deadline = time.monotonic() + 60
         if abrupt and not settle:
+            # Resumed well inside the stale window: the node must have refused
+            # to host the profile, and says so through its RPC error event.
+            while "ERR_COMMUNITY_ALREADY_STARTED" not in self.node.log_path.read_text()[logged:]:
+                self.assertLess(time.monotonic(), deadline, "killed node did not report the held start lock")
+                time.sleep(0.1)
+            self.while_unhosted()
             while not (started := self.command("profile-start", self.publisher, *self.rpc_options(), ok=None)).get("ok"):
                 self.assertIn("start lock", started["error"])
                 self.assertLess(time.monotonic(), deadline, "killed node never released the profile start lock")
@@ -100,6 +105,9 @@ class PersistentNode(ReleaseCommands):
             time.sleep(0.25)
         self.assertNotIn("ERR_COMMUNITY_ALREADY_STARTED", self.node.log_path.read_text()[logged:])
         return state
+
+    def while_unhosted(self):
+        """Hook: runs while a killed, immediately restarted node hosts nothing."""
 
     def pull_when_discoverable(self, uri, **options):
         """Version discovery of a release announced right after a restart.
@@ -123,7 +131,7 @@ class PersistentNode(ReleaseCommands):
 
 class RestartTests(PersistentNode, unittest.TestCase):
     def check_restart(self, *, abrupt, settle=0):
-        first = self.publish()
+        first = self.published = self.publish()
         by_version = self.pull(first["release_uri"].split("#")[0], cache="before", file="config.json")
         self.assertEqual(by_version["release_cid"], first["release_cid"])
         before = self.profile_state()
@@ -166,7 +174,23 @@ class RestartTests(PersistentNode, unittest.TestCase):
         self.check_restart(abrupt=True, settle=11)
 
     def test_immediately_restarted_killed_node_recovers_with_profile_start(self):
+        unhosted = []
+
+        def while_unhosted():
+            # Nothing is lost: existing releases stay readable, new ones are refused.
+            uri = self.published["release_uri"]
+            pinned = self.pull(uri, cache=f"unhosted-cid-{len(unhosted)}", file="config.json")
+            by_version = self.pull(uri.split("#")[0], cache=f"unhosted-version-{len(unhosted)}", file="config.json")
+            self.assertEqual((pinned["release_cid"], by_version["release_cid"]), (self.published["release_cid"],) * 2)
+            manifest = self.root / f"unhosted-{len(unhosted)}.json"
+            self.make(manifest, version=f"unhosted-{len(unhosted)}")
+            refused = self.publish(manifest=manifest, ok=False)
+            self.assertIn("ERR_COMMUNITY_CHALLENGE_EXCHANGE_DISABLED", refused["error"])
+            unhosted.append(refused)
+
+        self.while_unhosted = while_unhosted
         first, second = self.check_restart(abrupt=True)
+        self.published = second
         # A second crash, immediately after the post-recovery publication.
         self.restart(abrupt=True)
         for published in (first, second):
@@ -174,6 +198,7 @@ class RestartTests(PersistentNode, unittest.TestCase):
                                cache="twice-" + published["release_cid"][-8:], file="config.json")
             self.assert_snapshot(pulled, ["config.json"])
             self.assertEqual(pulled["release_cid"], published["release_cid"])
+        self.assertEqual(len(unhosted), 2)
 
     def test_profile_start_is_idempotent_and_refuses_profiles_the_node_does_not_host(self):
         started = self.command("profile-start", self.publisher, *self.rpc_options())
@@ -217,8 +242,9 @@ try {
 
 
 class RenewalTests(PersistentNode, unittest.TestCase):
-    def renew(self, ok=True, key=None):
-        return self.command("profile-renew", "--key", key or self.key, *self.rpc_options(), ok=ok)
+    def renew(self, ok=True, key=None, minter=None):
+        return self.command("profile-renew", "--key", key or self.key, "--minter", minter or self.minter,
+                            *self.rpc_options(), ok=ok)
 
     def state(self, sequence):
         return {"minter": self.minter, "anchor": self.publisher, "sequence": sequence, "started": True}
@@ -255,6 +281,10 @@ class RenewalTests(PersistentNode, unittest.TestCase):
         self.secrets.append(json.loads(other_key.read_text())["privateKey"])
         refused = self.renew(ok=False, key=other_key)
         self.assertIn("does not host", refused["error"])
+        # The owner names the minter; a node presenting another one gets no signature.
+        refused = self.renew(ok=False, minter=self.publisher)
+        self.assertIn("different minter", refused["error"])
+        self.assertEqual(self.profile_state(), self.state("10"))
         refused = self.command("profile-init", "--key", self.key, *self.rpc_options(), ok=False)
         self.assertIn("anchor record", refused["error"].lower())
 
