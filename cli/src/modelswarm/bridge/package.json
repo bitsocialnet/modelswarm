@@ -1,0 +1,26 @@
+{
+  "name": "modelswarm-pkc-bridge",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "packageManager": "yarn@4.17.1",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "dependencies": {
+    "@libp2p/crypto": "5.2.0",
+    "@libp2p/peer-id": "6.0.18",
+    "@pkcprotocol/pkc-js": "0.0.142",
+    "cborg": "4.5.8",
+    "multiformats": "14.0.5",
+    "typestub-ipfs-only-hash": "4.0.0"
+  },
+  "dependenciesMeta": {
+    "better-sqlite3": {
+      "built": true
+    }
+  },
+  "scripts": {
+    "test": "node --test protocol.test.mjs"
+  }
+}
