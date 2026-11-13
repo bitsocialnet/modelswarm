@@ -8,7 +8,7 @@ export function Hero() {
       <div className={`wrap ${styles.inner}`}>
         <div className={styles.copy}>
           <h1 id='hero-title' className={styles.title}>
-            The hub of open AI models that nobody owns
+            The hub of <span className={styles.nowrap}>open-weight</span> AI models that nobody owns
           </h1>
           <p className={styles.lede}>
             Models served by a swarm of peers, as in a BitTorrent swarm: everyone who downloads a model seeds it, so no company has to host it. Every piece is checked

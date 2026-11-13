@@ -2,7 +2,7 @@
   "name": "modelswarm",
   "version": "0.0.1",
   "private": true,
-  "description": "An idea for a hub of open AI models that nobody owns",
+  "description": "An idea for a hub of open-weight AI models that nobody owns",
   "type": "module",
   "license": "GPL-3.0-or-later",
   "packageManager": "yarn@4.17.1",
