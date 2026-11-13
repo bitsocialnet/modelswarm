@@ -90,8 +90,8 @@ def http_source(root, *, corrupt=False, delay=0):
 
 
 @contextmanager
-def peers(manifest, source):
-    session = lt.session(session_settings(False, 0))
+def peers(manifest, source, listen="127.0.0.1"):
+    session = lt.session({**session_settings(False, 0), "listen_interfaces": f"{listen}:0"})
     handles = []
     try:
         for entry in manifest["files"]:
@@ -108,7 +108,7 @@ def peers(manifest, source):
             if time.monotonic() > deadline:
                 raise TimeoutError("local seed did not become ready")
             time.sleep(0.02)
-        yield f"127.0.0.1:{session.listen_port()}", handles
+        yield f"{listen}:{session.listen_port()}", handles
     finally:
         session.pause()
         for handle in handles:

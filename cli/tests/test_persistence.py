@@ -39,6 +39,8 @@ def alive(pid):
 class PersistentNode(ReleaseCommands):
     """Owns one restartable fixture node and one publisher profile per test."""
 
+    swarm_listen = None  # loopback unless a subclass must be reachable from another machine
+
     def setUp(self):
         artifacts = Path(__file__).resolve().parents[2] / ".tmp"
         artifacts.mkdir(exist_ok=True)
@@ -46,7 +48,7 @@ class PersistentNode(ReleaseCommands):
         self.addCleanup(temporary.cleanup)
         directory = Path(temporary.name)
         self.node = FixtureNode(directory / "data", directory / "fixture.log", kubo_bin=required_kubo(),
-                                node_bin=os.environ.get("MODELSWARM_NODE"))
+                                node_bin=os.environ.get("MODELSWARM_NODE"), swarm_listen=self.swarm_listen)
         # Registered after the directory cleanup so it runs first, even when a
         # test fails between a kill and the following restart.
         self.addCleanup(self.node.kill)

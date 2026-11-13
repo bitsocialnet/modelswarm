@@ -17,7 +17,7 @@ class FixtureNode:
     and then resumed with its Kubo identity, PKC database and minter keys.
     """
 
-    def __init__(self, data, log_path, *, kubo_bin=None, node_bin=None, swarm_key=None, peers=()):
+    def __init__(self, data, log_path, *, kubo_bin=None, node_bin=None, swarm_key=None, peers=(), swarm_listen=None):
         self.data = Path(data)
         self.log_path = Path(log_path)
         self.kubo_bin = kubo_bin
@@ -26,6 +26,8 @@ class FixtureNode:
         self.join = [item for peer in peers for item in ("--peer", peer)]
         if swarm_key:
             self.join += ["--swarm-key", str(swarm_key)]
+        if swarm_listen:
+            self.join += ["--swarm-listen", swarm_listen]
         self.process = None
         self.logs = None
 
