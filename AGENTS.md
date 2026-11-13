@@ -10,6 +10,7 @@ Use judgment for routine implementation choices and continue authorized work. As
 
 Modelswarm is an idea-stage design for a hub of open AI models that nobody owns: publishers sign releases from their own Bitsocial profile, weights move over BitTorrent, and every piece is checked against the signed release as it downloads. Nothing is built yet. The design lives in the docs at the repository root: [README.md](README.md), [how-it-could-work.md](how-it-could-work.md), [open-questions.md](open-questions.md) and [roadmap.md](roadmap.md).
 `site/` is the static landing page for modelswarm.org, a React and Vite app on the stack of 5chan and WeTube. Its copy summarises the root docs.
+Vercel deploys `site/` to modelswarm.org from every push to `master`, so pushing `master` publishes the site.
 
 The repository is public. Do not announce it or publish anything without an explicit request.
 

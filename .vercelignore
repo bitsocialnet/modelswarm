@@ -1,0 +1,12 @@
+.git
+.DS_Store
+node_modules
+site/build
+.yarn/cache
+.yarn/install-state.gz
+.agents
+.claude
+.codex
+.cursor
+.vercel
+.env*
