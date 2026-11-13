@@ -29,7 +29,7 @@ export function Compare() {
                 <tr key={row.label}>
                   <th scope='row'>{row.label}</th>
                   {row.cells.map((cell, i) => (
-                    <td key={i} data-ours={i === OURS} data-column={COMPARE_COLUMNS[i]}>
+                    <td key={COMPARE_COLUMNS[i]} data-ours={i === OURS} data-column={COMPARE_COLUMNS[i]}>
                       {cell}
                     </td>
                   ))}
