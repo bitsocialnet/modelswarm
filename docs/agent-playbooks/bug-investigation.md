@@ -12,10 +12,10 @@ Before editing, check git history for the relevant code. Previous contributors m
 
 ```bash
 # Recent commit titles for a specific file
-git log --oneline -10 -- site/src/path/to/component.tsx
+git log --oneline -10 -- src/path/to/component.tsx
 
 # Recent commit titles for a specific line range
-git blame -L 120,135 site/src/path/to/component.tsx
+git blame -L 120,135 src/path/to/component.tsx
 ```
 
 2. Inspect only relevant commits with scoped diffs:

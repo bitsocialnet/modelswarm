@@ -49,6 +49,8 @@ export function defaultCommands(cwd = repoRoot) {
   const commands = [yarn('lint'), yarn('type-check'), yarn('build')];
   const files = changedFiles(cwd);
   if (!files || files.some((file) => workflowPaths.some((prefix) => file.startsWith(prefix)))) commands.push(yarn('ai-workflow:check'));
+  // Knip reports unused files and dependencies for review; its findings never fail verification.
+  commands.push({ command: yarn('knip'), advisory: true });
   return commands;
 }
 

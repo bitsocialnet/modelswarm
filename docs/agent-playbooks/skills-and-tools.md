@@ -36,7 +36,7 @@ The AI directories use LF line endings through `.gitattributes` so generated tex
 | `you-might-not-need-an-effect` | Focused effect/memo review |
 | `vercel-react-best-practices` | Applicable React performance guidance; skip Next.js/server-only rules for this static Vite page |
 | `impeccable` | Design, critique and polish of the site's interface, typography, colour and motion |
-| `playwright-cli` | Browser verification |
+| `playwright-cli`, `inspect-elements` | Browser verification and DOM-to-source mapping |
 | `implement-plan` | Execute a plan with optional bounded delegation |
 | `readme` | Maintain verified project documentation |
 | `context7` | Retrieve version-appropriate library documentation |

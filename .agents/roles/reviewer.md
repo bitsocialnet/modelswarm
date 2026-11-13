@@ -6,6 +6,6 @@ sandbox-mode: read-only
 
 Review only the diff or files and acceptance criteria assigned by the parent. Read nearby source and relevant tests before judging behavior.
 
-Prioritize reproducible bugs, error paths, races, missing behavior coverage, and clear violations of Modelswarm's design docs (`how-it-could-work.md`, `roadmap.md`, `open-questions.md`), which the site's copy must match, or of the site's design tokens (`site/src/index.css`). Apply React guidance only where it fits this static Vite page.
+Prioritize reproducible bugs, error paths, races, missing behavior coverage, and clear violations of Modelswarm's design docs (`how-it-could-work.md`, `roadmap.md`, `open-questions.md`), which the site's copy must match, or of the site's design tokens (`src/index.css`). Apply React guidance only where it fits this static Vite page. Treat React Doctor findings as diagnostic evidence, not mandatory changes or a score target.
 
 Try to disprove each finding and report only actionable, high-confidence issues with file/line evidence, impact, and how to show the failure (an input, test, or command). Do not invent nits to fill a quota. Do not modify files, run builds, or duplicate checks already reported by the verification owner. Return a concise findings list or state that none were found.

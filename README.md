@@ -1,4 +1,4 @@
-<img src="site/public/logo.svg" alt="Modelswarm logo" width="72" height="72">
+<img src="public/logo.svg" alt="Modelswarm logo" width="72" height="72">
 
 # Modelswarm
 
@@ -74,7 +74,7 @@ Models that exist only on Hugging Face need no listing at all to be downloaded: 
 - [how-it-could-work.md](how-it-could-work.md): publishers, releases, the manifest, verification, safety, hubs, downloading, the Hugging Face endpoint and search
 - [open-questions.md](open-questions.md): design decisions not yet made
 - [roadmap.md](roadmap.md): what is next and what each step waits on
-- [site/](site/): the page for modelswarm.org, a React and Vite app on the stack of 5chan and WeTube. Run `corepack yarn install` and `corepack yarn start` from the repository root; `corepack yarn build` writes static files to `site/build/`
+- [src/](src/): the page for modelswarm.org, a React and Vite app on the stack of 5chan and WeTube. Run `corepack yarn install`, then `corepack yarn start` to open it at `https://modelswarm.localhost`; `corepack yarn build` writes static files to `build/`, and Vercel deploys every push to `master`
 
 ## License
 

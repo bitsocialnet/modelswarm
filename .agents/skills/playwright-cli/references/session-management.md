@@ -1,6 +1,6 @@
 # Session ownership and coverage
 
-Use the task's URL and a unique session name. A reachable `http://localhost:5191` server may belong to another checkout; confirm compatibility before using it. A delegated browser checker does not manage dev servers. The task owner records and later stops only the server it started.
+Use the task's URL and a unique session name. A reachable canonical `https://modelswarm.localhost` server may belong to another checkout; confirm compatibility before using it. A delegated browser checker does not manage dev servers. The task owner records and later stops only the server it started.
 
 The wrapper shares a single browser slot across repositories and worktrees. Check `./scripts/pw-session.sh status` when busy. `open --wait=60` waits up to 60 seconds; unreadable liveness information does not authorize lock removal. The next open reclaims a stale slot only after its browser has stopped. Do not manually release a live or unknown owner's slot.
 
@@ -9,7 +9,7 @@ An owned-shell cleanup pattern:
 ```bash
 set -e
 browser_session=check-task
-./scripts/pw-session.sh open --wait=60 "$browser_session" "http://localhost:5191/" --browser=chrome
+./scripts/pw-session.sh open --wait=60 "$browser_session" "https://modelswarm.localhost/" --browser=chrome
 trap './scripts/pw-session.sh close "$browser_session"' EXIT
 playwright-cli -s="$browser_session" snapshot
 # Complete the affected desktop flow before changing viewport.

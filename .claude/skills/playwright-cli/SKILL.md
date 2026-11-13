@@ -8,14 +8,14 @@ allowed-tools: Bash(playwright-cli:*), Bash(./scripts/pw-session.sh:*)
 
 # Browser verification
 
-Check the affected flow and report observed results. Use the task's existing server URL; the site's dev server defaults to `http://localhost:5191` (`corepack yarn start`), but another worktree can use a different port. The site is one page; its section anchors are `#how`, `#compare` and `#roadmap`.
+Check the affected flow and report observed results. Use the task's existing server URL; the canonical URL is `https://modelswarm.localhost` (`corepack yarn start`), but another worktree can have a different route. The site is one page; its section anchors are `#how`, `#compare` and `#roadmap`.
 
 Use Chrome for a small browser change. Add Firefox and WebKit for shared CSS/layout/responsiveness, browser-sensitive behavior or APIs, broad interaction changes, releases, or an explicit user requirement. Include a mobile viewport when affected; resizing checks layout, not touch emulation. Run selected engines sequentially and record which were exercised.
 
 One browser session may be active machine-wide. Open and close through `./scripts/pw-session.sh`, use `-s=<session>` on every session command, and close the exact owned session on failure as well as success. Exit 75 means busy: defer or use the wrapper's bounded wait. Never bypass the lock or use `close-all`/`kill-all`.
 
 ```bash
-./scripts/pw-session.sh open check-task "http://localhost:5191/" --browser=chrome
+./scripts/pw-session.sh open check-task "https://modelswarm.localhost/" --browser=chrome
 playwright-cli -s=check-task snapshot
 # Use refs from the current snapshot for the assigned interaction.
 playwright-cli -s=check-task console error

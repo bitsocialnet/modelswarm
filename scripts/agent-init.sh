@@ -2,9 +2,30 @@
 
 set -euo pipefail
 
-# The site's Vite dev server (corepack yarn start) listens here; see site/vite.config.ts.
 get_default_app_url() {
-  echo "http://localhost:5191"
+  if [ "${PORTLESS:-}" = "0" ]; then
+    echo "http://localhost:5191"
+    return
+  fi
+
+  local branch branch_label
+
+  branch="$(git branch --show-current 2>/dev/null || true)"
+
+  if [ -n "$branch" ] && [ "$branch" != "master" ] && [ "$branch" != "main" ]; then
+    branch_label="$(
+      printf '%s' "$branch" \
+        | tr '[:upper:]' '[:lower:]' \
+        | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//; s/-+/-/g'
+    )"
+
+    if [ -n "$branch_label" ]; then
+      echo "https://${branch_label}.modelswarm.localhost"
+      return
+    fi
+  fi
+
+  echo "https://modelswarm.localhost"
 }
 
 if [ "$#" -gt 0 ]; then

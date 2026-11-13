@@ -113,7 +113,8 @@ test('default checks add the AI workflow check only when workflow files changed'
   git('add', 'app.ts');
   git('commit', '-q', '-m', 'initial');
   writeFileSync(path.join(root, 'app.ts'), 'export const value = 1;');
-  assert.deepEqual(labels(), ['corepack yarn lint', 'corepack yarn type-check', 'corepack yarn build']);
+  assert.deepEqual(labels(), ['corepack yarn lint', 'corepack yarn type-check', 'corepack yarn build', 'corepack yarn knip']);
+  assert.equal(defaultCommands(root).at(-1).advisory, true);
 
   mkdirSync(path.join(root, '.agents/skills/example'), { recursive: true });
   writeFileSync(path.join(root, '.agents/skills/example/SKILL.md'), 'untracked');

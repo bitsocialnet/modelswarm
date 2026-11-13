@@ -9,9 +9,9 @@ Choose checks that establish the requested behavior. Finish the authorized imple
 | Prose, comments, or formatting | Inspect the diff and relevant links/output; run required generators. No application build for documentation alone |
 | Isolated logic or automation | Affected behavior tests or a focused invocation; lint/type-check when the edited language or interface warrants it |
 | Shared runtime behavior, dependencies, build/package configuration, or substantial integration | `corepack yarn agent:verify` for lint, type-check, and build, plus a browser check of the affected sections |
-| CSS, CSS modules, design tokens, or layout only | Affected browser/viewport/theme checks below; add a build for CSS processing, assets/import wiring, or integration uncertainty. Check the result against the tokens in `site/src/index.css`; keep `site/public/logo.svg` and `site/src/components/logo/logo.tsx` drawing the same mark |
-| React state/effects or rendering performance | Inspect the component; run lint and type-check, and exercise the affected flow (the hero animation, reduced motion) in the browser |
-| Dependencies | Run `corepack yarn install` to synchronize `yarn.lock`; `corepack yarn deps:check-pinned` must pass; then build |
+| CSS, CSS modules, design tokens, or layout only | Affected browser/viewport/theme checks below; add a build for CSS processing, assets/import wiring, or integration uncertainty. Check the result against the tokens in `src/index.css`; keep `public/logo.svg` and `src/components/logo/logo.tsx` drawing the same mark |
+| React state/effects or rendering performance | Inspect the component; run lint and type-check, exercise the affected flow (the hero animation, reduced motion) in the browser, and use advisory `yarn doctor` for newly introduced diagnostics |
+| Dependencies | Run `corepack yarn install` to synchronize `yarn.lock`; `corepack yarn deps:check-pinned` must pass; advisory `yarn knip`; then build |
 | CI or explicitly requested full verification | Run that workflow's required checks even when a smaller local edit would normally need less |
 
 For a small edit, name the behavior being checked and why the chosen evidence is enough. Broaden checks when the impact crosses a shared boundary, a failure appears, or uncertainty remains. Do not add tests that only mirror wording or formatting. An existing reliable test is preferable to new instrumentation.
@@ -26,9 +26,9 @@ Use the `playwright-cli` skill and `./scripts/pw-session.sh` for every session. 
 
 ## Full verification and ownership
 
-Before heavy work, inspect existing workloads; never stop an unfamiliar process. One owner runs `corepack yarn agent:verify` when a full pass is needed. It serializes lint, type-check, build, and the AI workflow check (when workflow files changed) behind a machine-wide lock and reports contention. Installs, browser work, and directly launched builds or tests still require coordination.
+Before heavy work, inspect existing workloads; never stop an unfamiliar process. One owner runs `corepack yarn agent:verify` when a full pass is needed. It serializes lint, type-check, build, and the AI workflow check (when workflow files changed) behind a machine-wide lock, reports contention, and finishes with an advisory Knip pass. Installs, browser work, and directly launched builds or tests still require coordination.
 
-Builds create `site/build/`. Inspect status before and after, preserve preexisting artifacts and changes, and remove only output created by this task. The verifier never restores or deletes output for you. No lifecycle hook runs builds, installs, audits, or Git cleanup.
+Builds create `build/`. Inspect status before and after, preserve preexisting artifacts and changes, and remove only output created by this task. The verifier never restores or deletes output for you. No lifecycle hook runs builds, installs, audits, or Git cleanup.
 
 Review the final task-owned diff. For non-trivial changes or an explicit quality review, use `code-quality-review` once and apply high-confidence findings within existing authorization. Passing a check or review does not authorize publication.
 
