@@ -1,4 +1,4 @@
-import { NEW_ISSUE, REPO, doc } from '../data/content';
+import { HUGGINGSOCIAL, NEW_ISSUE, REPO, doc } from '../data/content';
 import { Logo } from '../components/logo/logo';
 import styles from './footer.module.css';
 
@@ -29,13 +29,12 @@ const GROUPS: { name: string; links: FooterLink[] }[] = [
       { label: 'Bitsocial', href: 'https://bitsocial.net' },
       { label: 'Bitsocial proposals', href: 'https://bsips.bitsocial.net' },
       { label: 'BitTorrent v2', href: 'https://www.bittorrent.org/beps/bep_0052.html' },
+      { label: 'HuggingSocial by Rinse12', href: HUGGINGSOCIAL },
     ],
   },
   {
     name: 'follow/',
-    links: [
-      { label: '@bitsocialnet on X', href: 'https://x.com/bitsocialnet' },
-    ],
+    links: [{ label: '@bitsocialnet on X', href: 'https://x.com/bitsocialnet' }],
   },
 ];
 

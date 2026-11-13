@@ -2,6 +2,8 @@
 
 This is a sketch, not a spec. The conventions would become an Application-category BSIP in `bitsocialnet/BSIPs` once the open questions are settled.
 
+It builds on [HuggingSocial's design](https://github.com/Rinse12/huggingsocial/blob/master/DESIGN.md) by Rinse12: the layers, hubs, downloading and seeding, the Hugging Face endpoint, the command line and search below come from it. What Modelswarm changes is listed under [Prior Art](README.md#prior-art).
+
 ## Layers
 
 | Layer | What it is | Built from |

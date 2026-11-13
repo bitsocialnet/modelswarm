@@ -1,6 +1,8 @@
 export const REPO = 'https://github.com/bitsocialnet/modelswarm';
 export const NEW_ISSUE = `${REPO}/issues/new`;
 export const doc = (path: string) => `${REPO}/blob/master/${path}`;
+// The original design Modelswarm builds on.
+export const HUGGINGSOCIAL = 'https://github.com/Rinse12/huggingsocial';
 
 export type Part = {
   term: string;

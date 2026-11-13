@@ -6,6 +6,8 @@
 
 > **Status: idea stage.** This repository reserves the name and collects the design. Nothing here is built; [roadmap.md](roadmap.md) tracks what comes next and what each step waits on. It fits [Phase 5 of the Bitsocial master plan](https://bitsocial.net/#master-plan-phase-5), the long tail of Bitsocial clients. Most of it needs only what Bitsocial and BitTorrent already ship, so the first milestones are not blocked by earlier phases.
 
+> **Credit.** Modelswarm builds on [HuggingSocial](https://github.com/Rinse12/huggingsocial) ([huggingsocial.co](https://huggingsocial.co/)), the original design by Bitsocial developer [Rinse12](https://github.com/Rinse12). Most of the architecture comes from it: Bitsocial for releases and discussion, BitTorrent and HTTP mirrors for the weights, signed manifests checked on the reader's machine, hubs, indexers, the command line and the local Hugging Face endpoint. Modelswarm changes where releases live, how downloads are verified, how formats that can run code are handled and how models that are only on Hugging Face are covered; see [Prior Art](#prior-art).
+
 ## The Thesis
 
 Hugging Face hosts over 3 million models, by Nvidia's count. On 2 September 2026 Nvidia [agreed to buy it for $12.9 billion](https://techcrunch.com/2026/09/03/nvidia-confirms-it-will-buy-hugging-face-for-12-9-billion/), a deal the US Department of Justice has since [asked questions about](https://www.reuters.com/world/us-doj-is-inquiring-about-nvidias-purchase-hugging-face-sources-say-2026-10-28/). Whoever owns it, one company holds the files, the list of what exists and the place where each model is discussed.
@@ -68,7 +70,7 @@ Models that exist only on Hugging Face need no listing at all to be downloaded: 
 
 ## Prior Art
 
-- [HuggingSocial](https://github.com/Rinse12/huggingsocial), by Bitsocial developer Rinse12, proposes the same combination of Bitsocial and BitTorrent, and is the source of the local Hugging Face endpoint idea used here. Modelswarm differs in where releases live (publisher profiles, not hubs), in verifying pieces instead of whole files, in its format defaults and in not mirroring Hugging Face in bulk.
+- [HuggingSocial](https://github.com/Rinse12/huggingsocial), by Bitsocial developer Rinse12, is the design Modelswarm builds on, and the source of most of its architecture (see [its DESIGN.md](https://github.com/Rinse12/huggingsocial/blob/master/DESIGN.md)). Modelswarm differs in four ways: releases live in each publisher's own profile and hubs carry crossposts, so no hub can delist a release; every piece is verified during the download against a BitTorrent v2 pieces root, instead of whole files afterwards; formats that can run code are flagged and left out of default downloads; and mirror records are created when someone seeds a model, instead of mirroring Hugging Face in bulk.
 - [Pirate Face](https://pirateface.co/) lists models as magnet links with Hugging Face web seeds, checks files against Hugging Face's SHA-256 and offers a drop-in `pip` package for Python tools. It still relies on Hugging Face for its source records and runs the list on its own website. [Academic Torrents](https://academictorrents.com/) indexes models as torrents on its own website.
 
 ## Documents

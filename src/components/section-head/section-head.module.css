@@ -36,6 +36,10 @@
   color: var(--dim);
 }
 
+.lede a {
+  color: var(--text);
+}
+
 .visuallyHidden {
   position: absolute;
   width: 1px;
