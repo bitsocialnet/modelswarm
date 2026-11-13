@@ -32,6 +32,19 @@
   max-width: 30ch;
 }
 
+/* The global .button already sets the border and colours; this only fits it to the footer. */
+.footer .star {
+  justify-self: start;
+  min-height: 2.4rem;
+  padding: 0 0.95rem;
+  color: var(--text);
+  font-size: 0.8125rem;
+}
+
+.footer .star:hover {
+  color: var(--accent);
+}
+
 .footer .mark {
   display: inline-flex;
   align-items: center;

@@ -32,11 +32,9 @@ const GROUPS: { name: string; links: FooterLink[] }[] = [
     ],
   },
   {
-    name: 'siblings/',
+    name: 'follow/',
     links: [
-      { label: 'WeTube', href: 'https://github.com/bitsocialnet/wetube' },
-      { label: 'Gitcommons', href: 'https://github.com/bitsocialnet/gitcommons' },
-      { label: 'Infinipedia', href: 'https://github.com/bitsocialnet/infinipedia' },
+      { label: '@bitsocialnet on X', href: 'https://x.com/bitsocialnet' },
     ],
   },
 ];
@@ -53,6 +51,10 @@ export function Footer() {
             <span>modelswarm</span>
           </a>
           <p>Open-weight AI models, distributed by a swarm of peers as in a BitTorrent swarm.</p>
+          <a className={`button ${styles.star}`} href={REPO}>
+            <StarGlyph />
+            Star on GitHub
+          </a>
         </div>
         <nav className={styles.groups} aria-label='Footer'>
           {GROUPS.map((group) => (
@@ -80,5 +82,19 @@ export function Footer() {
         )}
       </div>
     </footer>
+  );
+}
+
+function StarGlyph() {
+  return (
+    <svg width='14' height='14' viewBox='0 0 16 16' aria-hidden='true' focusable='false'>
+      <path
+        fill='none'
+        stroke='currentColor'
+        strokeWidth='1.3'
+        strokeLinejoin='round'
+        d='M8 1.4l1.98 4.02 4.44.64-3.21 3.13.76 4.42L8 11.53l-3.97 2.08.76-4.42L1.58 6.06l4.44-.64z'
+      />
+    </svg>
   );
 }
