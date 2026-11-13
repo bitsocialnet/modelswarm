@@ -15,6 +15,11 @@ interface ElementSourceApi {
 }
 
 declare global {
+  interface ImportMetaEnv {
+    // The commit this build came from, or an empty string; see vite.config.ts.
+    readonly VITE_COMMIT_REF: string;
+  }
+
   interface Window {
     // Dev-only tooling; profiling sessions set this flag before navigation.
     __PROFILING__?: boolean;

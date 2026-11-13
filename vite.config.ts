@@ -1,5 +1,16 @@
+import { execFileSync } from 'node:child_process';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+
+// The commit the footer links to: Vercel's for its builds, the checkout's locally, empty outside Git.
+const commitRef = (() => {
+  if (process.env.VERCEL_GIT_COMMIT_SHA) return process.env.VERCEL_GIT_COMMIT_SHA;
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  } catch {
+    return '';
+  }
+})();
 
 export default defineConfig({
   // Relative asset paths so the static build also works from an IPFS gateway path.
@@ -11,6 +22,9 @@ export default defineConfig({
   build: {
     outDir: 'build',
     emptyOutDir: true,
+  },
+  define: {
+    'import.meta.env.VITE_COMMIT_REF': JSON.stringify(commitRef),
   },
   optimizeDeps: {
     // The dev-only inspectors in src/lib/dev-tools.ts. Discovered late, they were bundled in a second
