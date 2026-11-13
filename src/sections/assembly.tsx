@@ -12,7 +12,7 @@ const clamp = (value: number) => Math.min(1, Math.max(0, value));
 
 // The large logo: its four pieces arrive from the swarm and lock into place as the section scrolls through,
 // the way a file's pieces arrive and are verified. At this size the pieces are outlines with scanlines rather than
-// solid lime, dim while they travel and brighter once they lock in. Reduced motion shows the finished mark.
+// solid lime, in a dim phosphor tone until all four have connected, when the whole mark lights up. Reduced motion shows the finished mark.
 export function Assembly() {
   const sectionRef = useRef<HTMLElement>(null);
   const pieceRefs = useRef<(SVGGElement | null)[]>([]);
@@ -45,7 +45,7 @@ export function Assembly() {
             `translate(${(piece.dx * DISTANCE * away).toFixed(2)} ${(piece.dy * DISTANCE * away).toFixed(2)}) rotate(${(SPIN[i] * away).toFixed(2)} ${piece.cx} ${piece.cy})`,
           );
           group.setAttribute('data-landed', String(isLanded));
-          // A travelling piece fades in as it nears its place; a landed one takes its brightness from the stylesheet.
+          // A travelling piece fades in as it nears its place; colour and glow wait for the whole mark to connect.
           group.style.opacity = isLanded ? '' : (0.3 + 0.35 * (1 - away)).toFixed(3);
         }
         if (isLanded) count += 1;
@@ -73,7 +73,7 @@ export function Assembly() {
     <section ref={sectionRef} className={styles.assembly} aria-labelledby='assembly-title'>
       <div className={styles.stage}>
         <div className={styles.markWrap}>
-          <svg className={styles.mark} viewBox='-20 0 430 430' aria-hidden='true' focusable='false'>
+          <svg className={styles.mark} data-connected={done} viewBox='-20 0 430 430' aria-hidden='true' focusable='false'>
             <defs>
               {/* Horizontal scanlines in path units: a 1.6-unit line every 6 logo units. */}
               <pattern id={`${maskBase}-scan`} patternUnits='userSpaceOnUse' width={60} height={60}>
@@ -107,7 +107,7 @@ export function Assembly() {
                   <path className={styles.scan} d={piece.d} transform={TRANSFORM} fill={`url(#${maskBase}-scan)`} />
                 </g>
                 <g mask={`url(#${maskBase}-line-${i})`}>
-                  <path d={piece.d} transform={TRANSFORM} fill='var(--accent)' />
+                  <path className={styles.outline} d={piece.d} transform={TRANSFORM} />
                 </g>
               </g>
             ))}
