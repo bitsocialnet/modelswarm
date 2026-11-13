@@ -96,4 +96,4 @@ RPC revenue from Modelswarm is speculative, not a strong monetization pitch. RPC
 - Bitsocial Improvement Proposals: `bitsocialnet/BSIPs` and https://bsips.bitsocial.net
 - Indexer: `bitsocialnet/bitsocial-indexer`
 - Bitsocial Chain (names, payments): `bitsocialnet/bitsocial-chain` and https://chain.bitsocial.net
-- Sibling idea-stage repos: [WeTube](https://github.com/bitsocialnet/wetube) (YouTube alternative), [Gitcommons](https://github.com/bitsocialnet/gitcommons) (GitHub alternative), [Infinipedia](https://github.com/bitsocialnet/infinipedia) (encyclopedia), [Hopium](https://github.com/bitsocialnet/hopium) (social trading)
+- Sibling idea-stage repos: [WeTube](https://github.com/bitsocialnet/wetube) (YouTube alternative), [GitCommons](https://github.com/bitsocialnet/gitcommons) (GitHub alternative), [Infinipedia](https://github.com/bitsocialnet/infinipedia) (encyclopedia), [Hopium](https://github.com/bitsocialnet/hopium) (social trading)
