@@ -2,7 +2,7 @@
 
 # Modelswarm
 
-**Modelswarm is an idea for a hub of open AI models that nobody owns.** Publishers sign their releases from their own Bitsocial profile, the weights move over BitTorrent, and every piece of every file is checked against the signed release as it downloads. No company decides which models are listed, which stay available or what can be said about them.
+**Modelswarm is an idea for a hub of open AI models that nobody owns.** The name means models distributed by a swarm of peers, as in a BitTorrent swarm, so no company has to host them. Publishers sign their releases from their own Bitsocial profile, and every piece of every file is checked against the signed release as it downloads. No company decides which models are listed, which stay available or what can be said about them.
 
 > **Status: idea stage.** This repository reserves the name and collects the design. Nothing here is built; [roadmap.md](roadmap.md) tracks what comes next and what each step waits on. It fits [Phase 5 of the Bitsocial master plan](https://bitsocial.net/#master-plan-phase-5), the long tail of Bitsocial clients. Most of it needs only what Bitsocial and BitTorrent already ship, so the first milestones are not blocked by earlier phases.
 

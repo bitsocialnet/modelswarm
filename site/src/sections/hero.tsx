@@ -11,7 +11,8 @@ export function Hero() {
             The hub of open AI models that nobody owns
           </h1>
           <p className={styles.lede}>
-            Publishers sign their releases. The weights move over BitTorrent. Every piece of every file is checked against the signed release while it downloads.
+            Models served by a swarm of peers, as in a BitTorrent swarm: everyone who downloads a model seeds it, so no company has to host it. Every piece is checked
+            against the publisher's signed release while it downloads.
           </p>
           <p className={styles.stage}>
             <span className={styles.stageMark} aria-hidden='true' />
