@@ -9,6 +9,7 @@ The hardest question is not technical. Publishers already have their audience on
 - Why would a publisher sign releases here as well? Candidates: the release survives a takedown, their identity is a key they hold, and it costs one command next to their existing upload.
 - Which publishers have had models removed or gated, and would they come first?
 - Is the first useful version the one that needs no publishers at all: existing tools downloading Hugging Face models through the swarm with piece verification?
+- Would projects that train models on decentralized networks, such as Bittensor subnets, publish here first? They already release open weights and have an audience used to peer-to-peer tools.
 - Does a model author ever publish here, or is the network mostly mirror records by third parties? The design has to be useful in both cases.
 
 ## Scale
@@ -82,6 +83,7 @@ Forge RPC as the optional default is settled: users must be able to switch compa
 - Who seeds a model nobody has downloaded this month?
 - Does seeding by default with a ratio cap keep rarely used models alive, or do they need sponsors?
 - Could hubs or publishers fund seedboxes through tips on Bitsocial Chain, and should the client show who is seeding what?
+- Could an outside incentive network, such as a Bittensor subnet or Filecoin, pay for seeding rarely used models? How would it prove independent storage and public availability, instead of bytes fetched on demand when challenged? Someone other than the project would have to run it.
 - How much disk and upload does default seeding cost a typical user, and what should the default cap be?
 
 ## Licenses and Takedowns
