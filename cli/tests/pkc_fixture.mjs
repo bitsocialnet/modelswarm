@@ -4,7 +4,7 @@ import { spawn, execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
 import { createWriteStream } from "node:fs";
-import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import http from "node:http";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -86,13 +86,15 @@ async function stop(exitCode) {
 for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => { void stop(0); });
 
 function argumentsFrom(argv) {
-    const options = { kubo: process.env.MODELSWARM_KUBO_BIN || "ipfs", dataDir: undefined };
-    for (let index = 0; index < argv.length; index += 2) {
+    const usage = "usage: pkc_fixture.mjs [--kubo PATH] [--data-dir EMPTY_DIRECTORY | --data-dir FIXTURE_DIRECTORY --resume]";
+    const options = { kubo: process.env.MODELSWARM_KUBO_BIN || "ipfs", dataDir: undefined, resume: false };
+    for (let index = 0; index < argv.length; index++) {
         const name = argv[index];
-        if (!["--kubo", "--data-dir"].includes(name) || !argv[index + 1])
-            throw new Error("usage: pkc_fixture.mjs [--kubo PATH] [--data-dir EMPTY_DIRECTORY]");
-        options[name === "--kubo" ? "kubo" : "dataDir"] = argv[index + 1];
+        if (name === "--resume") { options.resume = true; continue; }
+        if (!["--kubo", "--data-dir"].includes(name) || !argv[index + 1]) throw new Error(usage);
+        options[name === "--kubo" ? "kubo" : "dataDir"] = argv[++index];
     }
+    if (options.resume && !options.dataDir) throw new Error(usage);
     return options;
 }
 
@@ -120,7 +122,14 @@ async function main() {
     const options = argumentsFrom(process.argv.slice(2));
     const version = (await run(options.kubo, ["version", "--number"], { timeout: 5000 })).stdout.trim();
     if (version !== "0.43.1") throw new Error(`fixture requires Kubo 0.43.1; found ${version}`);
-    if (options.dataDir) {
+    if (options.resume) {
+        // Restart the same node: same Kubo identity, swarm key, PKC database and
+        // minter keys. Nothing is reinitialized, so this also models crash recovery.
+        dataDir = path.resolve(options.dataDir);
+        if ((await lstat(dataDir)).isSymbolicLink()) throw new Error("fixture data directory must be a real directory");
+        for (const name of ["kubo/config", "kubo/swarm.key", "pkc"])
+            await lstat(path.join(dataDir, name)).catch(() => { throw new Error(`cannot resume: ${name} is missing`); });
+    } else if (options.dataDir) {
         dataDir = path.resolve(options.dataDir);
         await mkdir(dataDir, { recursive: true, mode: 0o700 });
         if ((await lstat(dataDir)).isSymbolicLink() || (await readdir(dataDir)).length)
@@ -133,7 +142,44 @@ async function main() {
     const repo = path.join(dataDir, "kubo");
     const environment = { ...process.env, IPFS_PATH: repo, LIBP2P_FORCE_PNET: "1",
                           GOLOG_LOG_LEVEL: "error", IPFS_LOGGING: "error", GOMAXPROCS: "2" };
-    await run(options.kubo, ["init", "--profile=test,autoconf-off"], { env: environment, timeout: 15000 });
+    if (!options.resume) await initializeRepository(options.kubo, repo, environment);
+    // A killed daemon leaves its old API address behind; never probe a stale port.
+    await rm(path.join(repo, "api"), { force: true });
+    for (const name of ["kubo.stdout.log", "kubo.stderr.log"])
+        logs.push(createWriteStream(path.join(dataDir, name), { flags: options.resume ? "a" : "wx", mode: 0o600 }));
+    kubo = spawn(options.kubo, ["daemon"], { env: environment, stdio: ["ignore", "pipe", "pipe"] });
+    kubo.stdout.pipe(logs[0], { end: false });
+    kubo.stderr.pipe(logs[1], { end: false });
+    kubo.once("error", (error) => { report("kubo_error", { message: error.message }); void stop(1); });
+    kubo.once("exit", (code, signal) => {
+        if (!stopping) { report("kubo_exited", { code, signal }); void stop(1); }
+    });
+    const kuboApi = await waitForKubo(repo);
+    const { default: RPC } = await import(pathToFileURL(require.resolve("@pkcprotocol/pkc-js/rpc")));
+    if (stopping) return;
+    httpServer = http.createServer();
+    rpc = await RPC.PKCWsServer({
+        // Only a resumed node has previously started profiles to host again.
+        server: httpServer, authKey: token, startStartedCommunitiesOnStartup: options.resume,
+        allowPrivateKeyExport: false, exportFileMaxAgeMs: 0,
+        pkcOptions: {
+            dataPath: path.join(dataDir, "pkc"), kuboRpcClientsOptions: [kuboApi],
+            pubsubKuboRpcClientsOptions: [], httpRoutersOptions: [], ipfsGatewayUrls: [],
+            nameResolvers: [], resolveAuthorNames: false,
+            publishInterval: 500, updateInterval: 250, validatePages: true,
+        },
+    });
+    rpc.on("error", (error) => report("rpc_error", { code: error.code, message: error.message }));
+    httpServer.listen(0, "127.0.0.1");
+    await once(httpServer, "listening");
+    const address = httpServer.address();
+    originalStdout(JSON.stringify({ event: "pkc_fixture_ready", rpc_url: `ws://127.0.0.1:${address.port}/${token}`,
+                                   kubo_api: kuboApi, data_dir: dataDir, pid: process.pid,
+                                   kubo_pid: kubo.pid, resumed: options.resume }) + "\n");
+}
+
+async function initializeRepository(kuboBinary, repo, environment) {
+    await run(kuboBinary, ["init", "--profile=test,autoconf-off"], { env: environment, timeout: 15000 });
     const configPath = path.join(repo, "config");
     const config = JSON.parse(await readFile(configPath, "utf8"));
     config.Addresses = { ...config.Addresses, API: "/ip4/127.0.0.1/tcp/0",
@@ -152,36 +198,6 @@ async function main() {
     await writeFile(configPath, JSON.stringify(config, null, 2), { mode: 0o600 });
     await writeFile(path.join(repo, "swarm.key"),
                     `/key/swarm/psk/1.0.0/\n/base16/\n${randomBytes(32).toString("hex")}\n`, { mode: 0o600 });
-    for (const name of ["kubo.stdout.log", "kubo.stderr.log"])
-        logs.push(createWriteStream(path.join(dataDir, name), { flags: "wx", mode: 0o600 }));
-    kubo = spawn(options.kubo, ["daemon"], { env: environment, stdio: ["ignore", "pipe", "pipe"] });
-    kubo.stdout.pipe(logs[0], { end: false });
-    kubo.stderr.pipe(logs[1], { end: false });
-    kubo.once("error", (error) => { report("kubo_error", { message: error.message }); void stop(1); });
-    kubo.once("exit", (code, signal) => {
-        if (!stopping) { report("kubo_exited", { code, signal }); void stop(1); }
-    });
-    const kuboApi = await waitForKubo(repo);
-    const { default: RPC } = await import(pathToFileURL(require.resolve("@pkcprotocol/pkc-js/rpc")));
-    if (stopping) return;
-    httpServer = http.createServer();
-    rpc = await RPC.PKCWsServer({
-        server: httpServer, authKey: token, startStartedCommunitiesOnStartup: false,
-        allowPrivateKeyExport: false, exportFileMaxAgeMs: 0,
-        pkcOptions: {
-            dataPath: path.join(dataDir, "pkc"), kuboRpcClientsOptions: [kuboApi],
-            pubsubKuboRpcClientsOptions: [], httpRoutersOptions: [], ipfsGatewayUrls: [],
-            nameResolvers: [], resolveAuthorNames: false,
-            publishInterval: 500, updateInterval: 250, validatePages: true,
-        },
-    });
-    rpc.on("error", (error) => report("rpc_error", { code: error.code, message: error.message }));
-    httpServer.listen(0, "127.0.0.1");
-    await once(httpServer, "listening");
-    const address = httpServer.address();
-    originalStdout(JSON.stringify({ event: "pkc_fixture_ready", rpc_url: `ws://127.0.0.1:${address.port}/${token}`,
-                                   kubo_api: kuboApi, data_dir: dataDir, pid: process.pid,
-                                   kubo_pid: kubo.pid }) + "\n");
 }
 
 main().catch(async (error) => {

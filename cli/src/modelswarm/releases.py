@@ -127,6 +127,19 @@ def profile_init(args):
     return {"command": "profile-init", "publisher": result["publisher"], "minter": result["minter"], "started": result["started"]}
 
 
+def profile_start(args):
+    if not re.fullmatch(r"12D3KooW[1-9A-HJ-NP-Za-km-z]{44}", args.publisher):
+        raise ValueError("publisher must be an Ed25519 Peer ID")
+    result = bridge({"op": "profile-start", "publisher": args.publisher, "rpc": rpc_url(args.rpc)}, args.rpc_timeout)
+    return {"command": "profile-start", "publisher": result["publisher"], "minter": result["minter"], "started": result["started"]}
+
+
+def profile_renew(args):
+    result = bridge({"op": "profile-renew", "privateKey": read_key(args.key), "rpc": rpc_url(args.rpc)}, args.rpc_timeout)
+    return {"command": "profile-renew", "publisher": result["publisher"], "minter": result["minter"],
+            "sequence": result["sequence"], "previous_sequence": result["previousSequence"]}
+
+
 def parse_uri(value):
     parts = urlsplit(value)
     # Use netloc verbatim: URL hostname normalization would corrupt Base58 keys.

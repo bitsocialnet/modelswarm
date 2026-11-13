@@ -1,6 +1,6 @@
 # Signed publisher releases
 
-`keygen`, `profile-init`, `publish`, `pull pkc://…` and `serve --release` implement a prototype over real PKC author communities. The publisher signs locally with Ed25519; readers verify the immutable record and its manifest before enabling downloads. See [evaluation](RELEASES-EVALUATION.md) for evidence and limits.
+`keygen`, `profile-init`, `profile-start`, `profile-renew`, `publish`, `pull pkc://…` and `serve --release` implement a prototype over real PKC author communities. The publisher signs locally with Ed25519; readers verify the immutable record and its manifest before enabling downloads. See [evaluation](RELEASES-EVALUATION.md) and the [restart and renewal evaluation](PERSISTENCE-EVALUATION.md) for evidence and limits.
 
 ## Install the optional bridge
 
@@ -33,6 +33,23 @@ cli/.venv/bin/modelswarm publish ./release.json --key ~/.config/modelswarm/publi
 ```
 
 The generated key file has mode 0600, is never overwritten, and must be backed up privately. The publisher identity is its `12D3KooW…` Peer ID. The owner key stays in the CLI process/bridge stdin; RPC receives signed records and public identity. `profile-init` creates a distinct node-held minter, signs its initial delegation locally and starts hosting. It leaves that profile running when the command exits. It is an initial setup command, not profile migration or delegation renewal.
+
+## Keep a profile hosted
+
+```sh
+# After a node crash: ask the node to host the profile again. No key is needed.
+cli/.venv/bin/modelswarm profile-start PUBLISHER
+
+# Sign a newer delegation to the same node-held minter.
+cli/.venv/bin/modelswarm profile-renew --key ~/.config/modelswarm/publisher.key.json
+```
+
+A node that stops cleanly hosts its profiles again when it restarts on the same data directory: same publisher, minter, delegation sequence and release CIDs, with no client involved. Two behaviours of the pinned SDK matter to operators:
+
+- **Killed nodes.** A node killed without cleanup (SIGKILL, power loss) leaves a start lock that goes stale after 10 seconds. Restarted sooner, it does not host the profile and does not retry; `publish` then fails with `ERR_COMMUNITY_CHALLENGE_EXCHANGE_DISABLED`. Either delay the restart by more than 10 seconds, or run `profile-start` once the lock is stale. `profile-start` is safe to repeat on a running profile and refuses publishers the node does not host. Releases already published stay readable throughout.
+- **First record after a restart.** A restarted minter looks its own IPNS name up before publishing its next record. On the isolated test node that lookup takes 60 seconds. A release published in that window is accepted and pullable by its pinned CID at once, but version discovery finds it only after that record. Timing on a public network is untested.
+
+`profile-renew` asks the node which sequence beats every delegation it knows (the SDK answers the highest known plus five), signs that record locally with the owner key, and has the node verify and publish it. The node refuses records that roll the sequence back or repeat it, point at another minter, or carry another key's signature. The minter, publisher identity and existing release CIDs do not change. The SDK signs delegations with a fixed lifetime of about 100 years, so renewal re-asserts the current delegation; it is not needed to prevent expiry. Moving a profile to a new node or minter, and revoking a leaked minter, are not implemented.
 
 `publish` fetches the manifest from the supplied HTTPS or `ipfs://CID` location and checks its exact SHA-256 against the local file before posting. IPFS verification supports the default UnixFS layout from Kubo `add`; alternative chunking/raw-object layouts are unsupported. It does not upload/pin the manifest or seed model weights. The optional UTF-8 model card is limited to 24 KiB. Successful output includes `publisher`, `release_cid` and a pinned `release_uri`. The CLI reads the post back and verifies it locally before reporting success. An identical observed release is reused; an observed different announcement for the same version is refused. Concurrent publishers or incomplete feeds can still create conflicting records.
 
@@ -79,7 +96,7 @@ This is a prototype convention, not a BSIP. The standalone [manifest v0](MANIFES
 
 The protocol rejects malformed signatures, altered properties and unsupported envelopes. Transport failures fail the operation instead of silently turning an incomplete scan into an empty feed. A signature identifies a key, not a legal person, upstream organization, license grant or safe model. Key/name proofs, rotation/recovery, revocation/withdrawal, lineage and mirror attestations remain unimplemented.
 
-The default RPC deadline is 120 seconds (`--rpc-timeout`, maximum 3,600). Cancellation terminates the child bridge. A timeout or interruption during publication can leave a successfully accepted record; resolve the explicit version before retrying. Hosting, profile persistence across node restarts, anchor renewal and public network availability remain operator responsibilities.
+The default RPC deadline is 120 seconds (`--rpc-timeout`, maximum 3,600). Cancellation terminates the child bridge. A timeout or interruption during publication can leave a successfully accepted record; resolve the explicit version before retrying. Hosting, supervised restarts and public network availability remain operator responsibilities.
 
 ## Reproduce the tests
 
@@ -91,4 +108,4 @@ MODELSWARM_KUBO_BIN=/absolute/path/to/kubo-0.43.1/ipfs \
   cli/.venv/bin/python -m unittest discover -s cli/tests -v
 ```
 
-Install [test dependencies](README.md#tests) first. The real profile tests start a fresh private Kubo swarm and a loopback PKC RPC node, then stop them and remove their disposable repositories. They do not publish public releases. Without Kubo 0.43.1 those integration tests explicitly skip; a skipped suite is not evidence of profile functionality.
+Install [test dependencies](README.md#tests) first. `test_persistence.py` stops, kills and resumes that node on one data directory and takes about four and a half minutes, mostly the waits described above. The real profile tests start a fresh private Kubo swarm and a loopback PKC RPC node, then stop them and remove their disposable repositories. They do not publish public releases. Without Kubo 0.43.1 those integration tests explicitly skip; a skipped suite is not evidence of profile functionality.

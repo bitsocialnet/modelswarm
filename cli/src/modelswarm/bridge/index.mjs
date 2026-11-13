@@ -61,6 +61,14 @@ async function loadProfile(publisher) {
   await event(profile,'update',()=>profile.update(),()=>typeof profile.updatedAt==='number');
   return profile;
 }
+// The node-held half of a delegation this RPC node hosts. Only an RPC-local
+// profile exposes its minter; a remote reader's view of the same profile does not.
+async function hostedProfile(publisher) {
+  const profile=await pkc.createCommunity({publicKey:parsePublisher(publisher)});
+  profile.on('error',()=>{});
+  if(profile.publicKey!==publisher||profile.anchor?.publicKey!==publisher||typeof profile.signer?.address!=='string'||profile.signer.address===publisher) fail('This RPC node does not host a delegated profile for this publisher');
+  return profile;
+}
 async function readRelease(cid,publisher) {
   CID.parse(cid);
   const response=await pkc.fetchCid({cid});
@@ -138,6 +146,33 @@ async function main(request) {
     await profile.publishAnchorRecord(anchor);
     await event(profile,'update',()=>profile.start(),()=>typeof profile.updatedAt==='number');
     return {publisher:owner.address,minter:profile.signer.address,started:true};
+  }
+  if(request.op==='profile-start') {
+    // Not added to resources, like profile-init: the node keeps hosting it.
+    const profile=await hostedProfile(request.publisher);
+    if(profile.anchorRecordSequence===undefined) fail('Profile has no anchor record; run profile-init first');
+    try {
+      await event(profile,'update',()=>profile.start(),()=>typeof profile.updatedAt==='number');
+    } catch(error) {
+      // A killed node leaves its start lock behind until it goes stale.
+      if(error?.code==='ERR_COMMUNITY_ALREADY_STARTED') fail('The node still holds this profile\'s start lock; if the node was killed, retry in 10 seconds');
+      throw error;
+    }
+    return {publisher:request.publisher,minter:profile.signer.address,started:true};
+  }
+  if(request.op==='profile-renew') {
+    const owner=await signer(request.privateKey);
+    const profile=await hostedProfile(owner.address);
+    const previous=profile.anchorRecordSequence;
+    if(typeof previous!=='string'||!/^\d+$/.test(previous)) fail('Profile has no anchor record to renew; run profile-init first');
+    // Only the node, the online party, knows which sequence beats every record
+    // already published. Never sign one it did not ask for, or one that goes back.
+    const {nextSequence}=await profile.prepareAnchorPublish();
+    if(typeof nextSequence!=='string'||!/^\d{1,18}$/.test(nextSequence)||BigInt(nextSequence)<=BigInt(previous)) fail('RPC returned an invalid anchor sequence');
+    const anchor=await createAnchorIpnsRecord({anchorSigner:owner,minterIpnsName:profile.signer.address,sequence:nextSequence});
+    const published=await profile.publishAnchorRecord(anchor);
+    if(published?.sequence!==nextSequence||published.value!==`/ipns/${profile.signer.address}`||published.anchorPublicKey!==owner.address) fail('RPC did not accept the renewed anchor record');
+    return {publisher:owner.address,minter:profile.signer.address,sequence:nextSequence,previousSequence:previous};
   }
   if(request.op==='publish') {
     const owner=await signer(request.privateKey);

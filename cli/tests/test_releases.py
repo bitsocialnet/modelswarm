@@ -19,21 +19,24 @@ from pkc_fixture import pkc_fixture
 from test_cli import gguf, http_source
 
 
-class ReleaseTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        kubo = os.environ.get("MODELSWARM_KUBO_BIN") or shutil.which("ipfs")
-        if not kubo:
-            raise unittest.SkipTest("real PKC E2E requires Kubo 0.43.1; set MODELSWARM_KUBO_BIN")
-        version = subprocess.run([kubo, "version", "--number"], capture_output=True, text=True, timeout=5)
-        if version.returncode or version.stdout.strip() != "0.43.1":
-            raise unittest.SkipTest("real PKC E2E requires Kubo 0.43.1; set MODELSWARM_KUBO_BIN")
-        context = pkc_fixture(kubo_bin=kubo, node_bin=os.environ.get("MODELSWARM_NODE"))
-        cls.fixture = context.__enter__()
-        cls.addClassCleanup(context.__exit__, None, None, None)
+def required_kubo():
+    kubo = os.environ.get("MODELSWARM_KUBO_BIN") or shutil.which("ipfs")
+    if not kubo:
+        raise unittest.SkipTest("real PKC E2E requires Kubo 0.43.1; set MODELSWARM_KUBO_BIN")
+    version = subprocess.run([kubo, "version", "--number"], capture_output=True, text=True, timeout=5)
+    if version.returncode or version.stdout.strip() != "0.43.1":
+        raise unittest.SkipTest("real PKC E2E requires Kubo 0.43.1; set MODELSWARM_KUBO_BIN")
+    return kubo
 
-    def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix="release-", dir=Path(self.fixture["data_dir"]).parent)
+
+class ReleaseCommands:
+    """Real CLI subprocess helpers shared by suites that own a PKC fixture.
+
+    Users set ``self.fixture`` to the node's current readiness record.
+    """
+
+    def prepare_workspace(self, parent):
+        temporary = tempfile.TemporaryDirectory(prefix="release-", dir=parent)
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name).resolve()
         self.source = self.root / "source"
@@ -53,7 +56,9 @@ class ReleaseTests(unittest.TestCase):
         self.environment.update({"NODE_DISABLE_COMPILE_CACHE": "1", "HF_HOME": str(self.root / "hf-home"),
                                  "HF_HUB_DISABLE_IMPLICIT_TOKEN": "1", "HF_HUB_DISABLE_PROGRESS_BARS": "1",
                                  "HF_HUB_DISABLE_TELEMETRY": "1", "HF_HUB_DOWNLOAD_TIMEOUT": "60"})
-        self.secrets = [self.fixture["rpc_url"].rsplit("/", 1)[1]]
+        self.secrets = []
+
+    def create_profile(self):
         self.key = self.root / "publisher.key.json"
         generated = self.command("keygen", "-o", self.key)
         self.publisher = generated["publisher"]
@@ -68,7 +73,8 @@ class ReleaseTests(unittest.TestCase):
         self.make(self.manifest)
 
     def assert_no_secrets(self, value):
-        for secret in self.secrets:
+        # The RPC capability changes whenever the node restarts.
+        for secret in [self.fixture["rpc_url"].rsplit("/", 1)[1], *self.secrets]:
             self.assertFalse(secret in value, "output leaked a private signing key or RPC credential")
         self.assertFalse('"privateKey"' in value, "output exposed a private signing key field")
 
@@ -76,7 +82,8 @@ class ReleaseTests(unittest.TestCase):
         result = subprocess.run([sys.executable, "-m", "modelswarm", *map(str, arguments)],
                                 capture_output=True, text=True, env=self.environment, timeout=80)
         self.assert_no_secrets(result.stdout + result.stderr)
-        self.assertEqual(result.returncode == 0, ok, result.stdout + result.stderr)
+        if ok is not None:  # None: the caller inspects either outcome.
+            self.assertEqual(result.returncode == 0, ok, result.stdout + result.stderr)
         return json.loads(result.stdout)
 
     def rpc_options(self):
@@ -114,6 +121,18 @@ class ReleaseTests(unittest.TestCase):
 
     def model_requests(self):
         return [request for request in self.requests if request["file"].startswith("source/")]
+
+
+class ReleaseTests(ReleaseCommands, unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        context = pkc_fixture(kubo_bin=required_kubo(), node_bin=os.environ.get("MODELSWARM_NODE"))
+        cls.fixture = context.__enter__()
+        cls.addClassCleanup(context.__exit__, None, None, None)
+
+    def setUp(self):
+        self.prepare_workspace(Path(self.fixture["data_dir"]).parent)
+        self.create_profile()
 
     def test_profile_persists_and_version_and_cid_pulls_verify_bytes(self):
         card = self.root / "card.md"

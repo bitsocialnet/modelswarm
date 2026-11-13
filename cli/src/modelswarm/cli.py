@@ -270,7 +270,7 @@ def parser():
     command.add_argument("--rate-limit", type=int, default=0)
     command.add_argument("--checkpoint-interval", type=float, default=15)
     command.set_defaults(function=serve)
-    from .releases import keygen, profile_init, publish
+    from .releases import keygen, profile_init, profile_renew, profile_start, publish
     command = commands.add_parser("keygen", help="create a local Ed25519 publisher key; never overwrite")
     command.add_argument("--output", "-o", type=Path, required=True)
     command.add_argument("--rpc-timeout", type=float, default=120)
@@ -279,6 +279,14 @@ def parser():
     command.add_argument("--key", type=Path, required=True)
     publisher_options(command)
     command.set_defaults(function=profile_init)
+    command = commands.add_parser("profile-start", help="ask your RPC node to host your existing profile again, e.g. after a crash")
+    command.add_argument("publisher", help="publisher Peer ID printed by keygen")
+    publisher_options(command)
+    command.set_defaults(function=profile_start)
+    command = commands.add_parser("profile-renew", help="sign and publish a newer delegation to the same node-held minter")
+    command.add_argument("--key", type=Path, required=True)
+    publisher_options(command)
+    command.set_defaults(function=profile_renew)
     command = commands.add_parser("publish", help="publish a signed manifest announcement to your publisher profile")
     command.add_argument("manifest", type=Path)
     command.add_argument("--key", type=Path, required=True)
