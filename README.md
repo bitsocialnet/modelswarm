@@ -61,6 +61,12 @@ A catalogue the size of Hugging Face cannot live in one Bitsocial community, and
 
 Models that exist only on Hugging Face need no listing at all to be downloaded: the client can read Hugging Face's own metadata. A record is published the first time someone seeds such a model, so the peer-to-peer index grows with what people actually use. See [how-it-could-work.md](how-it-could-work.md#models-that-are-only-on-hugging-face).
 
+## Optional Forge RPC
+
+The planned client would use Forge RPC by default for its Bitsocial connection. Forge RPC is optional: users can switch to another compatible provider or self-host a node, and publishers keep their own keys. Modelswarm remains decentralized; model files travel over BitTorrent and HTTP mirrors, not through the RPC.
+
+RPC revenue from Modelswarm is speculative, not a strong monetization pitch. RPC hosts release metadata and discussion, not the model weights, so metadata hosting alone may offer little reason to pay. Publisher willingness to pay is unvalidated. Reliable weight seeding, managed distribution or enterprise support could be separate paid services, but they go beyond RPC and are not committed features. The repository keeps its GPL-3.0-or-later license.
+
 ## What It Is Not
 
 - **Not a host.** The project would publish a client and tooling. It would run no hub, no index and no seedbox that others depend on.

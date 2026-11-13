@@ -69,6 +69,14 @@ The hardest question is not technical. Publishers already have their audience on
 - When a name exists both on Modelswarm and on Hugging Face with different files, which one does the endpoint serve, and how is the user told?
 - Gated and private models need a Hugging Face token. Does the endpoint pass requests through for those, or refuse them?
 
+## RPC Hosting
+
+Forge RPC as the optional default is settled: users must be able to switch compatible providers or self-host. It does not settle default hubs or indexers, and RPC revenue remains speculative.
+
+- How do users select a provider or a self-hosted node, and what happens when their chosen provider is unavailable?
+- How do publishers migrate hosted profiles between providers while retaining their keys and releases?
+- Would publishers pay for metadata hosting, and what customer evidence would justify paid tiers? Model weight seeding is a separate service, not supplied by the RPC connection.
+
 ## Seeding
 
 - Who seeds a model nobody has downloaded this month?

@@ -72,7 +72,9 @@ export function Footer() {
       </div>
       <div className={`wrap ${styles.bottom}`}>
         <p>
-          Free software under <a href={doc('LICENSE')}>GPL-3.0-or-later</a>. The project would publish a client and tooling. It hosts no models.
+          Free software under <a href={doc('LICENSE')}>GPL-3.0-or-later</a>. The project would publish a client and tooling. It hosts no models. The planned client would
+          use Forge RPC by default, but users could switch providers or self-host. Modelswarm stays decentralized. Revenue from optional RPC metadata hosting is
+          speculative; publisher willingness to pay is unvalidated.
         </p>
         {COMMIT && (
           <a className={styles.build} href={`${REPO}/commit/${COMMIT}`}>

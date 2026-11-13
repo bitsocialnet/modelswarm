@@ -21,6 +21,12 @@ It builds on [HuggingSocial's design](https://github.com/Rinse12/huggingsocial/b
 
 Bitsocial carries text, so it holds releases, manifests and discussion. Model files never pass through it.
 
+## RPC Provider Choice
+
+The planned client defaults to Forge RPC for its Bitsocial connection, but users can select another compatible RPC provider or self-host a node. Publishers retain their signing keys. Forge is a convenience provider, not a required network operator; model files still move through torrents and HTTP mirrors, independently of RPC choice.
+
+Optional paid RPC services, including hosted publisher profiles when supported, are a speculative revenue opportunity. RPC carries metadata and discussion rather than model weights; there is no validated willingness to pay for this hosting, so it is not a strong monetization pitch. Reliable weight seeding, managed distribution and enterprise support would be additional services beyond RPC, not commitments in this design. Provider selection and self-hosting must be available in the client; hosted profiles remain a dependency to implement, not a currently available feature.
+
 ## Publishers and Profiles
 
 A publisher is a Bitsocial author: an Ed25519 key, optionally with a `.bso` name. A lab, a company and a single person fine-tuning at home are the same kind of thing.
@@ -30,7 +36,7 @@ Each publisher has a profile: an author community ([BSIP-14](https://bsips.bitso
 - **Only the publisher posts.** The profile's challenge rejects every other author.
 - **The profile is the canonical place for a release.** Hubs can carry it or drop it; the publisher's signed copy stays where the publisher put it.
 - **It stays small.** A profile holds one publisher's releases, not a share of the whole catalogue.
-- **It needs an always-online node.** Publishers of models generally have a server or a workstation that is on, so this is less of a barrier here than for a phone-first social app. A publisher without one waits for hosted profile nodes on a public RPC.
+- **It needs an always-online node.** Publishers of models generally have a server or a workstation that is on, so this is less of a barrier here than for a phone-first social app. A publisher without one waits for hosted profile nodes on Forge RPC or another compatible provider; self-hosting remains an option.
 
 A signature proves that the same key published a series of releases. It does not prove who holds the key. A publisher ties the key to their name the way projects publish a GPG key: on their website, their GitHub organization or a `.bso` name. See [open-questions.md](open-questions.md#names-and-impersonation).
 

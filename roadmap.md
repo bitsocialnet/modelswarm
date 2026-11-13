@@ -58,7 +58,8 @@ After this milestone the tool is useful to one person with no network of publish
 
 ### 4. Publishing and reading releases
 
-- [ ] `modelswarm publish`: post a release to the publisher's profile on a node they run.
+- [ ] RPC connection settings: Forge RPC by default, with another compatible provider or a self-hosted node selectable. Publishers retain their keys.
+- [ ] `modelswarm publish`: post a release to the publisher's profile on a node they run, or a compatible hosted profile once supported.
 - [ ] `pull` and the endpoint resolve releases from profiles.
 - [ ] Mirror records v0: publish one when seeding a Hugging Face model, and check records on completed downloads.
 - [ ] A demo publisher profile on a Bitsocial node we run, with real releases of permissively licensed models, the way WeTube's demo channel works.
@@ -98,6 +99,6 @@ All existing BSIPs are drafts. Modelswarm builds on BSIP-2, 3, 10, 12, 13, 14 an
 - [ ] Scanner services and the scan result record.
 - [ ] Datasets.
 - [ ] `.bso` names for publishers and tips on Bitsocial Chain.
-- [ ] Hosted profiles for publishers without a node, when a public RPC offers them.
+- [ ] Hosted profiles for publishers without a node, when Forge RPC or another compatible provider offers them. Revenue from this metadata hosting is speculative; validate publisher willingness to pay before treating it as a business case.
 - [ ] Hub-funded seedboxes.
 - [ ] Mobile clients for browsing and discussion.
