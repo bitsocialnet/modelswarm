@@ -4,6 +4,12 @@
   border: 1px solid var(--rule);
 }
 
+.source {
+  margin-top: 1rem;
+  color: var(--dim);
+  font-size: 0.75rem;
+}
+
 .table {
   width: 100%;
   min-width: 52rem;

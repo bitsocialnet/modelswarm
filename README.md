@@ -19,14 +19,16 @@ Torrents already solve the storage half. [Academic Torrents](https://academictor
 
 Modelswarm splits the hub into parts that no single party holds:
 
-| | Hugging Face | A torrent index site | Modelswarm |
+| | Hugging Face | Pirate Face | Modelswarm |
 |---|---|---|---|
-| Where the files are | Hugging Face's servers | Seeders | Seeders, plus any HTTP mirror, including Hugging Face |
-| Who can delist a model | Hugging Face | The site's operator | Nobody across the network. A hub can drop a release from its own board, not from the publisher's profile |
-| Who published this file | A Hugging Face account | Whoever submitted the magnet | A signing key, the same across every release by that publisher |
-| When a corrupted or swapped file is caught | The host is trusted | After the download, against a checksum | During the download, piece by piece |
-| Where discussion happens | Hugging Face | The site, or Reddit and Discord | Peer-to-peer communities, each with its own rules |
-| Works with existing tools | Yes | Manual download | Yes, through a local endpoint that speaks the Hugging Face API |
+| Where the files are | Hugging Face's servers | Seeders, with Hugging Face as a web seed | Seeders, plus any HTTP mirror, including Hugging Face |
+| Who can delist a model | Hugging Face | Pirate Face, which runs the list | Nobody across the network. A hub can drop a release from its own board, not from the publisher's profile |
+| Who published this file | A Hugging Face account | A Pirate Face handle, verified through the matching Hugging Face account | A signing key, the same across every release by that publisher |
+| When a corrupted or swapped file is caught | The host is trusted | After each file downloads, against Hugging Face's SHA-256 | During the download, piece by piece |
+| Where discussion happens | Hugging Face | On Pirate Face | Peer-to-peer communities, each with its own rules |
+| Works with existing tools | Yes | Yes, through its `pirateface` pip package for Python tools | Yes, through a local endpoint that speaks the Hugging Face API |
+
+Pirate Face as described on [pirateface.co](https://pirateface.co/) in November 2026.
 
 ## Checked While It Downloads
 
@@ -67,7 +69,7 @@ Models that exist only on Hugging Face need no listing at all to be downloaded: 
 ## Prior Art
 
 - [HuggingSocial](https://github.com/Rinse12/huggingsocial), by Bitsocial developer Rinse12, proposes the same combination of Bitsocial and BitTorrent, and is the source of the local Hugging Face endpoint idea used here. Modelswarm differs in where releases live (publisher profiles, not hubs), in verifying pieces instead of whole files, in its format defaults and in not mirroring Hugging Face in bulk.
-- [Pirate Face](https://pirateface.co/) and [Academic Torrents](https://academictorrents.com/) index models as torrents on their own websites.
+- [Pirate Face](https://pirateface.co/) lists models as magnet links with Hugging Face web seeds, checks files against Hugging Face's SHA-256 and offers a drop-in `pip` package for Python tools. It still relies on Hugging Face for its source records and runs the list on its own website. [Academic Torrents](https://academictorrents.com/) indexes models as torrents on its own website.
 
 ## Documents
 

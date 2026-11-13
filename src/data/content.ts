@@ -41,18 +41,34 @@ export const PARTS: Part[] = [
   },
 ];
 
-export const COMPARE_COLUMNS = ['Hugging Face', 'A torrent index site', 'Modelswarm'] as const;
+export const COMPARE_COLUMNS = ['Hugging Face', 'Pirate Face', 'Modelswarm'] as const;
+
+// Pirate Face as its own site describes it (pirateface.co, checked 2026-11-13).
+export const COMPARE_SOURCE = 'Pirate Face as described on pirateface.co in November 2026.';
 
 export const COMPARE_ROWS: { label: string; cells: [string, string, string] }[] = [
-  { label: 'Where the files are', cells: ["Hugging Face's servers", 'Seeders', 'Seeders, plus any HTTP mirror, including Hugging Face'] },
-  { label: 'Who can delist a model', cells: ['Hugging Face', "The site's operator", 'Nobody across the network. A hub can only drop it from its own board'] },
+  {
+    label: 'Where the files are',
+    cells: ["Hugging Face's servers", 'Seeders, with Hugging Face as a web seed', 'Seeders, plus any HTTP mirror, including Hugging Face'],
+  },
+  {
+    label: 'Who can delist a model',
+    cells: ['Hugging Face', 'Pirate Face, which runs the list', 'Nobody across the network. A hub can only drop it from its own board'],
+  },
   {
     label: 'Who published this file',
-    cells: ['A Hugging Face account', 'Whoever submitted the magnet link', 'A signing key, the same across every release by that publisher'],
+    cells: [
+      'A Hugging Face account',
+      'A Pirate Face handle, verified through the matching Hugging Face account',
+      'A signing key, the same across every release by that publisher',
+    ],
   },
-  { label: 'When a swapped file is caught', cells: ['The host is trusted', 'After the download, against a checksum', 'During the download, piece by piece'] },
-  { label: 'Where discussion happens', cells: ['Hugging Face', 'The site, or Reddit and Discord', 'Peer-to-peer communities, each with its own rules'] },
-  { label: 'Works with existing tools', cells: ['Yes', 'Manual download', 'Yes, through a local Hugging Face endpoint'] },
+  {
+    label: 'When a swapped file is caught',
+    cells: ['The host is trusted', "After each file downloads, against Hugging Face's SHA-256", 'During the download, piece by piece'],
+  },
+  { label: 'Where discussion happens', cells: ['Hugging Face', 'On Pirate Face', 'Peer-to-peer communities, each with its own rules'] },
+  { label: 'Works with existing tools', cells: ['Yes', 'Yes, through its pip package for Python tools', 'Yes, through a local Hugging Face endpoint'] },
 ];
 
 export type Step = {

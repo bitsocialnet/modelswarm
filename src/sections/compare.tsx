@@ -1,4 +1,4 @@
-import { COMPARE_COLUMNS, COMPARE_ROWS } from '../data/content';
+import { COMPARE_COLUMNS, COMPARE_ROWS, COMPARE_SOURCE } from '../data/content';
 import { SectionHead } from '../components/section-head/section-head';
 import section from './section.module.css';
 import styles from './compare.module.css';
@@ -38,6 +38,7 @@ export function Compare() {
             </tbody>
           </table>
         </div>
+        <p className={styles.source}>{COMPARE_SOURCE}</p>
       </div>
     </section>
   );
