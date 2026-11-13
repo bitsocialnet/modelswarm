@@ -7,14 +7,14 @@ export function Roadmap() {
   return (
     <section id='roadmap' className={section.section} aria-labelledby='roadmap-title'>
       <div className='wrap'>
-        <SectionHead source='roadmap.md' id='roadmap-title' lede='Nothing is built yet. Estimates are focused work, not dates.'>
+        <SectionHead source='roadmap.md' id='roadmap-title' lede='The engine and manifest CLI have prototypes. Publishing and the full hub remain. Estimates are focused work, not dates.'>
           What gets built, in order
         </SectionHead>
         <ol className={styles.steps}>
           {STEPS.map((step, i) => (
             <li key={step.title} className={styles.step} data-milestone={i + 1 === USEFUL_ALONE_AFTER}>
               <span className={styles.box} aria-hidden='true'>
-                [ ]
+                {step.complete ? '[x]' : '[ ]'}
               </span>
               <span className={styles.number}>{i + 1}</span>
               <h3 className={styles.title}>{step.title}</h3>

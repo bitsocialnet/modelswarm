@@ -21,6 +21,8 @@ The hardest question is not technical. Publishers already have their audience on
 
 ## Manifest
 
+The unsigned CLI now implements [manifest v0](cli/MANIFEST.md): a separate portable JSON file, required name/version/license/files, one embedded v2 torrent per nonempty file, and explicit per-file HTTP sources. Nested files/shards work. Publisher signatures, protocol storage and the following release semantics remain undecided.
+
 - Is the manifest a field of the comment, or a separate document referenced by its content identifier? Which fields may a comment carry beyond those in BSIP-2?
 - Which fields are required?
 - How are very large repositories handled, with hundreds of shards?
@@ -29,6 +31,8 @@ The hardest question is not technical. Publishers already have their audience on
 - How does a publisher withdraw a release, and what does a client show for a withdrawn release whose files are still seeded?
 
 ## Torrents
+
+The [download-engine prototype](prototypes/download-engine/EVALUATION.md) established libtorrent 2.1.1 as a viable candidate on macOS arm64. The [CLI](cli/EVALUATION.md) now implements releases containing several files using one embedded v2-only torrent per file, 1 MiB pieces by default (configurable), and complete piece layers for HTTP-only startup. Manifests remain unsigned. Cross-platform packaging, production-scale shard counts and WAN operation remain untested; this is a provisional engine choice.
 
 - BitTorrent v2 only, or hybrid torrents that v1 clients can join? Hybrid torrents add padding files and a second set of hashes.
 - Which piece size, given that the piece layer has to be fetched before the first piece can be checked?
@@ -54,6 +58,8 @@ The hardest question is not technical. Publishers already have their audience on
 - What happens to a publisher's releases when the key is lost or stolen?
 
 ## Safety
+
+The [CLI policy](cli/README.md#select-files-and-formats) implements conservative header/content classification, flags code/pickle/unknown files, checks risky suffixes independently of declarations, and rejects a mismatched format before cache publication. This is not complete format parsing or malware scanning; scanner services and the remaining policy questions below are still open.
 
 - Which formats are data-only by default, and who maintains that list as formats appear?
 - How does the client detect a file whose content does not match its declared format?

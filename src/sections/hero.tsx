@@ -16,7 +16,7 @@ export function Hero() {
           </p>
           <p className={styles.stage}>
             <span className={styles.stageMark} aria-hidden='true' />
-            Modelswarm is an idea, not a product yet. The design is public and looking for people to pick it apart.
+            Modelswarm has an experimental CLI for making, verifying and pulling unsigned releases. The full hub is not built yet.
           </p>
           <div className={styles.actions}>
             <a className='button button-primary' href={REPO}>

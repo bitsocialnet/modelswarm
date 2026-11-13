@@ -7,14 +7,17 @@ Durations are rough estimates of focused work, not dates. Last reviewed 2026-11-
 ## Built
 
 - [x] Idea docs: [README.md](README.md), [how-it-could-work.md](how-it-could-work.md), [open-questions.md](open-questions.md) (2026-11-13).
+- [x] Static landing page.
+- [x] Isolated [download-engine prototype](prototypes/download-engine/README.md): libtorrent 2.1.1, v2-only peers and HTTP, corrupted-source recovery and persisted resume after SIGKILL (2026-11-13). See the [evaluation](prototypes/download-engine/EVALUATION.md).
+- [x] Unsigned [manifest v0 and CLI](cli/README.md): `make`, `verify`, `pull`, nested files, format policy, resumable transfers and a verified Hugging Face-compatible cache (2026-11-13).
 
-No code yet.
+The experimental CLI is implemented. Signed publishing, the Hugging Face endpoint, catalogue and desktop client are not built. The prototypes do not complete the measurements milestone.
 
 ## What Blocks What
 
 | Part | Depends on | State of the dependency (2026-11-13) |
 |---|---|---|
-| Making, verifying and pulling releases from a manifest | A BitTorrent v2 library with web seeds | Available outside Bitsocial. Which library is [open](open-questions.md#torrents) |
+| Making, verifying and pulling releases from a manifest | A BitTorrent v2 library with web seeds | libtorrent 2.1.1 passed the isolated prototype on macOS arm64. Production packaging and broader validation remain [open](open-questions.md#torrents) |
 | The Hugging Face endpoint | The requests existing tools make | Public, and need to be recorded per tool. Nothing in Bitsocial blocks it |
 | Publishing releases | Author communities ([BSIP-14](https://bsips.bitsocial.net/bsip-14)) on a node the publisher runs | Implemented in pkc-js. Publishers without a node wait for hosted profiles on a public RPC |
 | Hubs | Communities ([BSIP-3](https://bsips.bitsocial.net/bsip-3)) and crossposts ([BSIP-12](https://bsips.bitsocial.net/bsip-12)) | Implemented in pkc-js |
@@ -31,19 +34,21 @@ Two numbers decide the design, so they come before any product code.
 
 - [ ] **Community size.** Extend the seeded-board benchmark in `pkc-js-benchmarks` beyond its current 2,000 posts, to the sizes a busy publisher profile and a popular hub would reach. Record load time for a reader, and CPU, disk and memory for the operator. Answers [open-questions.md](open-questions.md#scale).
 - [ ] **Piece verification over HTTP.** Take a multi-gigabyte model file, build a v2 torrent, and download it from an HTTP mirror while checking every piece against the pieces root. Record hashing cost and the time to detect a modified file. Answers part of [open-questions.md](open-questions.md#torrents).
+  - The prototype records hashing and corruption timing with a 491 MB real model. A multi-gigabyte real-model benchmark and CPU/memory profiling remain to do.
 - [ ] **A swarm with web seeds.** Seed the same torrent from one machine with Hugging Face as a web seed, and download from another with a candidate library.
+  - Local peer/HTTP combinations and direct Hugging Face HTTPS passed separately. Distinct-machine/WAN testing remains to do.
 
 Estimate: about 1 week. Blocked by: nothing.
 
 ### 2. Manifest and command line
 
-- [ ] Manifest format v0, recorded here as a prototype convention until the BSIP.
-- [ ] `modelswarm make`: hash files, build the torrent, write the manifest.
-- [ ] `modelswarm verify`: check files on disk against a manifest.
-- [ ] `modelswarm pull` from a manifest file: download from torrent peers and HTTP mirrors together, verify each piece, place files in the cache layout that `transformers` and llama.cpp read.
-- [ ] Format detection, and the flagged-format rule from [how-it-could-work.md](how-it-could-work.md#safety).
+- [x] [Manifest format v0](cli/MANIFEST.md), a prototype convention until the BSIP: unsigned JSON, one embedded v2 torrent per nonempty file, complete piece layers and explicit sources.
+- [x] `modelswarm make`: hash a directory, build per-file torrents and write the manifest.
+- [x] `modelswarm verify`: check local sizes, SHA-256, pieces roots and formats against a manifest.
+- [x] `modelswarm pull` from a manifest file: download from peers and HTTP, verify pieces and complete files, resume from flushed checkpoints, and publish verified snapshots in a Hugging Face-compatible cache. Offline `huggingface_hub` lookup is tested; GGUF consumers can use the returned file path. Inference with `transformers` or llama.cpp is not tested.
+- [x] Format inspection and the flagged-format download rule: code, pickle and unknown files are excluded by default and require `--allow-unsafe`.
 
-Estimate: 2 to 3 weeks. Blocked by: the library choice from milestone 1.
+Prototype completed 2026-11-13; see [verification and remaining work](cli/EVALUATION.md). This does not establish production readiness, publisher identity, cross-platform installation, WAN operation or power-loss durability.
 
 ### 3. The Hugging Face endpoint
 

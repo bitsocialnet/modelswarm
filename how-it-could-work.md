@@ -42,6 +42,8 @@ A signature proves that the same key published a series of releases. It does not
 
 ## Releases and the Manifest
 
+The experimental CLI implements an unsigned [manifest v0](cli/MANIFEST.md) with complete per-file v2 metadata and explicit sources. It is usable from a trusted local file today. The signed publisher release and lineage sketch below describe later protocol integration, not authentication already supplied by the CLI.
+
 A release is a post in the publisher's profile. Its text is the model card. It references a manifest, and because the release is signed, the manifest is covered by the same signature.
 
 A manifest could look like this:
@@ -154,6 +156,8 @@ With `HF_ENDPOINT` pointing at it, existing tools download over Modelswarm witho
 A name such as `example/example-7b` has to resolve to one publisher's release. How names map is [open](open-questions.md#names-and-impersonation).
 
 ## Command Line
+
+`make`, `verify` and `pull` from a manifest file are implemented in the [Python CLI](cli/README.md); see its [evaluation](cli/EVALUATION.md). They support nested files, format checks, checkpoint recovery and verified cache snapshots. The commands below sketch the eventual interface; name resolution, `publish` and `serve` remain future work. The current forms are `make DIR -o MANIFEST --name OWNER/MODEL --license LICENSE`, `verify MANIFEST DIR`, and `pull MANIFEST`.
 
 ```
 modelswarm make <dir>      hash the files, build the torrent, write a manifest

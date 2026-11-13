@@ -77,11 +77,12 @@ export type Step = {
   title: string;
   body: string;
   estimate: string;
+  complete?: boolean;
 };
 
 export const STEPS: Step[] = [
-  { title: 'Measurements', body: 'How large a community can get, and what piece checks cost over HTTP.', estimate: '~1 week' },
-  { title: 'Manifest and command line', body: 'Make, verify and pull a release from a manifest file.', estimate: '2–3 weeks' },
+  { title: 'Measurements', body: 'The engine prototype works; community scale, larger real models and WAN tests remain.', estimate: '~1 week' },
+  { title: 'Manifest and command line', body: 'Implemented: make, verify and pull unsigned manifests into a verified local cache.', estimate: 'Prototype complete', complete: true },
   { title: 'The Hugging Face endpoint', body: 'Existing tools download through Modelswarm, verified and resumable.', estimate: '~2 weeks' },
   { title: 'Publishing and reading releases', body: 'Signed releases in publisher profiles, and a read-only web client.', estimate: '3–4 weeks' },
   { title: 'Hubs and search', body: 'Curated boards with discussion, and search across several indexers.', estimate: '2–3 weeks' },
