@@ -13,7 +13,7 @@ export function Topbar() {
     <header className={styles.topbar}>
       <div className={`wrap ${styles.inner}`}>
         <a className={styles.brand} href='./' aria-label='Modelswarm home'>
-          <Logo size={22} />
+          <Logo size={30} />
           <span>modelswarm</span>
         </a>
         <nav className={styles.nav} aria-label='Main'>
