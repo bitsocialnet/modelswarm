@@ -11,14 +11,16 @@ Durations are rough estimates of focused work, not dates. Last reviewed 2026-11-
 - [x] Isolated [download-engine prototype](prototypes/download-engine/README.md): libtorrent 2.1.1, v2-only peers and HTTP, corrupted-source recovery and persisted resume after SIGKILL (2026-11-13). See the [evaluation](prototypes/download-engine/EVALUATION.md).
 - [x] Unsigned [manifest v0 and CLI](cli/README.md): `make`, `verify`, `pull`, nested files, format policy, resumable transfers and a verified Hugging Face-compatible cache (2026-11-13).
 
-The experimental CLI is implemented. Signed publishing, the Hugging Face endpoint, catalogue and desktop client are not built. The prototypes do not complete the measurements milestone.
+- [x] [Local Hugging Face endpoint prototype](cli/ENDPOINT.md): `serve`/`HF_ENDPOINT`, registered manifests, verified public upstream fallback and real SDK end-to-end downloads (2026-11-13).
+
+The experimental CLI and SDK endpoint are implemented. Signed publishing, catalogue and desktop client are not built. The prototypes do not complete the measurements milestone.
 
 ## What Blocks What
 
 | Part | Depends on | State of the dependency (2026-11-13) |
 |---|---|---|
 | Making, verifying and pulling releases from a manifest | A BitTorrent v2 library with web seeds | libtorrent 2.1.1 passed the isolated prototype on macOS arm64. Production packaging and broader validation remain [open](open-questions.md#torrents) |
-| The Hugging Face endpoint | The requests existing tools make | Public, and need to be recorded per tool. Nothing in Bitsocial blocks it |
+| The Hugging Face endpoint | The requests existing tools make | SDK 2.4.0 routes and downloads tested; other consumers still need their own evidence |
 | Publishing releases | Author communities ([BSIP-14](https://bsips.bitsocial.net/bsip-14)) on a node the publisher runs | Implemented in pkc-js. Publishers without a node wait for hosted profiles on a public RPC |
 | Hubs | Communities ([BSIP-3](https://bsips.bitsocial.net/bsip-3)) and crossposts ([BSIP-12](https://bsips.bitsocial.net/bsip-12)) | Implemented in pkc-js |
 | Search | `bitsocial-indexer`, extended to parse manifests | The indexer exists; manifest parsing does not |
@@ -52,12 +54,13 @@ Prototype completed 2026-11-13; see [verification and remaining work](cli/EVALUA
 
 ### 3. The Hugging Face endpoint
 
-- [ ] Record the requests made by `huggingface_hub`, `transformers`, the `hf` command, llama.cpp and Ollama.
-- [ ] `modelswarm serve`: answer them from local manifests.
-- [ ] Pass-through for models with no manifest: fetch from Hugging Face, verify whole files against its metadata.
-- [ ] Tests that run each real tool against the endpoint.
+- [x] Record and implement `huggingface_hub` 2.4.0 model info, tree, HEAD and file/range requests.
+- [x] `modelswarm serve`: serve registered local manifests through a loopback endpoint.
+- [x] Fallback for unregistered public models: pin upstream revisions, verify whole files against LFS SHA-256 or Git blob SHA-1, then serve them.
+- [x] Real SDK end-to-end tests, including a 491 MB model through local manifests and public HTTPS fallback.
+- [ ] Record and test `transformers`, the `hf` command, llama.cpp and Ollama independently; compatibility with the SDK does not establish all of them.
 
-Estimate: about 2 weeks. Blocked by: milestone 2.
+SDK prototype completed 2026-11-13; see [evidence and remaining scope](cli/ENDPOINT-EVALUATION.md). Private/gated models, streaming verified pieces and production hardening remain. The original two-week estimate covered the broader multi-consumer milestone.
 
 After this milestone the tool is useful to one person with no network of publishers: verified downloads, resumable from several sources.
 

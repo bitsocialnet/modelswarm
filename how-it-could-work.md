@@ -145,19 +145,20 @@ Records are created when someone seeds, so the index follows demand. There is no
 
 Most people do not download models by visiting a website. They run `transformers`, llama.cpp, Ollama or the `hf` command, which fetch from Hugging Face by name. The `huggingface_hub` library reads its server address from the [`HF_ENDPOINT`](https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables) environment variable.
 
-The desktop client and the command line would run a local endpoint that answers the same requests from Modelswarm releases:
+The CLI now implements a [loopback endpoint](cli/ENDPOINT.md), tested with `huggingface_hub` 2.4.0. The desktop integration and other consumers remain future work. In the prototype:
 
 - model information is built from the manifest;
-- a file request is served from torrent peers and mirrors, with every piece verified before it is passed on;
+- a local file is acquired from torrent peers and mirrors, with piece checks and full-file verification before any response body is served;
+- unregistered public models fall back to pinned Hugging Face downloads, verified against upstream whole-file metadata;
 - uploads and account requests are refused.
 
-With `HF_ENDPOINT` pointing at it, existing tools download over Modelswarm without changes. This idea comes from [HuggingSocial](https://github.com/Rinse12/huggingsocial).
+With `HF_ENDPOINT` set before importing the SDK, SDK downloads use this endpoint. Cold downloads need a longer client timeout because the prototype waits for whole-file verification. Registered local names take precedence and never silently fall back on a missing file or revision. Broader tool compatibility is still to be tested. This idea comes from [HuggingSocial](https://github.com/Rinse12/huggingsocial).
 
 A name such as `example/example-7b` has to resolve to one publisher's release. How names map is [open](open-questions.md#names-and-impersonation).
 
 ## Command Line
 
-`make`, `verify` and `pull` from a manifest file are implemented in the [Python CLI](cli/README.md); see its [evaluation](cli/EVALUATION.md). They support nested files, format checks, checkpoint recovery and verified cache snapshots. The commands below sketch the eventual interface; name resolution, `publish` and `serve` remain future work. The current forms are `make DIR -o MANIFEST --name OWNER/MODEL --license LICENSE`, `verify MANIFEST DIR`, and `pull MANIFEST`.
+`make`, `verify` and `pull` from a manifest file are implemented in the [Python CLI](cli/README.md); see its [evaluation](cli/EVALUATION.md). They support nested files, format checks, checkpoint recovery and verified cache snapshots. The commands below sketch the eventual interface; publisher name resolution and `publish` remain future work; `serve` is now implemented as described above. The current forms are `make DIR -o MANIFEST --name OWNER/MODEL --license LICENSE`, `verify MANIFEST DIR`, and `pull MANIFEST`.
 
 ```
 modelswarm make <dir>      hash the files, build the torrent, write a manifest

@@ -16,7 +16,7 @@ export function Hero() {
           </p>
           <p className={styles.stage}>
             <span className={styles.stageMark} aria-hidden='true' />
-            Modelswarm has an experimental CLI for making, verifying and pulling unsigned releases. The full hub is not built yet.
+            Modelswarm has an experimental CLI and local Hugging Face endpoint. Signed publishing and the full hub are not built yet.
           </p>
           <div className={styles.actions}>
             <a className='button button-primary' href={REPO}>

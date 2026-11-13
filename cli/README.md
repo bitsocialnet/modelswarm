@@ -1,6 +1,6 @@
 # Modelswarm CLI prototype
 
-`modelswarm make`, `verify` and `pull` implement the unsigned manifest/CLI milestone with Python 3.11+ and pinned libtorrent 2.1.1. The landing page remains a separate static app. See [MANIFEST.md](MANIFEST.md) for v0 and [EVALUATION.md](EVALUATION.md) for tested behavior and remaining work.
+`modelswarm make`, `verify` and `pull` implement the unsigned manifest/CLI milestone with Python 3.11+ and pinned libtorrent 2.1.1. `modelswarm serve` now exposes a [local Hugging Face endpoint with verified public fallback](ENDPOINT.md). The landing page remains a separate static app. See [MANIFEST.md](MANIFEST.md) for v0 and [EVALUATION.md](EVALUATION.md) for tested behavior and remaining work.
 
 ## Install locally
 
@@ -84,7 +84,7 @@ directory = snapshot_download(
 )
 ```
 
-Consumers can also use the returned snapshot directory directly; a GGUF consumer uses the file path inside it. Offline `snapshot_download` and `hf_hub_download` were tested with huggingface_hub 2.4.0. Transformers and llama.cpp inference were not executed. No `HF_ENDPOINT` service exists yet.
+Consumers can also use the returned snapshot directory directly; a GGUF consumer uses the file path inside it. Offline `snapshot_download` and `hf_hub_download` were tested with huggingface_hub 2.4.0. Transformers and llama.cpp inference were not executed. For online SDK downloads through `HF_ENDPOINT`, see [serve setup and limitations](ENDPOINT.md).
 
 The cache rejects unexpected symlink ancestors, foreign snapshot entries and corrupt existing blobs. It assumes local cache directories are controlled by the current user, not concurrently writable by an attacker. Staging and cache publication may temporarily require roughly twice the payload size; staging is currently retained for recovery and reuse.
 

@@ -158,45 +158,53 @@ def pull(args):
     if not math.isfinite(args.checkpoint_interval) or args.checkpoint_interval < 1:
         raise ValueError("checkpoint interval must be finite and at least one second")
     peers = [peer_address(value) for value in args.peer]
-    root = ensure_directory(cache_root(args.cache_dir))
-    state = ensure_directory(root / ".modelswarm")
     cancel = threading.Event()
     original_handlers = {}
     for signum in (signal.SIGINT, signal.SIGTERM):
         original_handlers[signum] = signal.signal(signum, lambda *_: cancel.set())
     try:
-        with release_lock(state, digest):
-            working = ensure_directory(state / digest / "files")
-            cached = cached_files(root, manifest, digest)
-            verified = {}
-            for entry in entries:
-                if cancel.is_set():
-                    raise InterruptedDownload("interrupted; verified files and partial data retained")
-                file_id = hashlib.sha256(entry["path"].encode("utf-8")).hexdigest()
-                directory = ensure_directory(working / file_id)
-                if entry["path"] in cached:
-                    # Keep the original basename for format inspection; hashed
-                    # blob names lose suffix-based code/pickle detection.
-                    payload = ensure_directory(directory / "payload") / Path(entry["path"]).name
-                    if payload.is_symlink() or (payload.exists() and (not payload.is_file() or payload.stat().st_nlink != 1)):
-                        raise ValueError("unsafe staged payload path")
-                    shutil.copyfile(cached[entry["path"]], payload)
-                    check_file(entry, payload)
-                    verified[entry["path"]] = cached[entry["path"]]
-                    progress("file_cached", path=entry["path"])
-                    continue
-                verified[entry["path"]] = download_file(entry, directory, peers=peers,
-                    discovery=not args.no_discovery, timeout=args.timeout, rate=args.rate_limit,
-                    checkpoint_interval=args.checkpoint_interval, cancel=cancel, emit=progress)
-            if cancel.is_set():
-                raise InterruptedDownload("interrupted before cache publication; verified data retained")
-            snapshot = materialize(root, manifest, digest, verified)
-            return {"command": "pull", "name": manifest["name"], "manifest_sha256": digest,
-                    "revision": snapshot_revision(digest), "cache_dir": str(root), "snapshot": str(snapshot),
-                    "files": [entry["path"] for entry in entries], "skipped_flagged": skipped, "signed": False}
+        return pull_release(manifest, digest, entries, skipped, args.cache_dir, peers=peers,
+                            discovery=not args.no_discovery, timeout=args.timeout,
+                            rate=args.rate_limit, checkpoint_interval=args.checkpoint_interval,
+                            cancel=cancel, emit=progress)
     finally:
         for signum, handler in original_handlers.items():
             signal.signal(signum, handler)
+
+
+def pull_release(manifest, digest, entries, skipped, cache, *, peers, discovery,
+                 timeout, rate, checkpoint_interval, cancel, emit):
+    """Pull a validated selection; reusable by worker threads without signal hooks."""
+    root = ensure_directory(cache_root(cache))
+    state = ensure_directory(root / ".modelswarm")
+    with release_lock(state, digest):
+        working = ensure_directory(state / digest / "files")
+        cached = cached_files(root, manifest, digest)
+        verified = {}
+        for entry in entries:
+            if cancel.is_set():
+                raise InterruptedDownload("interrupted; verified files and partial data retained")
+            file_id = hashlib.sha256(entry["path"].encode("utf-8")).hexdigest()
+            directory = ensure_directory(working / file_id)
+            if entry["path"] in cached:
+                # Keep the original basename for suffix-sensitive inspection.
+                payload = ensure_directory(directory / "payload") / Path(entry["path"]).name
+                if payload.is_symlink() or (payload.exists() and (not payload.is_file() or payload.stat().st_nlink != 1)):
+                    raise ValueError("unsafe staged payload path")
+                shutil.copyfile(cached[entry["path"]], payload)
+                check_file(entry, payload)
+                verified[entry["path"]] = cached[entry["path"]]
+                emit("file_cached", path=entry["path"])
+                continue
+            verified[entry["path"]] = download_file(entry, directory, peers=peers,
+                discovery=discovery, timeout=timeout, rate=rate,
+                checkpoint_interval=checkpoint_interval, cancel=cancel, emit=emit)
+        if cancel.is_set():
+            raise InterruptedDownload("interrupted before cache publication; verified data retained")
+        snapshot = materialize(root, manifest, digest, verified)
+        return {"command": "pull", "name": manifest["name"], "manifest_sha256": digest,
+                "revision": snapshot_revision(digest), "cache_dir": str(root), "snapshot": str(snapshot),
+                "files": [entry["path"] for entry in entries], "skipped_flagged": skipped, "signed": False}
 
 
 def parser():
@@ -228,7 +236,26 @@ def parser():
             command.add_argument("--timeout", type=float, default=300, help="seconds per file before saving progress and failing")
             command.add_argument("--rate-limit", type=int, default=0, help="download bytes/s; zero means unlimited")
             command.add_argument("--checkpoint-interval", type=float, default=15, help="seconds between flushed resume checkpoints; minimum one")
+    command = commands.add_parser("serve", help="serve a loopback Hugging Face-compatible read-only model endpoint")
+    command.add_argument("--manifest", type=Path, action="append", default=[], help="register a local manifest; repeat for different model names")
+    command.add_argument("--cache-dir", type=Path)
+    command.add_argument("--host", default="127.0.0.1")
+    command.add_argument("--port", type=int, default=8866, help="loopback HTTP port; zero selects a free port")
+    command.add_argument("--upstream", default="https://huggingface.co", help="public upstream Hub; HTTPS or a loopback test origin")
+    command.add_argument("--no-upstream", action="store_true", help="serve registered manifests only")
+    command.add_argument("--allow-unsafe", action="store_true", help="include flagged formats; never execute them")
+    command.add_argument("--peer", action="append", default=[])
+    command.add_argument("--no-discovery", action="store_true")
+    command.add_argument("--timeout", type=float, default=300)
+    command.add_argument("--rate-limit", type=int, default=0)
+    command.add_argument("--checkpoint-interval", type=float, default=15)
+    command.set_defaults(function=serve)
     return result
+
+
+def serve(args):
+    from .endpoint import serve as run_server
+    return run_server(args)
 
 
 def main(argv=None):

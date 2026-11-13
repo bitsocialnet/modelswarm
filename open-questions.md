@@ -70,6 +70,8 @@ The [CLI policy](cli/README.md#select-files-and-formats) implements conservative
 
 ## The Hugging Face Endpoint
 
+The [SDK endpoint prototype](cli/ENDPOINT.md) answers model info/tree and HEAD/GET/range requests. Explicitly registered local names own their entire namespace; missing local files/revisions never fall back upstream. Fallback is public-only and never forwards client credentials. Complete bytes are verified before serving. These provisional choices leave the broader product questions below open.
+
 - Which requests do `huggingface_hub`, `transformers`, llama.cpp and Ollama actually make, and how stable are they between versions?
 - Ollama does not read `HF_ENDPOINT`. Is a registry-style route enough, or does it need a change upstream?
 - When a name exists both on Modelswarm and on Hugging Face with different files, which one does the endpoint serve, and how is the user told?

@@ -2,6 +2,8 @@
 
 **The prototype milestone is implemented:** installable `modelswarm make`, `verify` and `pull`, portable unsigned manifest v0, nested files, format policy, resumable v2/HTTP transfers and verified Hugging Face-compatible cache snapshots. This is ready for the local-endpoint milestone and further hardening, not a production release.
 
+The subsequent [endpoint milestone](ENDPOINT-EVALUATION.md) implements `serve` and public upstream fallback; the results below remain the original manifest/CLI evaluation.
+
 ## Implemented
 
 - `make DIR`: enumerate regular files without following source symlinks; inspect formats; calculate SHA-256 and v2 roots; embed one complete torrent per nonempty file; write a deterministic, versioned JSON manifest without replacing existing output.
