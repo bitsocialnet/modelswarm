@@ -33,7 +33,7 @@
   position: absolute;
   inset: -10%;
   pointer-events: none;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%);
   opacity: var(--assembled);
   transition: opacity 0.3s ease;
 }
@@ -45,8 +45,27 @@
   overflow: visible;
 }
 
-.mark > g {
+/* Pieces are dim outlines while they travel; a landed piece brightens and glows. */
+.piece {
+  opacity: 0.4;
   will-change: transform, opacity;
+  transition:
+    opacity 0.4s ease,
+    filter 0.4s ease;
+}
+
+.piece[data-landed='true'] {
+  opacity: 1;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent) 55%, transparent));
+}
+
+.scan {
+  opacity: 0.14;
+  transition: opacity 0.4s ease;
+}
+
+.piece[data-landed='true'] .scan {
+  opacity: 0.26;
 }
 
 .caption {
@@ -121,7 +140,9 @@
     padding-block: 6rem;
   }
 
-  .markWrap::before {
+  .markWrap::before,
+  .piece,
+  .scan {
     transition: none;
   }
 }
