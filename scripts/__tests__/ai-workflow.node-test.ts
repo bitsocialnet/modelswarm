@@ -1,14 +1,15 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import test from 'node:test';
-import { generatedFiles, listFiles, readFrontmatter } from '../ai-workflow-files.mjs';
-import { validateWorkflow } from '../validate-ai-workflow.mjs';
+import test, { type TestContext } from 'node:test';
+import { generatedFiles, listFiles, readFrontmatter } from '../ai-workflow-files.ts';
+import { validateWorkflow } from '../validate-ai-workflow.ts';
 
 const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-function fixture(t) {
+function fixture(t: TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'modelswarm-workflow-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   for (const relative of [
@@ -42,10 +43,14 @@ test('shared sources generate valid, deterministic harness outputs', (t) => {
   assert.deepEqual(result.errors, []);
   assert.equal(result.roles, 2);
   const codexBrowserCheck = before.get('.codex/agents/browser-check.toml');
+  assert.ok(typeof codexBrowserCheck === 'string');
   assert.match(codexBrowserCheck, /name = ['"]browser-check['"]/);
   assert.doesNotMatch(codexBrowserCheck, /(?:^|\n)model\s*=/);
   for (const harness of ['claude', 'cursor']) {
-    assert.equal(readFrontmatter(before.get(`.${harness}/agents/browser-check.md`)).metadata.model, undefined);
+    const relative = `.${harness}/agents/browser-check.md`;
+    const content = before.get(relative);
+    assert.ok(typeof content === 'string');
+    assert.equal(readFrontmatter(content, relative).metadata.model, undefined);
   }
 });
 
@@ -61,7 +66,7 @@ test('validation detects a missing agent and obsolete compatibility files', (t) 
 test('validation rejects Stop mutations even when JSON parses', (t) => {
   const root = fixture(t);
   const file = path.join(root, '.codex/hooks.json');
-  const config = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const config: { hooks: Record<string, unknown> } = JSON.parse(fs.readFileSync(file, 'utf8'));
   config.hooks.Stop = [{ hooks: [{ type: 'command', command: 'git fetch --prune' }] }];
   fs.writeFileSync(file, JSON.stringify(config));
   assert.ok(validateWorkflow(root).errors.some((error) => error.includes('no Stop')));
@@ -104,8 +109,9 @@ test('edit hooks and wrappers reject appended lifecycle commands', (t) => {
   for (const harness of ['.codex', '.claude', '.cursor']) {
     const configPath = path.join(root, harness, harness === '.claude' ? 'settings.json' : 'hooks.json');
     const original = fs.readFileSync(configPath, 'utf8');
-    const config = JSON.parse(original);
-    const handler = harness === '.cursor' ? config.hooks.afterFileEdit[0] : config.hooks.PostToolUse[0].hooks[0];
+    const config: { hooks: Record<string, { command?: string; hooks?: { command: string }[] }[]> } = JSON.parse(original);
+    const handler = harness === '.cursor' ? config.hooks.afterFileEdit[0] : config.hooks.PostToolUse[0].hooks?.[0];
+    assert.ok(handler && typeof handler.command === 'string');
     handler.command += '; git fetch --prune';
     fs.writeFileSync(configPath, JSON.stringify(config));
     assert.ok(validateWorkflow(root).errors.some((error) => error.includes('only its formatter wrapper')));
@@ -128,4 +134,21 @@ test('role sources reject model settings and invalid sandbox values', (t) => {
   }
   fs.writeFileSync(file, original.replace('name: browser-check', 'name: browser-check\nsandbox-mode: false'));
   assert.throws(() => generatedFiles(root), /Unsupported role sandbox/);
+});
+
+test('generated legacy entry point runs TypeScript and validation detects drift', (t) => {
+  const root = fixture(t);
+  const bridge = path.join(root, 'scripts/sync-ai-workflow.mjs');
+  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ type: 'module' }));
+  fs.writeFileSync(
+    path.join(root, 'scripts/sync-ai-workflow.ts'),
+    "import { writeFileSync } from 'node:fs';\nconst result: string = 'ran TypeScript';\nwriteFileSync(new URL('../ran.txt', import.meta.url), result);\n",
+  );
+  const result = spawnSync(process.execPath, [bridge], { cwd: root, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(fs.readFileSync(path.join(root, 'ran.txt'), 'utf8'), 'ran TypeScript');
+  fs.appendFileSync(bridge, '// drift\n');
+  assert.ok(validateWorkflow(root).errors.some((error) => error.includes('Generated file missing or drifted: scripts/sync-ai-workflow.mjs')));
+  fs.unlinkSync(bridge);
+  assert.ok(validateWorkflow(root).errors.some((error) => error.includes('Generated file missing or drifted: scripts/sync-ai-workflow.mjs')));
 });

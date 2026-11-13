@@ -7,20 +7,20 @@
   "license": "GPL-3.0-or-later",
   "packageManager": "yarn@4.17.1",
   "scripts": {
-    "start": "node scripts/start-dev.js",
-    "build": "tsc --noEmit && vite build",
+    "start": "node scripts/start-dev.ts",
+    "build": "corepack yarn type-check && vite build",
     "preview": "vite preview",
-    "type-check": "tsc --noEmit",
-    "lint": "oxlint --deny-warnings src",
+    "type-check": "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json",
+    "lint": "oxlint --deny-warnings src scripts vite.config.ts",
     "format": "oxfmt src scripts",
     "knip": "knip --production --include dependencies,unlisted,binaries --no-progress",
     "knip:full": "knip --no-progress --no-exit-code",
     "doctor": "react-doctor . -y",
-    "deps:check-pinned": "node scripts/check-pinned-versions.mjs",
-    "agent:verify": "node scripts/agent-verify.mjs",
-    "ai-workflow:sync": "node scripts/sync-ai-workflow.mjs",
-    "ai-workflow:check": "node scripts/validate-ai-workflow.mjs",
-    "ai-workflow:test": "node --test --test-concurrency=1 scripts/__tests__/*.node-test.mjs"
+    "deps:check-pinned": "node scripts/check-pinned-versions.ts",
+    "agent:verify": "node scripts/agent-verify.ts",
+    "ai-workflow:sync": "node scripts/sync-ai-workflow.ts",
+    "ai-workflow:check": "node scripts/validate-ai-workflow.ts",
+    "ai-workflow:test": "node --test --test-concurrency=1 scripts/__tests__/*.node-test.ts"
   },
   "dependencies": {
     "@fontsource-variable/oxanium": "5.3.0",
@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@playwright/cli": "0.1.22",
+    "@types/cross-spawn": "6.0.6",
     "@types/node": "22.20.5",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
@@ -46,5 +47,8 @@
     "smol-toml": "1.9.1",
     "typescript": "7.0.2",
     "vite": "8.3.5"
+  },
+  "engines": {
+    "node": "^22.18.0 || >=24.0.0"
   }
 }

@@ -5,3 +5,4 @@ build/
 !.yarn/patches
 .vercel
 .env*
+.playwright-cli/

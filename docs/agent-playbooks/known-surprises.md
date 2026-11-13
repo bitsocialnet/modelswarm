@@ -98,7 +98,7 @@ The entries below were observed in 5chan and WeTube, whose agent workflow and to
 - **Context:** Moving 5chan's `yarn start` from the old `:1355` HTTP proxy URL to HTTPS.
 - **What was surprising:** Even with a current Portless installed, it reused an existing `~/.portless/proxy.port = 1355` HTTP proxy and printed the legacy `:1355` URL.
 - **Impact:** `yarn start` can advertise and use the old URL when a contributor has legacy Portless state running.
-- **Mitigation:** Keep `scripts/start-dev.js` explicitly starting the Portless HTTPS proxy on port `443` before registering the app route.
+- **Mitigation:** Keep `scripts/start-dev.ts` explicitly starting the Portless HTTPS proxy on port `443` before registering the app route.
 - **Status:** confirmed
 
 ### Fixed Portless app names collide across worktrees
@@ -108,5 +108,5 @@ The entries below were observed in 5chan and WeTube, whose agent workflow and to
 - **Context:** Starting `yarn start` in one 5chan worktree while another was already serving through Portless.
 - **What was surprising:** Using one literal Portless app name in every worktree makes the route itself collide, even when the backing ports differ, so the second process fails with `already registered`.
 - **Impact:** Parallel branches can block each other even though Portless is meant to let them coexist.
-- **Mitigation:** Keep Portless startup behind `scripts/start-dev.js`, which uses a branch-scoped `*.modelswarm.localhost` route outside the canonical case and increments a `-2`, `-3`, ... suffix when that route is occupied. Pass the actual route to agents through `AGENT_APP_URL` when it differs from the canonical URL.
+- **Mitigation:** Keep Portless startup behind `scripts/start-dev.ts`, which uses a branch-scoped `*.modelswarm.localhost` route outside the canonical case and increments a `-2`, `-3`, ... suffix when that route is occupied. Pass the actual route to agents through `AGENT_APP_URL` when it differs from the canonical URL.
 - **Status:** confirmed

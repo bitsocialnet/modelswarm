@@ -3,11 +3,11 @@ import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 import { setTimeout } from 'node:timers/promises';
-import { defaultCommands, runVerification } from '../agent-verify.mjs';
+import { defaultCommands, runVerification, type VerificationOptions } from '../agent-verify.ts';
 
-function fixture(t) {
+function fixture(t: TestContext) {
   const root = mkdtempSync(path.join(tmpdir(), 'agent-verify-test-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const lockPath = path.join(root, 'verify.lock');
@@ -27,13 +27,20 @@ if (code === 'signal') process.kill(process.pid, 'SIGTERM');
 else process.exitCode = Number(code);
 `,
   );
-  const command = (name, code = 0, gate) => [process.execPath, script, logPath, name, String(code), ...(gate ? [gate] : [])];
-  const output = [];
-  const options = { cwd: root, lockPath, log: (line) => output.push(line), error: (line) => output.push(line) };
+  const command = (name: string, code: number | 'signal' = 0, gate?: string): [string, ...string[]] => [
+    process.execPath,
+    script,
+    logPath,
+    name,
+    String(code),
+    ...(gate ? [gate] : []),
+  ];
+  const output: string[] = [];
+  const options = { cwd: root, lockPath, log: (line: string) => output.push(line), error: (line: string) => output.push(line) };
   return { root, lockPath, logPath, command, options, output };
 }
 
-async function waitForFile(file) {
+async function waitForFile(file: string) {
   for (let attempt = 0; attempt < 300; attempt += 1) {
     if (existsSync(file)) return;
     await setTimeout(10);
@@ -41,8 +48,8 @@ async function waitForFile(file) {
   assert.fail(`Timed out waiting for fixture: ${file}`);
 }
 
-function launchVerification(options) {
-  const module = new URL('../agent-verify.mjs', import.meta.url).href;
+function launchVerification(options: VerificationOptions) {
+  const module = new URL('../agent-verify.ts', import.meta.url).href;
   const child = spawn(process.execPath, [
     '--input-type=module',
     '-e',
@@ -55,7 +62,7 @@ function launchVerification(options) {
   child.stderr.on('data', (chunk) => {
     output += chunk;
   });
-  const completed = new Promise((resolve, reject) => {
+  const completed = new Promise<{ code: number | null; signal: NodeJS.Signals | null; output: string }>((resolve, reject) => {
     child.on('error', reject);
     child.on('close', (code, signal) => resolve({ code, signal, output }));
   });
@@ -97,7 +104,7 @@ test('advisory failures are reported without changing the exit status', async (t
 
 test('default checks add the AI workflow check only when workflow files changed', (t) => {
   const { root } = fixture(t);
-  const git = (...args) => {
+  const git = (...args: string[]) => {
     const result = spawnSync('git', ['-c', 'user.name=Agent Verify Test', '-c', 'user.email=agent-verify@example.invalid', '-c', 'commit.gpgsign=false', ...args], {
       cwd: root,
       encoding: 'utf8',
@@ -114,7 +121,9 @@ test('default checks add the AI workflow check only when workflow files changed'
   git('commit', '-q', '-m', 'initial');
   writeFileSync(path.join(root, 'app.ts'), 'export const value = 1;');
   assert.deepEqual(labels(), ['corepack yarn lint', 'corepack yarn type-check', 'corepack yarn build', 'corepack yarn knip']);
-  assert.equal(defaultCommands(root).at(-1).advisory, true);
+  const advisory = defaultCommands(root).at(-1);
+  assert.ok(advisory && !Array.isArray(advisory));
+  assert.equal(advisory.advisory, true);
 
   mkdirSync(path.join(root, '.agents/skills/example'), { recursive: true });
   writeFileSync(path.join(root, '.agents/skills/example/SKILL.md'), 'untracked');

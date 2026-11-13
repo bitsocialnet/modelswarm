@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawnSync } from 'node:child_process';
+import { spawnSync, type ChildProcess } from 'node:child_process';
 import spawn from 'cross-spawn';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -17,17 +17,37 @@ const workflowPaths = [
   '.codex/',
   '.cursor/',
   'scripts/agent-hooks/',
-  'scripts/ai-workflow-files.mjs',
+  'scripts/ai-workflow-files.ts',
   'scripts/sync-ai-workflow.mjs',
-  'scripts/validate-ai-workflow.mjs',
+  'scripts/sync-ai-workflow.ts',
+  'scripts/validate-ai-workflow.ts',
   'CLAUDE.md',
 ];
-const signalExitCode = (signal) => 128 + (constants.signals[signal] || 1);
+const signalExitCode = (signal: NodeJS.Signals) => 128 + (constants.signals[signal] || 1);
+
+type Command = [executable: string, ...args: string[]];
+type VerificationCommand = Command | { command: Command; advisory?: boolean };
+
+export interface VerificationOptions {
+  cwd?: string;
+  lockPath?: string;
+  commands?: VerificationCommand[];
+  log?: (message: string) => void;
+  error?: (message: string) => void;
+}
+
+function hasErrorCode(error: unknown, code: string): boolean {
+  return error instanceof Error && 'code' in error && error.code === code;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 // Staged, unstaged, untracked, and committed-since-master paths. Returns undefined when Git
 // cannot answer, so callers run the check instead of silently skipping it.
-export function changedFiles(cwd) {
-  const git = (...args) => spawnSync('git', args, { cwd, encoding: 'utf8' });
+export function changedFiles(cwd: string): string[] | undefined {
+  const git = (...args: string[]) => spawnSync('git', args, { cwd, encoding: 'utf8' });
   const lists = [
     ['diff', '--name-only', '--no-renames', '-z', '--cached'],
     ['diff', '--name-only', '--no-renames', '-z'],
@@ -35,7 +55,7 @@ export function changedFiles(cwd) {
   ];
   const base = ['origin/master', 'master'].map((ref) => git('merge-base', ref, 'HEAD')).find((result) => result.status === 0);
   if (base) lists.push(['diff', '--name-only', '--no-renames', '-z', base.stdout.trim(), 'HEAD']);
-  const files = new Set();
+  const files = new Set<string>();
   for (const args of lists) {
     const result = git(...args);
     if (result.error || result.status !== 0) return undefined;
@@ -44,9 +64,9 @@ export function changedFiles(cwd) {
   return [...files];
 }
 
-export function defaultCommands(cwd = repoRoot) {
-  const yarn = (...args) => ['corepack', 'yarn', ...args];
-  const commands = [yarn('lint'), yarn('type-check'), yarn('build')];
+export function defaultCommands(cwd = repoRoot): VerificationCommand[] {
+  const yarn = (...args: string[]): Command => ['corepack', 'yarn', ...args];
+  const commands: VerificationCommand[] = [yarn('lint'), yarn('type-check'), yarn('build')];
   const files = changedFiles(cwd);
   if (!files || files.some((file) => workflowPaths.some((prefix) => file.startsWith(prefix)))) commands.push(yarn('ai-workflow:check'));
   // Knip reports unused files and dependencies for review; its findings never fail verification.
@@ -54,15 +74,26 @@ export function defaultCommands(cwd = repoRoot) {
   return commands;
 }
 
-function acquireLock(lockPath, cwd) {
+function acquireLock(lockPath: string, cwd: string): () => void {
   try {
     mkdirSync(lockPath, { mode: 0o700 });
   } catch (error) {
-    if (error.code !== 'EEXIST') throw error;
+    if (!hasErrorCode(error, 'EEXIST')) throw error;
     let owner = 'owner details unavailable';
     try {
-      const details = JSON.parse(readFileSync(path.join(lockPath, 'owner.json'), 'utf8'));
-      owner = `PID ${details.pid}, ${details.cwd}, started ${details.startedAt}`;
+      const details: unknown = JSON.parse(readFileSync(path.join(lockPath, 'owner.json'), 'utf8'));
+      if (
+        details &&
+        typeof details === 'object' &&
+        'pid' in details &&
+        typeof details.pid === 'number' &&
+        'cwd' in details &&
+        typeof details.cwd === 'string' &&
+        'startedAt' in details &&
+        typeof details.startedAt === 'string'
+      ) {
+        owner = `PID ${details.pid}, ${details.cwd}, started ${details.startedAt}`;
+      }
     } catch {
       // A concurrent owner may still be writing its metadata. Do not steal it.
     }
@@ -81,7 +112,10 @@ function acquireLock(lockPath, cwd) {
   }
   return () => {
     // Never remove a lock that has been replaced by another invocation.
-    if (JSON.parse(readFileSync(ownerPath, 'utf8')).token !== token) throw new Error(`Verification lock ownership changed: ${lockPath}`);
+    const details: unknown = JSON.parse(readFileSync(ownerPath, 'utf8'));
+    if (!details || typeof details !== 'object' || !('token' in details) || details.token !== token) {
+      throw new Error(`Verification lock ownership changed: ${lockPath}`);
+    }
     unlinkSync(ownerPath);
     rmdirSync(lockPath);
   };
@@ -93,20 +127,20 @@ export async function runVerification({
   commands = defaultCommands(cwd),
   log = console.log,
   error = console.error,
-} = {}) {
-  let release;
+}: VerificationOptions = {}): Promise<number> {
+  let release: () => void;
   try {
     release = acquireLock(lockPath, cwd);
   } catch (failure) {
-    error(`[agent verify] ${failure.message}`);
-    return failure.code === 'LOCK_BUSY' ? 75 : 1;
+    error(`[agent verify] ${errorMessage(failure)}`);
+    return hasErrorCode(failure, 'LOCK_BUSY') ? 75 : 1;
   }
 
-  let child;
-  let interrupted;
+  let child: ChildProcess | undefined;
+  let interrupted: NodeJS.Signals | undefined;
   let exitCode = 0;
-  const failures = [];
-  const forwardSignal = (signal) => {
+  const failures: string[] = [];
+  const forwardSignal = (signal: NodeJS.Signals) => {
     interrupted = signal;
     if (!child?.pid) return;
     try {
@@ -115,7 +149,7 @@ export async function runVerification({
         if (result.error || result.status !== 0) error(`[agent verify] Could not terminate command tree for PID ${child.pid}`);
       } else process.kill(-child.pid, signal);
     } catch (failure) {
-      if (failure.code !== 'ESRCH') error(`[agent verify] Could not forward ${signal}: ${failure.message}`);
+      if (!hasErrorCode(failure, 'ESRCH')) error(`[agent verify] Could not forward ${signal}: ${errorMessage(failure)}`);
     }
   };
   const onInterrupt = () => forwardSignal('SIGINT');
@@ -129,9 +163,10 @@ export async function runVerification({
       const { command, advisory = false } = Array.isArray(entry) ? { command: entry } : entry;
       const label = command.join(' ');
       log(`[agent verify] ${label} (${cwd})`);
-      const result = await new Promise((resolve) => {
-        child = spawn(command[0], command.slice(1), { cwd, stdio: 'inherit', detached: process.platform !== 'win32' });
-        child.on('error', (failure) => resolve({ code: failure.code === 'ENOENT' ? 127 : 1, detail: failure.message }));
+      const [executable, ...args] = command;
+      const result = await new Promise<{ code: number; detail: string }>((resolve) => {
+        child = spawn(executable, args, { cwd, stdio: 'inherit', detached: process.platform !== 'win32' });
+        child.on('error', (failure) => resolve({ code: hasErrorCode(failure, 'ENOENT') ? 127 : 1, detail: failure.message }));
         child.on('close', (code, signal) => resolve({ code: signal ? signalExitCode(signal) : (code ?? 1), detail: signal ? `signal ${signal}` : `exit ${code}` }));
       });
       child = undefined;
@@ -144,7 +179,7 @@ export async function runVerification({
       }
     }
   } catch (failure) {
-    error(`[agent verify] ${failure.message}`);
+    error(`[agent verify] ${errorMessage(failure)}`);
     exitCode ||= 1;
   } finally {
     process.off('SIGINT', onInterrupt);
@@ -152,7 +187,7 @@ export async function runVerification({
     try {
       release();
     } catch (failure) {
-      error(`[agent verify] Could not release lock: ${failure.message}`);
+      error(`[agent verify] Could not release lock: ${errorMessage(failure)}`);
       exitCode ||= 1;
     }
   }

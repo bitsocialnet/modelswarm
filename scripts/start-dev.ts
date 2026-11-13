@@ -10,16 +10,16 @@ import {
   portlessBin,
   portlessEnv,
   waitForUrlReady,
-} from './local-server-utils.mjs';
-import { resolvePort } from './dev-server-utils.mjs';
+} from './local-server-utils.ts';
+import { resolvePort } from './dev-server-utils.ts';
 
 const fallbackRequestedPort = Number(process.env.PORT) || 5191;
 
 console.log('Note: yarn start runs Vite/React in development mode. Use yarn build and yarn preview for production-like local checks.');
 
 const command = getLocalServerCommand();
-let args;
-let publicUrl = null;
+let args: string[];
+let publicUrl: string | null = null;
 
 if (command === portlessBin) {
   ensurePortlessProxy();
@@ -59,8 +59,8 @@ if (publicUrl && process.env.BROWSER !== 'none') {
       console.log(`Opening ${publicUrl} in browser...`);
       openInBrowser(publicUrl);
     })
-    .catch((error) => {
-      console.warn(`Could not auto-open ${publicUrl}: ${error.message}`);
+    .catch((error: unknown) => {
+      console.warn(`Could not auto-open ${publicUrl}: ${error instanceof Error ? error.message : String(error)}`);
     });
 }
 

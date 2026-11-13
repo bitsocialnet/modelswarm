@@ -1,33 +1,40 @@
 #!/usr/bin/env node
 
+import type { SpawnSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type crossSpawn from 'cross-spawn';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const require = createRequire(import.meta.url);
 const editTools = new Set(['Edit', 'Write', 'MultiEdit', 'apply_patch']);
 
-export function editedPaths(payload) {
-  if (!payload || typeof payload !== 'object') return [];
-  if (payload.hook_event_name && !['PostToolUse', 'afterFileEdit'].includes(payload.hook_event_name)) return [];
-  if (payload.tool_name && !editTools.has(payload.tool_name)) return [];
-  if (payload.tool_response?.isError === true || payload.tool_response?.success === false) return [];
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object';
+}
 
-  const input = payload.tool_input;
-  if (payload.tool_name !== 'apply_patch') {
-    const filePath = input?.file_path ?? payload.file_path;
+export function editedPaths(payload: unknown): string[] {
+  if (!isRecord(payload)) return [];
+  const { hook_event_name: event, tool_name: tool, tool_input, tool_response, file_path } = payload;
+  if (event && event !== 'PostToolUse' && event !== 'afterFileEdit') return [];
+  if (tool && (typeof tool !== 'string' || !editTools.has(tool))) return [];
+  if (isRecord(tool_response) && (tool_response.isError === true || tool_response.success === false)) return [];
+
+  const input = isRecord(tool_input) ? tool_input : undefined;
+  if (tool !== 'apply_patch') {
+    const filePath = input?.file_path ?? file_path;
     if (typeof filePath === 'string') return [filePath];
   }
-  if (payload.tool_name && payload.tool_name !== 'apply_patch') return [];
+  if (tool && tool !== 'apply_patch') return [];
   if (typeof input?.command !== 'string') return [];
 
   const lines = input.command.trim().split(/\r?\n/);
   if (lines[0] !== '*** Begin Patch' || lines.at(-1) !== '*** End Patch') return [];
 
   const paths = [];
-  let pendingPath;
+  let pendingPath: string | undefined;
   for (const line of lines.slice(1, -1)) {
     const file = /^\*\*\* (Add|Update|Delete) File: (.+)$/.exec(line);
     if (file) {
@@ -41,15 +48,16 @@ export function editedPaths(payload) {
   return paths;
 }
 
-function isInside(root, candidate) {
+function isInside(root: string, candidate: string): boolean {
   const relative = path.relative(root, candidate);
   return relative !== '' && relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
 }
 
-export function formattingPaths(payload, root = repoRoot) {
+export function formattingPaths(payload: unknown, root = repoRoot): string[] {
   const realRoot = realpathSync(root);
-  const editCwd = typeof payload?.cwd === 'string' && path.isAbsolute(payload.cwd) ? payload.cwd : root;
-  const files = new Set();
+  const cwd = isRecord(payload) ? payload.cwd : undefined;
+  const editCwd = typeof cwd === 'string' && path.isAbsolute(cwd) ? cwd : root;
+  const files = new Set<string>();
   for (const candidate of editedPaths(payload)) {
     if (!candidate || candidate.includes('\0') || !/\.(?:[cm]?js|jsx|[cm]?ts|tsx)$/.test(candidate)) continue;
     const absolute = path.resolve(editCwd, candidate);
@@ -65,12 +73,14 @@ export function formattingPaths(payload, root = repoRoot) {
   return [...files];
 }
 
-export function formatEditedFiles(payload, root = repoRoot, run) {
+type FormatCommand = (executable: string, args: string[], options: SpawnSyncOptionsWithStringEncoding) => { status: number | null; error?: Error; stderr?: string };
+
+export function formatEditedFiles(payload: unknown, root = repoRoot, run?: FormatCommand): void {
   const files = formattingPaths(payload, root);
   if (!files.length || !existsSync(path.join(root, 'node_modules/oxfmt/package.json'))) return;
 
   // Load only after the no-op checks, so a fresh checkout needs no dependencies.
-  const spawnSync = run ?? require('cross-spawn').sync;
+  const spawnSync = run ?? (require('cross-spawn') as typeof crossSpawn).sync;
   const result = spawnSync('corepack', ['yarn', 'exec', 'oxfmt', '--write', ...files], {
     cwd: root,
     encoding: 'utf8',
@@ -85,7 +95,7 @@ export function formatEditedFiles(payload, root = repoRoot, run) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  let payload;
+  let payload: unknown;
   try {
     payload = JSON.parse(readFileSync(0, 'utf8'));
   } catch {

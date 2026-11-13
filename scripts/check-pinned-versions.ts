@@ -9,7 +9,7 @@ const exactSemverPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]
 const pinnedProtocols = ['file:', 'link:', 'patch:', 'portal:', 'workspace:'];
 const urlProtocols = ['git://', 'git+http://', 'git+https://', 'git+ssh://', 'github:', 'http://', 'https://'];
 
-async function findPackageJsonFiles(dir) {
+async function findPackageJsonFiles(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
   const packageJsonFiles = [];
 
@@ -31,7 +31,7 @@ async function findPackageJsonFiles(dir) {
   return packageJsonFiles;
 }
 
-function isPinnedVersion(specifier) {
+function isPinnedVersion(specifier: string): boolean {
   if (exactSemverPattern.test(specifier)) {
     return true;
   }
@@ -56,15 +56,20 @@ function isPinnedVersion(specifier) {
   return false;
 }
 
-function formatFailure(packageJsonPath, section, name, specifier) {
+function formatFailure(packageJsonPath: string, section: string, name: string, specifier: string): string {
   return `${path.relative(repoRoot, packageJsonPath)}: ${section}.${name} uses non-pinned version "${specifier}"`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object';
 }
 
 const packageJsonFiles = (await findPackageJsonFiles(repoRoot)).sort();
 const failures = [];
 
 for (const packageJsonPath of packageJsonFiles) {
-  const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf8'));
+  const packageJson: unknown = JSON.parse(await readFile(packageJsonPath, 'utf8'));
+  if (!isRecord(packageJson)) throw new Error(`Expected a package.json object: ${path.relative(repoRoot, packageJsonPath)}`);
 
   for (const section of dependencySections) {
     const dependencies = packageJson[section];
@@ -72,7 +77,8 @@ for (const packageJsonPath of packageJsonFiles) {
       continue;
     }
 
-    for (const [name, specifier] of Object.entries(dependencies)) {
+    const dependencyEntries: [string, unknown][] = Object.entries(dependencies);
+    for (const [name, specifier] of dependencyEntries) {
       if (typeof specifier !== 'string' || isPinnedVersion(specifier)) {
         continue;
       }

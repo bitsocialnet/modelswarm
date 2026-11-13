@@ -1,6 +1,6 @@
 # Agent Hooks Setup
 
-The only automatic lifecycle action is formatting edited JavaScript and TypeScript files. Each harness has a thin `format.sh` wrapper that calls `scripts/agent-hooks/format.mjs`. Finishing a response does not install packages, run verification, inject review reminders, or mutate Git state.
+The only automatic lifecycle action is formatting edited JavaScript and TypeScript files. Each harness has a thin `format.sh` wrapper that calls `scripts/agent-hooks/format.ts`. Finishing a response does not install packages, run verification, inject review reminders, or mutate Git state.
 
 ## Entry points
 
@@ -27,7 +27,7 @@ Run `corepack yarn install` explicitly when setting up a worktree or changing de
 
 ## Explicit verification
 
-Use `corepack yarn agent:verify` when the change needs the full pass described in [verification.md](verification.md). `scripts/agent-verify.mjs` runs `lint`, `type-check`, and `build` sequentially, then `ai-workflow:check` when Git reports a changed AI workflow file (staged, unstaged, untracked, or committed since `origin/master`), prints the commands and working directory, and reports every failed check. It completes the remaining checks after a command fails and exits with the first failure's status. A missing executable returns 127; a terminated command reports its signal and returns the conventional signal exit status. When Git cannot report changes, it runs the workflow check rather than skipping it. A final `knip` pass is advisory: its findings are reported but never change the exit status.
+Use `corepack yarn agent:verify` when the change needs the full pass described in [verification.md](verification.md). `scripts/agent-verify.ts` runs `lint`, `type-check`, and `build` sequentially, then `ai-workflow:check` when Git reports a changed AI workflow file (staged, unstaged, untracked, or committed since `origin/master`), prints the commands and working directory, and reports every failed check. It completes the remaining checks after a command fails and exits with the first failure's status. A missing executable returns 127; a terminated command reports its signal and returns the conventional signal exit status. When Git cannot report changes, it runs the workflow check rather than skipping it. A final `knip` pass is advisory: its findings are reported but never change the exit status.
 
 The command does not remove, restore, or stage generated artifacts. The build itself can update output and generated files; inspect the resulting diff and clean up only output created by your own run. React Doctor and browser verification remain explicit checks selected for the change.
 
@@ -37,7 +37,7 @@ The lock coordinates invocations of this command. Other heavyweight work, such a
 
 ## Maintaining the workflow
 
-- Change shared formatter behavior in `scripts/agent-hooks/format.mjs`; keep harness wrappers thin.
+- Change shared formatter behavior in `scripts/agent-hooks/format.ts`; keep harness wrappers thin.
 - Wire only the formatter in each hook configuration. Dependency installation, Git housekeeping, reviews, and full verification belong to explicit workflows.
 - Run `corepack yarn ai-workflow:check` after changing hook scripts or configuration.
 - Run `yarn ai-workflow:test` for payload, path-containment, and verification behavior. These tests use fake commands and never run real builds.

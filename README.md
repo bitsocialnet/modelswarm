@@ -84,7 +84,7 @@ RPC revenue from Modelswarm is speculative, not a strong monetization pitch. RPC
 - [how-it-could-work.md](how-it-could-work.md): publishers, releases, the manifest, verification, safety, hubs, downloading, the Hugging Face endpoint and search
 - [open-questions.md](open-questions.md): design decisions not yet made
 - [roadmap.md](roadmap.md): what is next and what each step waits on
-- [src/](src/): the page for modelswarm.org, a React and Vite app on the stack of 5chan and WeTube. Run `corepack yarn install`, then `corepack yarn start` to open it at `https://modelswarm.localhost`; `corepack yarn build` writes static files to `build/`, and Vercel deploys every push to `master`
+- [src/](src/): the page for modelswarm.org, a React and Vite app on the stack of 5chan and WeTube. The app, Vite config, Node tooling and tests use strict TypeScript; `corepack yarn type-check` checks both the app and scripts. Use Node 22.18+ (22.x) or 24+. Run `corepack yarn install`, then `corepack yarn start` to open it at `https://modelswarm.localhost`; `corepack yarn build` writes static files to `build/`, and Vercel deploys every push to `master`
 
 ## License
 

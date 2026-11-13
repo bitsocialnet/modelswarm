@@ -4,18 +4,26 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { load as loadYaml } from 'js-yaml';
 import { parse as parseToml } from 'smol-toml';
-import { generatedFiles, listFiles, readFrontmatter } from './ai-workflow-files.mjs';
+import { generatedFiles, isMapping, listFiles, readFrontmatter } from './ai-workflow-files.ts';
 
-export function validateWorkflow(root) {
-  const errors = [];
-  const check = (condition, message) => {
+function mapping(value: unknown): Record<string, unknown> | undefined {
+  return isMapping(value) ? value : undefined;
+}
+
+function array(value: unknown): unknown[] | undefined {
+  return Array.isArray(value) ? value : undefined;
+}
+
+export function validateWorkflow(root: string) {
+  const errors: string[] = [];
+  const check = (condition: boolean, message: string) => {
     if (!condition) errors.push(message);
   };
-  const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
+  const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
   const expected = generatedFiles(root);
   for (const [relative, content] of expected) {
     check(
-      fs.existsSync(path.join(root, relative)) && fs.readFileSync(path.join(root, relative)).equals(Buffer.from(content)),
+      fs.existsSync(path.join(root, relative)) && fs.readFileSync(path.join(root, relative)).equals(typeof content === 'string' ? Buffer.from(content) : content),
       `Generated file missing or drifted: ${relative}; run yarn ai-workflow:sync`,
     );
   }
@@ -41,36 +49,32 @@ export function validateWorkflow(root) {
     check(!('model' in metadata) && !('effort' in metadata), `Skills must use runtime model settings: ${file}`);
     if (metadata['disable-model-invocation'] === true) {
       const policyFile = path.join(path.dirname(file), 'agents/openai.yaml');
-      check(
-        fs.existsSync(path.join(root, policyFile)) && loadYaml(read(policyFile))?.policy?.allow_implicit_invocation === false,
-        `Manual skill needs Codex invocation policy: ${policyFile}`,
-      );
+      const policyDocument = fs.existsSync(path.join(root, policyFile)) ? mapping(loadYaml(read(policyFile))) : undefined;
+      check(mapping(policyDocument?.policy)?.allow_implicit_invocation === false, `Manual skill needs Codex invocation policy: ${policyFile}`);
     }
     check(!/\.(?:codex|cursor|claude)\/skills\//.test(body), `Skill must reference canonical source paths: ${file}`);
   }
 
-  const config = parseToml(read('.codex/config.toml'));
+  const agents = mapping(parseToml(read('.codex/config.toml')).agents) ?? {};
+  const maxThreads = agents.max_concurrent_threads_per_session;
+  check(typeof maxThreads === 'number' && Number.isInteger(maxThreads) && maxThreads > 0, 'Codex needs a positive max_concurrent_threads_per_session');
+  check(!('max_threads' in agents), 'Use the current Codex concurrency setting instead of max_threads');
   check(
-    Number.isInteger(config.agents?.max_concurrent_threads_per_session) && config.agents.max_concurrent_threads_per_session > 0,
-    'Codex needs a positive max_concurrent_threads_per_session',
-  );
-  check(!('max_threads' in (config.agents || {})), 'Use the current Codex concurrency setting instead of max_threads');
-  check(
-    !Object.values(config.agents || {}).some((value) => value && typeof value === 'object' && 'config_file' in value),
+    !Object.values(agents).some((value) => value && typeof value === 'object' && 'config_file' in value),
     'Use standalone Codex agent definitions instead of legacy config_file registrations',
   );
   let roles = 0;
   for (const [relative, content] of expected) {
     if (relative.startsWith('.codex/agents/')) {
       roles += 1;
-      const agent = parseToml(content);
+      const agent = parseToml(content.toString());
       check(
         agent.name === path.basename(relative, '.toml') && typeof agent.description === 'string' && typeof agent.developer_instructions === 'string',
         `Invalid standalone Codex agent: ${relative}`,
       );
       check(!('model' in agent) && !('model_reasoning_effort' in agent), `Codex agents must inherit model settings: ${relative}`);
     } else if (relative.startsWith('.claude/agents/') || relative.startsWith('.cursor/agents/')) {
-      const { metadata } = readFrontmatter(content, relative);
+      const { metadata } = readFrontmatter(content.toString(), relative);
       check(!('model' in metadata) && !('effort' in metadata), `Agents must use runtime model settings: ${relative}`);
     }
   }
@@ -80,27 +84,28 @@ export function validateWorkflow(root) {
     ['.claude', 'settings.json', 'PostToolUse', '"$CLAUDE_PROJECT_DIR"/.claude/hooks/format.sh'],
     ['.cursor', 'hooks.json', 'afterFileEdit', './.cursor/hooks/format.sh'],
   ];
-  const wrapper = '#!/bin/bash\n\nrepo_root="$(cd "$(dirname "$0")/../.." && pwd -P)" || exit 1\nexec node "$repo_root/scripts/agent-hooks/format.mjs"\n';
+  const wrapper = '#!/bin/bash\n\nrepo_root="$(cd "$(dirname "$0")/../.." && pwd -P)" || exit 1\nexec node "$repo_root/scripts/agent-hooks/format.ts"\n';
   for (const [harness, filename, event, command] of entries) {
     const entry = `${harness}/${filename}`;
-    const document = JSON.parse(read(entry));
-    if (harness === '.cursor') check(document.version === 1, 'Cursor hook configuration requires version 1');
-    check(
-      document.hooks && Object.keys(document.hooks).length === 1 && event in document.hooks,
-      `Only lightweight edit hooks belong in ${entry}; no Stop or automatic install hooks`,
-    );
-    const groups = document.hooks?.[event];
-    check(Array.isArray(groups) && groups.length === 1, `Expected one edit hook group in ${entry}`);
-    if (!Array.isArray(groups)) continue;
-    for (const group of groups) {
-      if (harness === '.codex') check(group.matcher === 'apply_patch', 'Codex edit hook must match apply_patch');
-      if (harness === '.claude') check(group.matcher === 'Edit|Write|MultiEdit', 'Claude edit hook must match supported edit tools');
-      const handlers = harness === '.cursor' ? [group] : group.hooks;
-      check(Array.isArray(handlers) && handlers.length === 1, `Expected one formatter handler in ${entry}`);
-      if (!Array.isArray(handlers)) continue;
-      for (const handler of handlers) {
-        check(handler.command === command, `Hook must call only its formatter wrapper: ${entry}`);
-        if (harness !== '.cursor') check(handler.type === 'command' && handler.timeout === 10, `Invalid formatter handler schema: ${entry}`);
+    const parsed: unknown = JSON.parse(read(entry));
+    const document = mapping(parsed);
+    const hooks = mapping(document?.hooks);
+    if (harness === '.cursor') check(document?.version === 1, 'Cursor hook configuration requires version 1');
+    check(hooks !== undefined && Object.keys(hooks).length === 1 && event in hooks, `Only lightweight edit hooks belong in ${entry}; no Stop or automatic install hooks`);
+    const groups = array(hooks?.[event]);
+    check(groups?.length === 1, `Expected one edit hook group in ${entry}`);
+    if (!groups) continue;
+    for (const value of groups) {
+      const group = mapping(value);
+      if (harness === '.codex') check(group?.matcher === 'apply_patch', 'Codex edit hook must match apply_patch');
+      if (harness === '.claude') check(group?.matcher === 'Edit|Write|MultiEdit', 'Claude edit hook must match supported edit tools');
+      const handlers = harness === '.cursor' ? [value] : array(group?.hooks);
+      check(handlers?.length === 1, `Expected one formatter handler in ${entry}`);
+      if (!handlers) continue;
+      for (const value of handlers) {
+        const handler = mapping(value);
+        check(handler?.command === command, `Hook must call only its formatter wrapper: ${entry}`);
+        if (harness !== '.cursor') check(handler?.type === 'command' && handler.timeout === 10, `Invalid formatter handler schema: ${entry}`);
       }
     }
     check(listFiles(path.join(root, harness, 'hooks')).join(',') === 'format.sh', `Unexpected lifecycle wrapper in ${harness}/hooks`);
@@ -118,7 +123,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     console.log(`AI workflow: ${result.skills} shared skills, ${result.roles} roles, ${result.generated} generated files; ${result.errors.length} error(s).`);
     process.exitCode = result.errors.length ? 1 : 0;
   } catch (error) {
-    console.error(`AI workflow validation failed: ${error.message}`);
+    console.error(`AI workflow validation failed: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
   }
 }

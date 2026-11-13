@@ -3,16 +3,16 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { editedPaths, formatEditedFiles, formattingPaths } from '../agent-hooks/format.mjs';
+import { editedPaths, formatEditedFiles, formattingPaths } from '../agent-hooks/format.ts';
 
-function fixture(t) {
+function fixture(t: TestContext) {
   const temporary = realpathSync(mkdtempSync(path.join(tmpdir(), 'agent-hooks-test-')));
   t.after(() => rmSync(temporary, { recursive: true, force: true }));
   const root = path.join(temporary, 'repo');
   mkdirSync(root);
-  const write = (name, content = 'const value=1;') => {
+  const write = (name: string, content = 'const value=1;') => {
     const file = path.join(root, name);
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileSync(file, content);
@@ -107,7 +107,7 @@ test('formats each existing edited file once through installed Corepack Yarn wit
     assert.equal(executable, 'corepack');
     assert.deepEqual(args, ['yarn', 'exec', 'oxfmt', '--write', first, second]);
     assert.equal(options.cwd, root);
-    assert.equal(options.env.COREPACK_ENABLE_NETWORK, '0');
+    assert.equal(options.env?.COREPACK_ENABLE_NETWORK, '0');
     assert.equal(options.shell, undefined);
     return { status: 0 };
   });
@@ -124,14 +124,14 @@ test('formatter failures are reported without blocking the edit', (t) => {
   const { root, write } = fixture(t);
   write('file.ts');
   write('node_modules/oxfmt/package.json', '{}');
-  const errors = [];
-  t.mock.method(console, 'error', (message) => errors.push(message));
+  const errors: string[] = [];
+  t.mock.method(console, 'error', (message: string) => errors.push(message));
   assert.doesNotThrow(() => formatEditedFiles({ file_path: 'file.ts' }, root, () => ({ status: 1, stderr: 'invalid syntax' })));
   assert.match(errors.join('\n'), /Formatting failed: invalid syntax/);
 });
 
 test('CLI ignores invalid JSON and read-only hook input', () => {
-  const script = fileURLToPath(new URL('../agent-hooks/format.mjs', import.meta.url));
+  const script = fileURLToPath(new URL('../agent-hooks/format.ts', import.meta.url));
   for (const input of ['{bad json', JSON.stringify({ hook_event_name: 'Stop' })]) {
     const result = spawnSync(process.execPath, [script], { input, encoding: 'utf8' });
     assert.equal(result.status, 0);

@@ -11,8 +11,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(__dirname, '..');
 export const isWindows = process.platform === 'win32';
 
-function checkPort(port) {
-  return new Promise((resolve) => {
+function checkPort(port: number): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
     const server = net.createServer();
 
     server.once('error', () => resolve(false));
@@ -23,7 +23,7 @@ function checkPort(port) {
   });
 }
 
-export async function resolvePort(requestedPort) {
+export async function resolvePort(requestedPort: number) {
   let port = requestedPort;
 
   while (!(await checkPort(port))) {
@@ -33,11 +33,11 @@ export async function resolvePort(requestedPort) {
   return port;
 }
 
-export async function waitForPort(host, port, timeoutMs = 30_000) {
+export async function waitForPort(host: string, port: number, timeoutMs = 30_000) {
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < timeoutMs) {
-    const ready = await new Promise((resolve) => {
+    const ready = await new Promise<boolean>((resolve) => {
       const socket = net.connect({ host, port });
 
       socket.once('connect', () => {
@@ -57,7 +57,7 @@ export async function waitForPort(host, port, timeoutMs = 30_000) {
   throw new Error(`Timed out waiting for dev server on http://${host}:${port}`);
 }
 
-export function startVite(host, port) {
+export function startVite(host: string, port: number) {
   const child = spawn('corepack', ['yarn', 'exec', 'vite', '--host', host, '--port', String(port), '--strictPort'], {
     cwd: repoRoot,
     env: {
@@ -67,7 +67,7 @@ export function startVite(host, port) {
     stdio: 'inherit',
   });
 
-  const forwardSignal = (signal) => {
+  const forwardSignal = (signal: NodeJS.Signals) => {
     if (!child.killed) {
       child.kill(signal);
     }
