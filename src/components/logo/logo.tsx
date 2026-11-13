@@ -1,7 +1,6 @@
-// The mark is a 5x5 piece map. Lit pieces spell M; the centre one is still arriving.
-const PATTERN = ['10001', '11011', '10201', '10001', '10001'];
-const CELL = 8;
-const STEP = 10;
+// Four interlocking file pieces, traced from the selected Pieces logo concept.
+const PIECES =
+  'M1933 4140 c-64 -13 11 29 -1038 -587 -599 -352 -585 -343 -622 -392 -58 -75 -63 -112 -63 -436 0 -160 3 -294 6 -298 4 -3 27 8 52 25 159 109 438 106 593 -8 58 -42 131 -136 149 -189 l12 -35 146 0 c260 0 409 55 557 204 156 157 196 270 204 578 8 267 -4 251 194 259 288 12 413 124 411 369 0 185 -54 275 -224 377 -208 126 -283 152 -377 133z M2688 3622 l-3 -149 -42 -85 c-93 -187 -260 -287 -480 -288 l-73 0 0 -142 c0 -257 49 -389 199 -538 153 -152 286 -200 558 -200 221 0 243 -12 243 -134 0 -82 24 -147 76 -205 158 -176 444 -131 551 88 l28 56 3 499 c3 557 2 567 -63 644 -35 40 -195 140 -770 479 -174 103 -210 123 -218 123 -3 0 -7 -67 -9 -148z M420 2348 c-76 -30 -160 -115 -186 -188 -32 -93 -29 -913 4 -986 42 -92 75 -113 767 -506 393 -223 374 -216 355 -119 -67 354 132 641 457 660 l108 6 3 110 c8 306 -126 531 -393 660 -129 62 -199 75 -415 75 -212 0 -212 0 -240 84 -48 146 -151 219 -315 223 -73 2 -101 -1 -145 -19z M2652 2049 c-203 -34 -406 -186 -497 -374 -56 -113 -65 -166 -65 -372 l0 -183 -29 -32 -29 -33 -134 -5 c-126 -5 -138 -7 -201 -38 -154 -76 -222 -258 -173 -466 36 -151 85 -215 233 -300 216 -124 261 -122 505 17 62 35 214 122 338 192 235 134 794 459 963 561 174 105 187 137 187 476 0 263 3 255 -67 207 -276 -190 -676 -38 -735 279 -6 31 -12 63 -14 70 -4 14 -196 15 -282 1z';
 
 type LogoProps = {
   size?: number;
@@ -10,21 +9,8 @@ type LogoProps = {
 
 export function Logo({ size = 24, className }: LogoProps) {
   return (
-    <svg className={className} width={size} height={size} viewBox='-1 -1 50 50' aria-hidden='true' focusable='false'>
-      {PATTERN.flatMap((row, y) =>
-        [...row].map((cell, x) => (
-          <rect
-            key={`${x}-${y}`}
-            x={x * STEP}
-            y={y * STEP}
-            width={CELL}
-            height={CELL}
-            rx={0.6}
-            fill={cell === '2' ? 'var(--accent-hot)' : 'var(--accent)'}
-            fillOpacity={cell === '0' ? 0.16 : 1}
-          />
-        )),
-      )}
+    <svg className={className} width={size} height={size} viewBox='-20 0 430 430' aria-hidden='true' focusable='false'>
+      <path d={PIECES} transform='translate(0 430) scale(0.1 -0.1)' fill='var(--accent)' />
     </svg>
   );
 }
