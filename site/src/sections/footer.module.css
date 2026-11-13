@@ -1,0 +1,38 @@
+.footer {
+  border-top: 1px solid var(--rule);
+  padding: 2rem 0 2.5rem;
+  color: var(--dim);
+  font-size: 0.75rem;
+  line-height: 1.7;
+}
+
+.inner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem 1.25rem;
+}
+
+.logo {
+  display: block;
+}
+
+.repo {
+  color: var(--dim);
+  text-decoration: none;
+}
+
+.repo:hover {
+  color: var(--accent);
+}
+
+@media (max-width: 52rem) {
+  .inner {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .repo {
+    grid-column: 2;
+  }
+}

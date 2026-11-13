@@ -1,3 +1,5 @@
+<img src="site/public/logo.svg" alt="Modelswarm logo" width="72" height="72">
+
 # Modelswarm
 
 **Modelswarm is an idea for a hub of open AI models that nobody owns.** Publishers sign their releases from their own Bitsocial profile, the weights move over BitTorrent, and every piece of every file is checked against the signed release as it downloads. No company decides which models are listed, which stay available or what can be said about them.
@@ -72,6 +74,7 @@ Models that exist only on Hugging Face need no listing at all to be downloaded: 
 - [how-it-could-work.md](how-it-could-work.md): publishers, releases, the manifest, verification, safety, hubs, downloading, the Hugging Face endpoint and search
 - [open-questions.md](open-questions.md): design decisions not yet made
 - [roadmap.md](roadmap.md): what is next and what each step waits on
+- [site/](site/): the page for modelswarm.org, a React and Vite app on the stack of 5chan and WeTube. Run `corepack yarn install` and `corepack yarn start` from the repository root; `corepack yarn build` writes static files to `site/build/`
 
 ## License
 

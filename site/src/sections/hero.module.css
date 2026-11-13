@@ -1,0 +1,90 @@
+.hero {
+  position: relative;
+  overflow: hidden;
+}
+
+/* A faint glow behind the terminal, as if the screen lights the room. */
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -10rem;
+  right: -10rem;
+  width: 52rem;
+  height: 44rem;
+  pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 7%, transparent), transparent);
+}
+
+.inner {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.02fr);
+  gap: 4rem;
+  align-items: center;
+  padding-top: 5.5rem;
+  padding-bottom: 6.5rem;
+}
+
+.title {
+  font-size: clamp(2.35rem, 5.3vw, 4.1rem);
+  font-weight: 700;
+  line-height: 1.04;
+}
+
+.lede {
+  margin-top: 1.75rem;
+  max-width: 44ch;
+  font-size: 1.0625rem;
+  line-height: 1.65;
+}
+
+.stage {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  max-width: 48ch;
+  padding-left: 0.1rem;
+  color: var(--dim);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.stageMark {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 0.42rem;
+  border: 1px solid var(--accent);
+  border-radius: 1px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2.25rem;
+}
+
+@media (max-width: 62rem) {
+  .inner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3.25rem;
+    padding-top: 3.5rem;
+    padding-bottom: 4.5rem;
+  }
+}
+
+@media (max-width: 40rem) {
+  .inner {
+    padding-top: 2.5rem;
+    padding-bottom: 3.5rem;
+  }
+
+  .lede {
+    font-size: 0.9375rem;
+  }
+
+  .actions :global(.button) {
+    flex: 1 1 100%;
+  }
+}

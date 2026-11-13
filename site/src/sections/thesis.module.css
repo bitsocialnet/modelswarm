@@ -1,0 +1,28 @@
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 2rem 4rem;
+  align-items: start;
+}
+
+.body {
+  display: grid;
+  gap: 1.25rem;
+  max-width: var(--measure);
+  padding-top: 3.4rem;
+  color: var(--dim);
+}
+
+.body a {
+  color: var(--text);
+}
+
+@media (max-width: 62rem) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .body {
+    padding-top: 0;
+  }
+}

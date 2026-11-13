@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Modelswarm">
+  <!-- A 5x5 piece map: the lit pieces spell M, the centre piece is the one still arriving. -->
+  <rect width="64" height="64" rx="11" fill="#0D0E0A"/>
+  <g fill="#C8FF2E" fill-opacity="0.16">
+    <rect x="18" y="8" width="8" height="8" rx="0.6"/><rect x="28" y="8" width="8" height="8" rx="0.6"/><rect x="38" y="8" width="8" height="8" rx="0.6"/>
+    <rect x="28" y="18" width="8" height="8" rx="0.6"/>
+    <rect x="18" y="28" width="8" height="8" rx="0.6"/><rect x="38" y="28" width="8" height="8" rx="0.6"/>
+    <rect x="18" y="38" width="8" height="8" rx="0.6"/><rect x="28" y="38" width="8" height="8" rx="0.6"/><rect x="38" y="38" width="8" height="8" rx="0.6"/>
+    <rect x="18" y="48" width="8" height="8" rx="0.6"/><rect x="28" y="48" width="8" height="8" rx="0.6"/><rect x="38" y="48" width="8" height="8" rx="0.6"/>
+  </g>
+  <g fill="#C8FF2E">
+    <rect x="8" y="8" width="8" height="8" rx="0.6"/><rect x="48" y="8" width="8" height="8" rx="0.6"/>
+    <rect x="8" y="18" width="8" height="8" rx="0.6"/><rect x="18" y="18" width="8" height="8" rx="0.6"/><rect x="38" y="18" width="8" height="8" rx="0.6"/><rect x="48" y="18" width="8" height="8" rx="0.6"/>
+    <rect x="8" y="28" width="8" height="8" rx="0.6"/><rect x="48" y="28" width="8" height="8" rx="0.6"/>
+    <rect x="8" y="38" width="8" height="8" rx="0.6"/><rect x="48" y="38" width="8" height="8" rx="0.6"/>
+    <rect x="8" y="48" width="8" height="8" rx="0.6"/><rect x="48" y="48" width="8" height="8" rx="0.6"/>
+  </g>
+  <rect x="28" y="28" width="8" height="8" rx="0.6" fill="#F0FFC4"/>
+</svg>

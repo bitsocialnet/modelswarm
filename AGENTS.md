@@ -9,6 +9,7 @@ Use judgment for routine implementation choices and continue authorized work. As
 ## Product and source of truth
 
 Modelswarm is an idea-stage design for a hub of open AI models that nobody owns: publishers sign releases from their own Bitsocial profile, weights move over BitTorrent, and every piece is checked against the signed release as it downloads. Nothing is built yet. The design lives in the docs at the repository root: [README.md](README.md), [how-it-could-work.md](how-it-could-work.md), [open-questions.md](open-questions.md) and [roadmap.md](roadmap.md).
+`site/` is the static landing page for modelswarm.org, a React and Vite app on the stack of 5chan and WeTube. Its copy summarises the root docs.
 
 The repository is public. Do not announce it or publish anything without an explicit request.
 
@@ -25,13 +26,16 @@ For an unexpected repo-specific issue, tell the contributor and continue indepen
 - For a bug tied to a file or line, inspect `git log`/`git blame`, then relevant `git show`, before fixing it. See [bug-investigation.md](docs/agent-playbooks/bug-investigation.md).
 - Use existing evidence or a focused test before adding instrumentation. Remove task-owned instrumentation after verification.
 - When a change finishes or reshapes an item in [roadmap.md](roadmap.md), or settles a decision in [how-it-could-work.md](how-it-could-work.md) or [open-questions.md](open-questions.md), update that document in the same change.
+- When the root docs change a claim the site repeats (status, comparison, roadmap steps, open questions), update the site's copy in `site/src/` in the same change.
 
 ## Task router
 
 | Task | Required guidance/check |
 |---|---|
-| Files under `scripts/` | Read [scripts/AGENTS.md](scripts/AGENTS.md) |
+| Files under `site/` or `scripts/` | Read the directory's `AGENTS.md` |
+| Visual design, layout, CSS, typography, or colour | Use the tokens in `site/src/index.css`; use the `impeccable` skill for design work |
 | Code or automation changed | Select affected checks using [verification.md](docs/agent-playbooks/verification.md); use `agent:verify` for integration/build changes or an explicitly requested full pass |
+| UI behavior/layout changed | Verify the affected flow; select browsers/viewports using [verification.md](docs/agent-playbooks/verification.md) |
 | `package.json` changed | Run `corepack yarn install` to synchronize `yarn.lock`; keep `yarn deps:check-pinned` passing |
 | AI workflow files changed | Edit shared sources, run `yarn ai-workflow:sync`, then `yarn ai-workflow:check` and `yarn ai-workflow:test` |
 | Open PR feedback or merge readiness | Use `review-and-merge-pr` within the user's requested scope |
@@ -40,6 +44,8 @@ For an unexpected repo-specific issue, tell the contributor and continue indepen
 ## Code and design
 
 - Use Corepack-managed Yarn 4, never npm for project dependency changes. Pin exact versions and keep the lockfile synchronized. Yarn enforces a 3-day `npmMinimalAgeGate` and runs no install scripts; preapprove a package or enable scripts in `.yarnrc.yml` only with a stated reason.
+- The root `package.json` is a Yarn workspace root for the repository tooling; the site is the `modelswarm-site` workspace in `site/`. Run commands from the repository root.
+- Site stack: React 19, TypeScript, Vite, CSS modules, oxlint, oxfmt. Keep it static: no router, no server code, no runtime data fetching.
 - Add comments for non-obvious constraints or logic, not for obvious code.
 
 ## Git and ownership
@@ -77,6 +83,8 @@ For an unexpected repo-specific issue, tell the contributor and continue indepen
 - Prefer existing tools and local CLIs. Do not search for or install additional skills merely because a normal coding task mentions their domain.
 
 ## Local commands and playbooks
+
+Run `corepack yarn start` for the site's dev server at `http://localhost:5191` and `corepack yarn build` for a production build in `site/build/`.
 
 Common checks: `yarn agent:verify` (lint, type-check, build, conditional workflow check), `yarn deps:check-pinned`, `yarn ai-workflow:sync`, `yarn ai-workflow:check`, `yarn ai-workflow:test`, `./scripts/pw-session.sh status`.
 

@@ -1,0 +1,46 @@
+.head {
+  max-width: 52rem;
+}
+
+.source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.3rem 0.7rem 0.3rem 0.6rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  color: var(--dim);
+  font-size: 0.75rem;
+  text-decoration: none;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.source:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.title {
+  margin-top: 1.4rem;
+  font-size: clamp(1.8rem, 3.9vw, 2.9rem);
+  font-weight: 700;
+  line-height: 1.12;
+  max-width: 26ch;
+}
+
+.lede {
+  margin-top: 1.1rem;
+  max-width: var(--measure);
+  color: var(--dim);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
