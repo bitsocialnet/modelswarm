@@ -1,6 +1,7 @@
 """Exercise the real CLI endpoint with an isolated Hugging Face SDK process."""
 
-from contextlib import contextmanager, redirect_stdout
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
 import hashlib
 import http.client
 import io
@@ -17,8 +18,8 @@ from unittest.mock import patch
 from urllib.parse import urlsplit
 
 from modelswarm import cache
-from modelswarm.cli import main, parser, release_lock
-from modelswarm.endpoint import Endpoint
+from modelswarm.cli import main, parser, progress, release_lock
+from modelswarm.endpoint import Endpoint, Server, handler_for
 from modelswarm.engine import file_sha256
 from modelswarm.manifest import encode_manifest, load_manifest
 from test_cli import gguf, http_source, peers
@@ -303,6 +304,32 @@ print(json.dumps({{f.relative_to(p).as_posix(): hashlib.sha256(f.read_bytes()).h
             self.assertEqual(headers["X-Error-Code"], "DownloadError")
             self.assertEqual(json.loads(body), {"error": "Unable to obtain verified content; see server log"})
             self.assertIn("no source for config.json", logs.read_text())
+
+    def test_internal_io_and_runtime_failure_details_are_logged_only(self):
+        self.make()
+        args = parser().parse_args(["serve", "--manifest", str(self.manifest),
+                                    "--cache-dir", str(self.cache), "--no-upstream"])
+        backend = Endpoint(args, progress)
+        self.addCleanup(backend.close)
+        logs = io.StringIO()
+        path = f"/test/model/resolve/{self.commit}/config.json"
+        errors = (OSError("fixture cache read error"), RuntimeError("fixture transfer engine error"))
+        with (redirect_stderr(logs), Server(("127.0.0.1", 0), handler_for(backend)) as server,
+              ThreadPoolExecutor(max_workers=1) as executor):
+            endpoint = f"http://127.0.0.1:{server.server_port}"
+            executor.submit(server.serve_forever)
+            try:
+                for error in errors:
+                    with self.subTest(type=type(error).__name__), patch.object(backend, "obtain", side_effect=error):
+                        status, headers, body = self.request(endpoint, path)
+                        self.assertEqual(status, 502, body)
+                        self.assertEqual(headers["X-Error-Code"], "DownloadError")
+                        self.assertEqual(json.loads(body), {"error": "Unable to obtain verified content; see server log"})
+            finally:
+                server.shutdown()
+        records = [json.loads(line) for line in logs.getvalue().splitlines()]
+        for error in errors:
+            self.assertIn({"event": "request_failed", "error": type(error).__name__, "detail": str(error)}, records)
 
     def test_long_native_timeout_keeps_upstream_enabled(self):
         with public_hub_fixture() as (upstream, remote):

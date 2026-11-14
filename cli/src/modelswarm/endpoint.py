@@ -283,7 +283,7 @@ def handler_for(backend):
             except (BrokenPipeError, ConnectionResetError):
                 pass
             except (OSError, RuntimeError) as error:
-                backend.emit("request_failed", error=type(error).__name__)
+                backend.emit("request_failed", error=type(error).__name__, detail=str(error))
                 self.error(502, "Unable to obtain verified content; see server log", "DownloadError")
             finally:
                 backend.emit("request", method=self.command, path=urlsplit(self.path).path,

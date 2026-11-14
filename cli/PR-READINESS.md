@@ -28,6 +28,7 @@ The fixes have focused regressions. Independent reviews covered the download/cac
 - The landing page's endpoint description and comparison row now limit compatibility claims to the tested Hugging Face SDK; `transformers` and llama.cpp remain untested, matching the root docs.
 - The hero describes peers sharing model hosting without claiming every downloader keeps seeding. The CLI uploads only while running; default background seeding remains planned for the desktop client.
 - `make --http-base` accepts a host-only origin as well as the equivalent trailing-slash base. Raw malformed characters, credentials, queries and fragments remain rejected before output; per-file source validation is unchanged.
+- Internal I/O and runtime failures include the exception message in stderr while keeping the HTTP response generic. The endpoint docs distinguish native and upstream timeout responses from other download errors.
 
 The review's upstream timeout/resume concern remains a documented prototype limitation: upstream operations have a total deadline, and interrupted upstream payloads restart from zero. Native registered-manifest transfers support checkpoint resume. Adding upstream resume or changing deadline semantics is outside this correction; see [ENDPOINT.md](ENDPOINT.md) and [ENDPOINT-EVALUATION.md](ENDPOINT-EVALUATION.md).
 
@@ -43,6 +44,7 @@ Environment: macOS arm64, Python 3.11.15, libtorrent 2.1.1, Node 26.12.1, PKC SD
 | CLI, endpoint and upstream modules after final HTTP error correction | 48 passed, no skips, 44.665 seconds; a real held release lock produced 503 and the same GET succeeded after release |
 | Cache suite after empty-environment correction | 23 passed, no skips; the fallback regression failed before the fix and explicit paths retained precedence |
 | CLI and manifest modules after HTTP-base correction | 20 CLI tests and 15 manifest tests passed, no skips; host-only origins produce identical manifests to trailing-slash bases, and malformed raw URLs fail before output |
+| Endpoint module after logging correction | 15 passed, no skips, 15.805 seconds; I/O and runtime exception details appear in structured stderr only, with generic 502 responses |
 | Final affected cache, CLI, endpoint and release-input modules | 55 passed, no skips, 41.795 seconds, after the VCS metadata and path-alias follow-ups |
 | Format, CLI, endpoint and upstream modules after safetensors correction | 54 passed, no skips, 43.529 seconds; CLI workflows use a colliding 896-byte header, and a real endpoint served all six collision cases successfully |
 | Real Git source and path-alias smoke checks | Clone, linked worktree and metadata-free source produced identical manifests; HTTP pulls through `/tmp` via argument and environment, verification and real bridge key generation passed; key mode 0600 and no-overwrite confirmed |

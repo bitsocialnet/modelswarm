@@ -34,7 +34,7 @@ PY
 
 The file names and model identifier must match the registered release or a public upstream model. Cold GETs can take longer than the SDK's default timeout because verification precedes the response; choose a client download timeout above the server's transfer timeout. HEAD and model/tree metadata do not download payloads. A client timeout does not currently cancel a shared transfer.
 
-A GET blocked by another process using the same release cache returns `503 ReleaseBusy` with `Retry-After`. Other internal download or verification failures return a generic `502 DownloadError`; their details are in the server's stderr log. Malformed requests return `400`.
+A GET blocked by another process using the same release cache returns `503 ReleaseBusy` with `Retry-After`. Native download timeouts return `504 Timeout`; public-upstream timeouts return `504` with `UpstreamTimeout` or `UpstreamUnavailable` error codes. Other internal download or verification failures return a generic `502 DownloadError`; their details are in the server's stderr log. Malformed requests return `400`.
 
 ## Resolution, integrity and policy
 
