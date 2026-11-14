@@ -21,11 +21,13 @@ _CHUNK = 4 * 1024 * 1024
 
 
 def cache_root(value=None):
-    """Select a lexical absolute cache path, preserving symlinks for validation."""
+    """Resolve the selected cache's parent while preserving its root for validation."""
     selected = value if value is not None else os.environ.get("MODELSWARM_CACHE")
     if selected is None:
         selected = Path.home() / ".cache" / "modelswarm" / "hub"
-    return Path(os.path.abspath(Path(selected).expanduser()))
+    path = Path(selected).expanduser().absolute()
+    parent = path.parent.resolve()
+    return parent.parent if path.name == ".." else parent / path.name
 
 
 def snapshot_revision(digest):

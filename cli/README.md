@@ -65,6 +65,8 @@ Pulls retain partial data privately in `<cache>/.modelswarm/`. Ctrl-C/SIGTERM an
 
 Rerun the same pull with the same cache to resume. Existing staged data is rechecked before network sources are enabled, so modified completed pieces can be repaired. A forced kill can lose bytes still buffered since the last checkpoint; recovery after a completed checkpoint is tested. Power-loss durability is not established. A malformed checkpoint is ignored and available file data is rechecked. A corrupt published cache blob is reported rather than silently overwritten.
 
+The native-session `--timeout` defaults to 300 seconds and includes resume rechecking and periodic checkpoint pauses. For a large partial file or slow disk, raise it to allow both the recheck and the remaining transfer; repeatedly using a budget shorter than the recheck cannot make download progress. Checkpoint shutdown after the budget expires and synchronous file verification before or after the native session can extend total command time beyond this budget.
+
 ### Use the verified cache
 
 The default root is `~/.cache/modelswarm/hub`, overridden by `MODELSWARM_CACHE` or `--cache-dir`. This keeps Modelswarm's declared model namespace separate from the normal Hugging Face cache. JSON output provides `cache_dir`, `revision` and `snapshot`:
@@ -90,7 +92,7 @@ directory = snapshot_download(
 
 Consumers can also use the returned snapshot directory directly; a GGUF consumer uses the file path inside it. Offline `snapshot_download` and `hf_hub_download` were tested with huggingface_hub 2.4.0. Transformers and llama.cpp inference were not executed. For online SDK downloads through `HF_ENDPOINT`, see [serve setup and limitations](ENDPOINT.md).
 
-The cache rejects unexpected symlink ancestors, foreign snapshot entries and corrupt existing blobs. It assumes local cache directories are controlled by the current user, not concurrently writable by an attacker. Staging and cache publication may temporarily require roughly twice the payload size; staging is currently retained for recovery and reuse.
+The selected cache root's parent path is resolved, so system aliases such as `/tmp` and `/var` can contain a cache. The cache root itself and its internal directories must be real directories; symlinks there, foreign snapshot entries and corrupt existing blobs are rejected. The cache assumes local directories are controlled by the current user, not concurrently writable by an attacker. Staging and cache publication may temporarily require roughly twice the payload size; staging is currently retained for recovery and reuse.
 
 ## Trust boundary
 

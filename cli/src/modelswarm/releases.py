@@ -93,6 +93,7 @@ def bridge(request, timeout=120):
 
 def keygen(args):
     output = args.output.absolute()
+    output = output.parent.resolve() / output.name
     if output.exists() or output.is_symlink():
         raise ValueError("key output already exists; refusing to replace it")
     ensure_directory(output.parent)

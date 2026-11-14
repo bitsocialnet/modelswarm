@@ -13,7 +13,7 @@ cli/.venv/bin/modelswarm serve \
 
 Omit model registration to use only upstream fallback, or repeat `--manifest` or `--release` for different model names. `--no-upstream` restricts the server to registered models. `--no-discovery` disables DHT for registered-model transfers. `--peer`, `--rate-limit` and `--checkpoint-interval` have the same meaning as in `pull`. With a signed release registered, explicit peers blocked by the signed-release IP policy require `--allow-local-sources` at startup.
 
-`--timeout` bounds each registered-model file transfer. For upstream operations, the total deadline is the smaller of `--timeout` and 3,600 seconds. Port zero selects an available port. The first stdout JSON event reports the actual `endpoint`. SIGINT/SIGTERM stop the server.
+`--timeout` sets the time budget before checkpointing and stopping a registered-model download, including resume rechecking. Raise it for large partial files or slow disks; checkpoint shutdown and synchronous file verification can extend total request time. For upstream operations, the total deadline is the smaller of `--timeout` and 3,600 seconds. Port zero selects an available port. The first stdout JSON event reports the actual `endpoint`. SIGINT/SIGTERM stop the server.
 
 In another shell, set these variables **before importing the SDK**:
 

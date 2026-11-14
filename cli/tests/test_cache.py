@@ -63,13 +63,49 @@ class CacheTests(unittest.TestCase):
         self.assertFalse((snapshot / "new.txt").exists())
         self.assertEqual((snapshot / "old.txt").read_bytes(), b"old")
 
-    def test_cache_ancestor_symlink_is_rejected(self):
+    def test_cache_parent_alias_uses_same_cache(self):
+        manifest, verified = self.fixture({"file.txt": b"value"})
+        alias = self.root / "alias"
+        alias.symlink_to(self.root, target_is_directory=True)
+        selected = alias / self.cache.name
+        self.assertEqual(cache_root(selected), self.cache)
+        snapshot = materialize(selected, manifest, self.digest, verified)
+        self.assertEqual(snapshot, self.cache / "models--owner--model" / "snapshots" / ("a" * 40))
+        self.assertEqual(cached_files(selected, manifest, self.digest), cached_files(self.cache, manifest, self.digest))
+        self.assertEqual((snapshot / "file.txt").read_bytes(), b"value")
+
+    def test_cache_parent_traversal_follows_alias_before_dot_dot(self):
+        target = self.root / "outer" / "inner"
+        target.mkdir(parents=True)
+        alias = self.root / "alias"
+        alias.symlink_to(target, target_is_directory=True)
+        self.assertEqual(cache_root(alias / ".." / "hub"), target.parent / "hub")
+        self.assertEqual(cache_root(alias / ".."), target.parent)
+        self.assertEqual(cache_root(self.root.anchor), Path(self.root.anchor))
+        self.assertEqual(cache_root(Path(self.root.anchor) / ".."), Path(self.root.anchor))
+
+    def test_cache_root_symlink_is_rejected(self):
         manifest, verified = self.fixture({"file.txt": b"value"})
         outside = self.root / "outside"
         outside.mkdir()
         self.cache.symlink_to(outside, target_is_directory=True)
         with self.assertRaisesRegex(ValueError, "real directory"):
             materialize(self.cache, manifest, self.digest, verified)
+        self.assertEqual(list(outside.iterdir()), [])
+
+    def test_repository_symlink_inside_cache_is_rejected(self):
+        manifest, verified = self.fixture({"file.txt": b"value"})
+        alias = self.root / "alias"
+        alias.symlink_to(self.root, target_is_directory=True)
+        self.cache.mkdir()
+        outside = self.root / "outside"
+        outside.mkdir()
+        (self.cache / "models--owner--model").symlink_to(outside, target_is_directory=True)
+        selected = alias / self.cache.name
+        with self.assertRaisesRegex(ValueError, r"real directory: .*models--owner--model"):
+            materialize(selected, manifest, self.digest, verified)
+        with self.assertRaisesRegex(ValueError, r"real directory: .*models--owner--model"):
+            cached_files(selected, manifest, self.digest)
         self.assertEqual(list(outside.iterdir()), [])
 
     def test_blob_symlink_and_hardlink_do_not_modify_outside_file(self):
@@ -209,7 +245,9 @@ class CacheTests(unittest.TestCase):
                     materialize(self.cache, manifest, self.digest, verified)
 
     def test_default_environment_and_revision_validation(self):
-        with patch.dict(os.environ, {"MODELSWARM_CACHE": str(self.cache)}):
+        alias = self.root / "alias"
+        alias.symlink_to(self.root, target_is_directory=True)
+        with patch.dict(os.environ, {"MODELSWARM_CACHE": str(alias / self.cache.name)}):
             self.assertEqual(cache_root(), self.cache)
             self.assertEqual(cache_root(self.root / "override"), self.root / "override")
         with self.assertRaises(ValueError):

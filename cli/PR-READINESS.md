@@ -21,8 +21,11 @@ The fixes have focused regressions. Independent reviews covered the download/cac
 - Manifest creation fails on source traversal errors instead of publishing an incomplete release. It excludes root VCS metadata and the root `.cache/huggingface/` bookkeeping subtree, so checkout state, SDK timestamps and partial downloads do not become release contents. Nested reserved paths and source symlinks remain rejected.
 - Restart fixtures accept a healthy automatic restart after a slow boot, while retaining explicit held-lock recovery coverage. HTTP experiment reports wait for request handlers to finish before reading their events and include valid range requests cancelled during response headers.
 - The original real-model evaluation now identifies its pinned source and reproducible commands precisely.
+- Cache paths resolve explicitly selected parent aliases such as macOS `/tmp`, including `..` traversal after an alias, while rejecting symlinks at the cache root and in internal directories. Key generation resolves the chosen output directory and retains private permissions and exclusive, no-follow file creation.
 
 The review's upstream timeout/resume concern remains a documented prototype limitation: upstream operations have a total deadline, and interrupted upstream payloads restart from zero. Native registered-manifest transfers support checkpoint resume. Adding upstream resume or changing deadline semantics is outside this correction; see [ENDPOINT.md](ENDPOINT.md) and [ENDPOINT-EVALUATION.md](ENDPOINT-EVALUATION.md).
+
+Native resume rechecking intentionally consumes the per-file native-session timeout. A large partial file or slow disk needs a budget covering both rechecking and remaining transfer; repeatedly choosing a shorter budget cannot make progress. A simulated 310-second recheck timed out and requested a checkpoint with a 300-second budget, while a 320-second budget reached source attachment and completion; cancellation also requested a checkpoint. This was a fake-clock/native-alert experiment, not a large-model performance measurement. The docs now distinguish this budget from checkpoint shutdown and synchronous file verification, which can extend wall time.
 
 ## Verification
 
@@ -31,7 +34,8 @@ Environment: macOS arm64, Python 3.11.15, libtorrent 2.1.1, Node 26.12.1, PKC SD
 | Check | Result |
 | --- | --- |
 | Complete Python suite after the broad feedback corrections, with real private PKC/Kubo fixtures | 115 passed, no skips, 433.526 seconds |
-| Final CLI module after the VCS metadata follow-up | 17 passed, no skips, 30.548 seconds; real Git clone, linked worktree and metadata-free source produced identical manifests |
+| Final affected cache, CLI, endpoint and release-input modules | 55 passed, no skips, 41.795 seconds, after the VCS metadata and path-alias follow-ups |
+| Real Git source and path-alias smoke checks | Clone, linked worktree and metadata-free source produced identical manifests; HTTP pulls through `/tmp` via argument and environment, verification and real bridge key generation passed; key mode 0600 and no-overwrite confirmed |
 | Prototype metadata and request-handler tests | 8 passed; delayed handler completion and header-failure regressions fail against their original implementations |
 | Final synthetic 128 MiB experiment | Peer-only, HTTP-only, mixed, corrupt HTTP, corrupt peer and SIGKILL/resume passed; 32 pieces retained and 100,532,224 bytes transferred after restart |
 | Documented real-model manifest command | Recreated the recorded manifest digest from the existing 491,400,032-byte source and verified it; no repeated public model download |
@@ -41,7 +45,7 @@ Environment: macOS arm64, Python 3.11.15, libtorrent 2.1.1, Node 26.12.1, PKC SD
 | Production landing page in Chromium | Status/roadmap copy checked at 1440px and 375px; no horizontal overflow or console errors |
 | Merge check | The original readiness check passed against `origin/master` at `f4b4904`. Before PR submission, the task-owned `.tmp/` ignore rule was moved to avoid an append conflict with a newer ignore rule on `master`; its behavior is unchanged. |
 
-The 115-test suite covers the broad feedback corrections; the final 17-test CLI module covers the subsequent VCS metadata fix. Earlier failed regression runs are retained: they caught size/error handling, and one CIDv1 fixture incorrectly re-added the file with a different internal DAG. That fixture now converts the original CID. The added feedback regressions reproduce silent source-tree omissions, warm-request over-reading, false restart assumptions and incomplete request logs. No failed check remains unresolved. Existing native binding deprecation warnings remain non-fatal.
+The 115-test suite covers the broad feedback corrections; the final 55-test affected-module run covers the subsequent VCS metadata and path-alias fixes. Earlier failed regression runs are retained: they caught size/error handling, and one CIDv1 fixture incorrectly re-added the file with a different internal DAG. That fixture now converts the original CID. The added feedback regressions reproduce silent source-tree omissions, warm-request over-reading, false restart assumptions, incomplete request logs and alias traversal errors. The first path-alias smoke run supplied a lexical root to the test HTTP server, whose resolved-path check returned 404; resolving only that fixture's source root fixed the harness while preserving `/tmp` paths for the CLI checks. No failed check remains unresolved. Existing native binding deprecation warnings remain non-fatal.
 
 The independent review of the feedback corrections found no remaining actionable findings. The repository retrospective selected these focused regressions as prevention; no additional workflow rules were needed. Test fixtures and experiment processes exited. The earlier temporary wheel environment, task browser session and HTTP server were cleaned up.
 

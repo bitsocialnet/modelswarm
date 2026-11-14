@@ -32,7 +32,7 @@ cli/.venv/bin/modelswarm publish ./release.json --key ~/.config/modelswarm/publi
   --manifest-url https://YOUR-MIRROR/release.json --card ./MODEL_CARD.md
 ```
 
-The generated key file has mode 0600, is never overwritten, and must be backed up privately. The publisher identity is its `12D3KooW…` Peer ID. The owner key stays in the CLI process/bridge stdin; RPC receives signed records and public identity. `profile-init` creates a distinct node-held minter, signs its initial delegation locally and starts hosting. It leaves that profile running when the command exits. It is an initial setup command, not profile migration or delegation renewal.
+The generated key file has mode 0600, is never overwritten, and must be backed up privately. `keygen` resolves the explicitly selected output directory, including path aliases such as `/tmp`; an existing file or symlink at the output filename is still refused. The publisher identity is its `12D3KooW…` Peer ID. The owner key stays in the CLI process/bridge stdin; RPC receives signed records and public identity. `profile-init` creates a distinct node-held minter, signs its initial delegation locally and starts hosting. It leaves that profile running when the command exits. It is an initial setup command, not profile migration or delegation renewal.
 
 ## Keep a profile hosted
 
