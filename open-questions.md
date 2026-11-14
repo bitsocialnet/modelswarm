@@ -38,7 +38,7 @@ The [download-engine prototype](prototypes/download-engine/EVALUATION.md) establ
 - BitTorrent v2 only, or hybrid torrents that v1 clients can join? Hybrid torrents add padding files and a second set of hashes.
 - Which piece size, given that the piece layer has to be fetched before the first piece can be checked?
 - One torrent per release, or one per file? Per-file torrents let a reader fetch a single quantization without the rest; a v2 client can also select files inside one torrent.
-- Which torrent library for the desktop client and the command line, and does it support v2, web seeds and hash requests well enough?
+- Which torrent library for the desktop client and the command line, and does it support v2, web seeds and hash requests well enough? The [CLI stack assessment](docs/reference/cli-stack-assessment.md) records the Python/libtorrent rationale, TypeScript tradeoffs and evidence needed for the production language and packaging choice.
 - How does the HTTP path get a file's piece layer when no torrent peer is online? Candidates: a `.torrent` file among the sources, or the layer stored next to the manifest.
 - Can a browser client download anything useful, and if so from whom?
 
