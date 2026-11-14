@@ -66,13 +66,18 @@ def make(args):
             path = root / name
             if path.is_symlink():
                 raise ValueError(f"source symlinks are not supported: {path.relative_to(directory)}")
+        if root == directory:
+            directories[:] = [name for name in directories if name not in {".git", ".hg", ".svn"}]
         # Hugging Face uses this subtree for local-dir metadata and partial downloads.
-        if root == directory / ".cache" and "huggingface" in directories:
+        elif root == directory / ".cache" and "huggingface" in directories:
             directories.remove("huggingface")
         for name in files:
             path = root / name
             if not stat.S_ISREG(path.stat().st_mode):
                 raise ValueError(f"source is not a regular file: {path.relative_to(directory)}")
+            # Linked Git worktrees store a .git pointer file at their root.
+            if root == directory and name == ".git":
+                continue
             relative = validate_relative_path(path.relative_to(directory).as_posix())
             paths.append((relative, path))
             if len(paths) > MAX_FILES:

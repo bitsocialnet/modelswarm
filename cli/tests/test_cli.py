@@ -219,6 +219,47 @@ class CliTests(unittest.TestCase):
                          "shards/part.safetensors"}.issubset(paths))
         self.assertFalse(any(path.startswith(".cache/huggingface/") for path in paths))
 
+    def test_make_omits_root_checkout_metadata(self):
+        (self.source / ".gitattributes").write_text("*.gguf filter=lfs\n")
+        self.make()
+        original = self.manifest.read_bytes()
+        paths = {entry["path"] for entry in json.loads(original)["files"]}
+        self.assertIn(".gitattributes", paths)
+        for directory, filename in ((".git", "HEAD"), (".hg", "hgrc"), (".svn", "wc.db")):
+            metadata = self.source / directory
+            metadata.mkdir()
+            (metadata / filename).write_text("checkout metadata\n")
+
+        checkout = self.root / "checkout.json"
+        self.command("make", self.source, "-o", checkout, "--name", "test/model",
+                     "--version", "release-1", "--license", "apache-2.0")
+        self.assertEqual(checkout.read_bytes(), original)
+
+        (self.source / ".git").rename(self.root / "git-dir")
+        (self.source / ".git").write_text("gitdir: ../git-dir\n")
+        worktree = self.root / "worktree.json"
+        self.command("make", self.source, "-o", worktree, "--name", "test/model",
+                     "--version", "release-1", "--license", "apache-2.0")
+        self.assertEqual(worktree.read_bytes(), original)
+
+    def test_make_rejects_nested_git_metadata(self):
+        metadata = self.source / "shards" / ".git"
+        metadata.mkdir()
+        (metadata / "HEAD").write_text("ref: refs/heads/main\n")
+        result, _ = self.command("make", self.source, "-o", self.manifest, "--name", "test/model",
+                                 "--license", "apache-2.0", ok=False)
+        self.assertIn("unsafe or nonportable file path: 'shards/.git/HEAD'", result["error"])
+        self.assertFalse(self.manifest.exists())
+
+    def test_make_rejects_root_git_symlink(self):
+        git_dir = self.root / "git-dir"
+        git_dir.mkdir()
+        (self.source / ".git").symlink_to(git_dir, target_is_directory=True)
+        result, _ = self.command("make", self.source, "-o", self.manifest, "--name", "test/model",
+                                 "--license", "apache-2.0", ok=False)
+        self.assertIn("source symlinks are not supported: .git", result["error"])
+        self.assertFalse(self.manifest.exists())
+
     def test_http_pull_safe_selection_cache_and_sdk(self):
         with http_source(self.source) as (url, requests):
             made = self.make("--http-base", url)

@@ -18,7 +18,7 @@ This installs the `modelswarm` command only in the worktree's environment. Nothi
 
 Put model files, configuration, tokenizer files and documentation in one directory. Nested paths are supported. The output manifest must be outside that directory and must not already exist.
 
-`make` skips the root `.cache/huggingface/` directory that `hf download --local-dir` uses for local metadata and partial downloads. Other `.cache/` paths are included. If `make` encounters an error reading the source tree, it exits without writing a manifest.
+`make` skips checkout metadata at the source root, including the `.git/`, `.hg/` and `.svn/` directories and the `.git` file used by Git worktrees. It also skips the root `.cache/huggingface/` directory that `hf download --local-dir` uses for local metadata and partial downloads. Other `.cache/` paths are included. If `make` encounters an error reading the source tree, it exits without writing a manifest.
 
 ```sh
 cli/.venv/bin/modelswarm make ./model \
