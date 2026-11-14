@@ -50,7 +50,7 @@ export function validateWorkflow(root: string) {
       const policyDocument = fs.existsSync(path.join(root, policyFile)) ? mapping(loadYaml(read(policyFile))) : undefined;
       check(mapping(policyDocument?.policy)?.allow_implicit_invocation === false, `Manual skill needs Codex invocation policy: ${policyFile}`);
     }
-    check(!/\.(?:codex|claude)\/skills\//.test(body), `Skill must reference canonical source paths: ${file}`);
+    check(!/\.(?:codex|cursor|claude)\/skills\//.test(body), `Skill must reference canonical source paths: ${file}`);
   }
 
   const agents = mapping(parseToml(read('.codex/config.toml')).agents) ?? {};

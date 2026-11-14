@@ -81,6 +81,16 @@ test('duplicate legacy skill roots fail validation', (t) => {
   assert.ok(validateWorkflow(root).errors.some((error) => error.includes('Duplicate skill root')));
 });
 
+test('shared skills reject stale Cursor skill references after synchronization', (t) => {
+  const root = fixture(t);
+  const relative = '.agents/skills/commit/SKILL.md';
+  fs.appendFileSync(path.join(root, relative), '\nSee .cursor/skills/commit/SKILL.md.\n');
+  for (const [file, content] of generatedFiles(root)) {
+    fs.writeFileSync(path.join(root, file), content);
+  }
+  assert.deepEqual(validateWorkflow(root).errors, [`Skill must reference canonical source paths: ${relative}`]);
+});
+
 test('logical paths use forward slashes and skill assets retain their bytes', (t) => {
   const root = fixture(t);
   const relative = '.agents/skills/commit/assets/example.bin';
