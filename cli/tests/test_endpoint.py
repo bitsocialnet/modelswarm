@@ -17,7 +17,7 @@ from unittest.mock import patch
 from urllib.parse import urlsplit
 
 from modelswarm import cache
-from modelswarm.cli import main, parser
+from modelswarm.cli import main, parser, release_lock
 from modelswarm.endpoint import Endpoint
 from modelswarm.engine import file_sha256
 from modelswarm.manifest import encode_manifest, load_manifest
@@ -264,12 +264,45 @@ print(json.dumps({{f.relative_to(p).as_posix(): hashlib.sha256(f.read_bytes()).h
         )
         blob = (snapshot / "config.json").resolve()
         blob.write_bytes(blob.read_bytes().replace(b"fixture", b"changed"))
-        with self.serve() as (endpoint, _):
+        with self.serve() as (endpoint, logs):
             for path, expected in (("config.json", "SHA-256 mismatch"), ("nested/config.json", "format mismatch")):
                 with self.subTest(path=path):
-                    status, _, body = self.request(endpoint, f"/test/model/resolve/{snapshot.name}/{path}")
-                    self.assertEqual(status, 400, body)
-                    self.assertIn(expected, json.loads(body)["error"])
+                    status, headers, body = self.request(endpoint, f"/test/model/resolve/{snapshot.name}/{path}")
+                    self.assertEqual(status, 502, body)
+                    self.assertEqual(headers["X-Error-Code"], "DownloadError")
+                    self.assertEqual(json.loads(body), {"error": "Unable to obtain verified content; see server log"})
+                    self.assertIn(expected, logs.read_text())
+
+    def test_cold_get_retries_after_another_process_releases_the_cache_lock(self):
+        with http_source(self.source) as (url, requests):
+            self.make(url)
+            _, digest = load_manifest(self.manifest)
+            path = f"/test/model/resolve/{digest[:40]}/config.json"
+            with self.serve() as (endpoint, _):
+                with release_lock(self.cache / ".modelswarm", digest):
+                    status, headers, body = self.request(endpoint, path)
+                    self.assertEqual(status, 503, body)
+                    self.assertEqual(headers["X-Error-Code"], "ReleaseBusy")
+                    self.assertGreater(int(headers["Retry-After"]), 0)
+                    self.assertEqual(requests, [])
+                status, _, body = self.request(endpoint, path)
+                self.assertEqual(status, 200, body)
+                self.assertEqual(body, (self.source / "config.json").read_bytes())
+
+    def test_request_errors_are_distinct_from_missing_download_sources(self):
+        self.make()
+        base = f"/test/model/resolve/{self.commit}"
+        with self.serve() as (endpoint, logs):
+            status, headers, body = self.request(endpoint, f"{base}/%2e%2e/config.json")
+            self.assertEqual(status, 400, body)
+            self.assertEqual(headers["X-Error-Code"], "BadRequest")
+            self.assertIn("unsafe or nonportable", json.loads(body)["error"])
+
+            status, headers, body = self.request(endpoint, f"{base}/config.json")
+            self.assertEqual(status, 502, body)
+            self.assertEqual(headers["X-Error-Code"], "DownloadError")
+            self.assertEqual(json.loads(body), {"error": "Unable to obtain verified content; see server log"})
+            self.assertIn("no source for config.json", logs.read_text())
 
     def test_long_native_timeout_keeps_upstream_enabled(self):
         with public_hub_fixture() as (upstream, remote):

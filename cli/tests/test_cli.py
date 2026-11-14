@@ -23,7 +23,7 @@ from urllib.parse import unquote, urlsplit
 
 import libtorrent as lt
 
-from modelswarm.cli import main
+from modelswarm.cli import main, release_lock
 from modelswarm.engine import MIB, session_settings
 
 
@@ -155,6 +155,13 @@ class CliTests(unittest.TestCase):
     def pull(self, *options, ok=True):
         return self.command("pull", self.manifest, "--cache-dir", self.cache,
                             "--no-discovery", "--timeout", "20", *options, ok=ok)
+
+    def test_release_lock_preserves_non_contention_io_failure(self):
+        operation = "msvcrt.locking" if os.name == "nt" else "fcntl.flock"
+        with patch(operation, side_effect=OSError(errno.EIO, os.strerror(errno.EIO))):
+            with self.assertRaises(OSError) as raised, release_lock(self.root, "a" * 64):
+                self.fail("release lock unexpectedly acquired")
+        self.assertEqual(raised.exception.errno, errno.EIO)
 
     def test_make_verify_portability_and_mismatch(self):
         made = self.make()

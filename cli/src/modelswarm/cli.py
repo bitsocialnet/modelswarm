@@ -2,6 +2,7 @@
 
 import argparse
 from contextlib import contextmanager
+import errno
 import hashlib
 import json
 import math
@@ -129,6 +130,10 @@ def verify(args):
     return {"command": "verify", "manifest_sha256": digest, "verified": checked, "errors": errors, "signed": False}
 
 
+class ReleaseBusyError(ValueError):
+    pass
+
+
 @contextmanager
 def release_lock(directory, digest):
     lock = directory / f"{digest}.lock"
@@ -149,7 +154,10 @@ def release_lock(directory, digest):
                 import fcntl
                 fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as error:
-            raise ValueError("another pull is using this manifest and cache") from error
+            if (error.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
+                    or (os.name == "nt" and error.errno == errno.EACCES)):
+                raise ReleaseBusyError("another pull is using this manifest and cache") from error
+            raise
         yield
     finally:
         os.close(descriptor)

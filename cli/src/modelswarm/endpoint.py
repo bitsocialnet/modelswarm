@@ -354,7 +354,16 @@ def handler_for(backend):
             if self.command == "HEAD":
                 self.respond_headers(200, entry.size, "application/octet-stream", **headers)
                 return
-            path = backend.obtain(model, entry)
+            from .cli import ReleaseBusyError
+            try:
+                path = backend.obtain(model, entry)
+            except ReleaseBusyError as error:
+                self.error(503, str(error), "ReleaseBusy", Retry_After=1)
+                return
+            except ValueError as error:
+                backend.emit("request_failed", error=type(error).__name__, detail=str(error))
+                self.error(502, "Unable to obtain verified content; see server log", "DownloadError")
+                return
             # Open before sending status: failures cannot produce a success body.
             with path.open("rb") as stream:
                 stream.seek(start)
