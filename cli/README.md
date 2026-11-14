@@ -69,7 +69,7 @@ The native-session `--timeout` defaults to 300 seconds and includes resume reche
 
 ### Use the verified cache
 
-The default root is `~/.cache/modelswarm/hub`, overridden by `MODELSWARM_CACHE` or `--cache-dir`. This keeps Modelswarm's declared model namespace separate from the normal Hugging Face cache. JSON output provides `cache_dir`, `revision` and `snapshot`:
+The default root is `~/.cache/modelswarm/hub`, overridden by a nonempty `MODELSWARM_CACHE` or `--cache-dir`. An empty environment value uses the default; an explicit `--cache-dir` still takes precedence. This keeps Modelswarm's declared model namespace separate from the normal Hugging Face cache. JSON output provides `cache_dir`, `revision` and `snapshot`:
 
 ```text
 models--example--model/

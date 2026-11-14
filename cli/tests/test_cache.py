@@ -244,6 +244,13 @@ class CacheTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "unsafe"):
                     materialize(self.cache, manifest, self.digest, verified)
 
+    def test_empty_cache_environment_uses_default(self):
+        with (patch.dict(os.environ, {"MODELSWARM_CACHE": ""}),
+              patch("modelswarm.cache.Path.home", return_value=self.root)):
+            self.assertEqual(cache_root(), self.root / ".cache" / "modelswarm" / "hub")
+            self.assertEqual(cache_root(self.root / "override"), self.root / "override")
+            self.assertEqual(cache_root(Path(".")), Path.cwd())
+
     def test_default_environment_and_revision_validation(self):
         alias = self.root / "alias"
         alias.symlink_to(self.root, target_is_directory=True)

@@ -22,7 +22,7 @@ _CHUNK = 4 * 1024 * 1024
 
 def cache_root(value=None):
     """Resolve the selected cache's parent while preserving its root for validation."""
-    selected = value if value is not None else os.environ.get("MODELSWARM_CACHE")
+    selected = value if value is not None else (os.environ.get("MODELSWARM_CACHE") or None)
     if selected is None:
         selected = Path.home() / ".cache" / "modelswarm" / "hub"
     path = Path(selected).expanduser().absolute()
