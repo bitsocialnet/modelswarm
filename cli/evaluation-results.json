@@ -1,0 +1,67 @@
+{
+  "schema": "modelswarm/cli-evaluation/v0",
+  "date": "2026-11-13",
+  "environment": {
+    "platform": "Darwin",
+    "macos": "27.0.1",
+    "machine": "arm64",
+    "python": "3.11.15",
+    "libtorrent_package": "2.1.1",
+    "libtorrent_native": "2.1.1.0",
+    "huggingface_hub": "2.4.0"
+  },
+  "tests": {
+    "command": "cli/.venv/bin/python -m unittest discover -s cli/tests -v",
+    "passed": 45,
+    "failed": 0,
+    "seconds": 27.733,
+    "cli_workflows": 12,
+    "manifest": 10,
+    "formats": 7,
+    "cache": 16
+  },
+  "repository_checks": {
+    "ai_workflow_sync_changed_files": 0,
+    "ai_workflow_check": "passed",
+    "ai_workflow_tests_passed": 29,
+    "lint": "passed",
+    "typescript": "passed",
+    "production_build": "passed",
+    "knip": "passed",
+    "diff_whitespace": "passed"
+  },
+  "real_model": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
+    "upstream_revision": "9217f5db79a29953eb74d5343926648285ec7e67",
+    "license_declared": "apache-2.0",
+    "file": "qwen2.5-0.5b-instruct-q4_k_m.gguf",
+    "source": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/9217f5db79a29953eb74d5343926648285ec7e67/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+    "bytes": 491400032,
+    "sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+    "pieces_root": "462868d271e23102b4955c6d8b6a051a7aefa4ca89c968d06a1a8028d9dea985",
+    "manifest_sha256": "ed19ee7d15599a97a629a96d5d950bad70145b4d4afec0937c8a2a12a8e5065f",
+    "cache_revision": "ed19ee7d15599a97a629a96d5d950bad70145b4d",
+    "make": "passed",
+    "source_verify": "passed",
+    "https_pull": "passed",
+    "final_snapshot_verify": "passed",
+    "sdk_offline_snapshot_lookup": "passed",
+    "sdk_offline_file_lookup": "passed",
+    "unrestricted_transfer_loop_seconds": 9.359,
+    "checkpoint_experiment": {
+      "rate_limit_bytes_per_second": 33554432,
+      "checkpoint_interval_seconds": 2,
+      "periodic_checkpoints": 15,
+      "transfer_loop_seconds": 33.426,
+      "hash_failures": 0
+    }
+  },
+  "limitations": [
+    "Unsigned manifest; digest pinning is not publisher authentication.",
+    "SIGKILL recovery proven after a completed checkpoint; newer buffered bytes may be downloaded again. No power-loss guarantee.",
+    "Native payload counter resets after pause/resume; raw experimental payload_bytes fields are not whole-command traffic.",
+    "Loopback peers and real public HTTPS tested; public DHT, WAN/NAT and non-macOS systems unverified.",
+    "HF offline cache lookup verified; no HF_ENDPOINT server, automatic fallback, authenticated models, model inference or persistent seeder.",
+    "GGUF header detection only; no full format or malware audit. Staging retained; disk use can approach twice payload size."
+  ]
+}

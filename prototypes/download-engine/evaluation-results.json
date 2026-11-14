@@ -1,0 +1,188 @@
+{
+  "evaluated_on": "2026-11-13",
+  "real_model": {
+    "libtorrent": "2.1.1.0",
+    "python": "3.11.15",
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "manifest": {
+      "file": "qwen2.5-0.5b-instruct-q4_k_m.gguf",
+      "size": 491400032,
+      "sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+      "torrent_sha256": "d0f31384e8db1c861295450e3689ae498c043e7398232893c66b7df58489c814",
+      "infohash_v2": "7b4f89a237cdde7d2db1e65e2dcb82c04d34653b9e57200713f40bc38236ddaf",
+      "pieces_root": "462868d271e23102b4955c6d8b6a051a7aefa4ca89c968d06a1a8028d9dea985",
+      "piece_size": 1048576,
+      "pieces": 469,
+      "torrent_bytes": 15311,
+      "hash_and_metadata_seconds": 0.4539
+    },
+    "scenarios": {
+      "peer_only": {
+        "event": "complete",
+        "elapsed": 1.8016,
+        "verified_bytes": 491400032,
+        "verified_pieces": 469,
+        "payload_bytes": 491400032,
+        "failed_bytes": 0,
+        "redundant_bytes": 0,
+        "resumed_pieces": 0,
+        "hash_failures": [],
+        "sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+        "killed_after_checkpoint": false,
+        "seed_payload_uploaded": 491400032
+      },
+      "http_only": {
+        "event": "complete",
+        "elapsed": 1.3359,
+        "verified_bytes": 491400032,
+        "verified_pieces": 469,
+        "payload_bytes": 491400032,
+        "failed_bytes": 0,
+        "redundant_bytes": 0,
+        "resumed_pieces": 0,
+        "hash_failures": [],
+        "sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+        "killed_after_checkpoint": false,
+        "http_bytes_sent": 491400032
+      },
+      "mixed": {
+        "event": "complete",
+        "elapsed": 17.4741,
+        "verified_bytes": 491400032,
+        "verified_pieces": 469,
+        "payload_bytes": 494186500,
+        "failed_bytes": 0,
+        "redundant_bytes": 2786468,
+        "resumed_pieces": 0,
+        "hash_failures": [],
+        "sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+        "killed_after_checkpoint": false,
+        "seed_payload_uploaded": 342884352,
+        "http_bytes_sent": 151317344
+      },
+      "corrupt_http": {
+        "event": "complete",
+        "elapsed": 18.8373,
+        "verified_bytes": 491400032,
+        "verified_pieces": 469,
+        "payload_bytes": 492448608,
+        "failed_bytes": 1048576,
+        "redundant_bytes": 0,
+        "resumed_pieces": 0,
+        "hash_failures": [
+          {
+            "piece": 0,
+            "verified_pieces": 0,
+            "elapsed": 1.5285,
+            "payload_bytes": 1048576
+          }
+        ],
+        "sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+        "killed_after_checkpoint": false,
+        "http_corrupted_responses": 1
+      },
+      "corrupt_peer": {
+        "event": "complete",
+        "elapsed": 19.33,
+        "verified_bytes": 491400032,
+        "verified_pieces": 469,
+        "payload_bytes": 492448608,
+        "failed_bytes": 1048576,
+        "redundant_bytes": 0,
+        "resumed_pieces": 0,
+        "hash_failures": [
+          {
+            "piece": 0,
+            "verified_pieces": 0,
+            "elapsed": 2.0287,
+            "payload_bytes": 1048576
+          }
+        ],
+        "sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+        "killed_after_checkpoint": false
+      },
+      "resume_restart": {
+        "event": "complete",
+        "elapsed": 0.9439,
+        "verified_bytes": 491400032,
+        "verified_pieces": 469,
+        "payload_bytes": 367984640,
+        "failed_bytes": 0,
+        "redundant_bytes": 0,
+        "resumed_pieces": 118,
+        "hash_failures": [],
+        "sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+        "killed_after_checkpoint": false,
+        "checkpoint": {
+          "event": "checkpoint",
+          "elapsed": 17.1534,
+          "verified_pieces": 118,
+          "verified_bytes": 123349856,
+          "checkpoint_bytes": 521224,
+          "killed_after_checkpoint": true
+        },
+        "http_resumed_bytes": 367984640
+      },
+      "external_http": {
+        "event": "complete",
+        "elapsed": 17.9039,
+        "verified_bytes": 491400032,
+        "verified_pieces": 469,
+        "payload_bytes": 491400032,
+        "failed_bytes": 0,
+        "redundant_bytes": 0,
+        "resumed_pieces": 0,
+        "hash_failures": [],
+        "sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+        "killed_after_checkpoint": false
+      }
+    }
+  },
+  "large_synthetic": {
+    "libtorrent": "2.1.1.0",
+    "python": "3.11.15",
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "manifest": {
+      "file": "payload.bin",
+      "size": 2148532224,
+      "sha256": "5e7edfd80e4cd2d66c0c9c3d32abe4f2ece8bc699fb6e9b8d85065ae569b761a",
+      "torrent_sha256": "6ff2cadadf174f6cfe51d7600cc263ae4c7da0cffd9ed3883b5995bf0d56fca6",
+      "infohash_v2": "1111e325ce64bf7ce701cc4f665043e911905214147858f6739bbd07744d7b98",
+      "pieces_root": "acacf5a0bb3c124aa1e42849ffc78c177979a0b78434613ebbb5cff11c91cc05",
+      "piece_size": 1048576,
+      "pieces": 2049,
+      "torrent_bytes": 65828,
+      "hash_and_metadata_seconds": 1.9517
+    },
+    "scenarios": {
+      "peer_only": {
+        "event": "complete",
+        "elapsed": 2.8752,
+        "verified_bytes": 2148532224,
+        "verified_pieces": 2049,
+        "payload_bytes": 2148532224,
+        "failed_bytes": 0,
+        "redundant_bytes": 0,
+        "resumed_pieces": 0,
+        "hash_failures": [],
+        "sha256": "5e7edfd80e4cd2d66c0c9c3d32abe4f2ece8bc699fb6e9b8d85065ae569b761a",
+        "killed_after_checkpoint": false,
+        "seed_payload_uploaded": 2148532224
+      },
+      "http_only": {
+        "event": "complete",
+        "elapsed": 2.3727,
+        "verified_bytes": 2148532224,
+        "verified_pieces": 2049,
+        "payload_bytes": 2148532224,
+        "failed_bytes": 0,
+        "redundant_bytes": 0,
+        "resumed_pieces": 0,
+        "hash_failures": [],
+        "sha256": "5e7edfd80e4cd2d66c0c9c3d32abe4f2ece8bc699fb6e9b8d85065ae569b761a",
+        "killed_after_checkpoint": false,
+        "http_bytes_sent": 2148532224
+      }
+    }
+  }
+}

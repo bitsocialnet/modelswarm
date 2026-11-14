@@ -7,15 +7,21 @@ Durations are rough estimates of focused work, not dates. Last reviewed 2026-11-
 ## Built
 
 - [x] Idea docs: [README.md](README.md), [how-it-could-work.md](how-it-could-work.md), [open-questions.md](open-questions.md) (2026-11-13).
+- [x] Static landing page.
+- [x] Isolated [download-engine prototype](prototypes/download-engine/README.md): libtorrent 2.1.1, v2-only peers and HTTP, corrupted-source recovery and persisted resume after SIGKILL (2026-11-13). See the [evaluation](prototypes/download-engine/EVALUATION.md).
+- [x] Unsigned [manifest v0 and CLI](cli/README.md): `make`, `verify`, `pull`, nested files, format policy, resumable transfers and a verified Hugging Face-compatible cache (2026-11-13).
 
-No code yet.
+- [x] [Local Hugging Face endpoint prototype](cli/ENDPOINT.md): `serve`/`HF_ENDPOINT`, registered manifests, verified public upstream fallback and real SDK end-to-end downloads (2026-11-13).
+- [x] [Signed publisher release prototype](cli/RELEASES.md): local keys, delegated profile setup, signed publication, profile/version/CID pulls and endpoint registration through a private real PKC node (2026-11-13).
+
+The experimental CLI, SDK endpoint and signed publishing are implemented. Public operation, catalogue and desktop client remain. The prototypes do not complete the measurements milestone.
 
 ## What Blocks What
 
 | Part | Depends on | State of the dependency (2026-11-13) |
 |---|---|---|
-| Making, verifying and pulling releases from a manifest | A BitTorrent v2 library with web seeds | Available outside Bitsocial. Which library is [open](open-questions.md#torrents) |
-| The Hugging Face endpoint | The requests existing tools make | Public, and need to be recorded per tool. Nothing in Bitsocial blocks it |
+| Making, verifying and pulling releases from a manifest | A BitTorrent v2 library with web seeds | libtorrent 2.1.1 passed the isolated prototype on macOS arm64. Production packaging and broader validation remain [open](open-questions.md#torrents) |
+| The Hugging Face endpoint | The requests existing tools make | SDK 2.4.0 routes and downloads tested; other consumers still need their own evidence |
 | Publishing releases | Author communities ([BSIP-14](https://bsips.bitsocial.net/bsip-14)) on a node the publisher runs | Implemented in pkc-js. Publishers without a node wait for hosted profiles on a public RPC |
 | Hubs | Communities ([BSIP-3](https://bsips.bitsocial.net/bsip-3)) and crossposts ([BSIP-12](https://bsips.bitsocial.net/bsip-12)) | Implemented in pkc-js |
 | Search | `bitsocial-indexer`, extended to parse manifests | The indexer exists; manifest parsing does not |
@@ -31,41 +37,46 @@ Two numbers decide the design, so they come before any product code.
 
 - [ ] **Community size.** Extend the seeded-board benchmark in `pkc-js-benchmarks` beyond its current 2,000 posts, to the sizes a busy publisher profile and a popular hub would reach. Record load time for a reader, and CPU, disk and memory for the operator. Answers [open-questions.md](open-questions.md#scale).
 - [ ] **Piece verification over HTTP.** Take a multi-gigabyte model file, build a v2 torrent, and download it from an HTTP mirror while checking every piece against the pieces root. Record hashing cost and the time to detect a modified file. Answers part of [open-questions.md](open-questions.md#torrents).
+  - The prototype records hashing and corruption timing with a 491 MB real model. A multi-gigabyte real-model benchmark and CPU/memory profiling remain to do.
 - [ ] **A swarm with web seeds.** Seed the same torrent from one machine with Hugging Face as a web seed, and download from another with a candidate library.
+  - Local peer/HTTP combinations and direct Hugging Face HTTPS passed separately. A distinct-machine peer transfer passed at one site (2026-11-13); public WAN testing remains to do.
 
 Estimate: about 1 week. Blocked by: nothing.
 
 ### 2. Manifest and command line
 
-- [ ] Manifest format v0, recorded here as a prototype convention until the BSIP.
-- [ ] `modelswarm make`: hash files, build the torrent, write the manifest.
-- [ ] `modelswarm verify`: check files on disk against a manifest.
-- [ ] `modelswarm pull` from a manifest file: download from torrent peers and HTTP mirrors together, verify each piece, place files in the cache layout that `transformers` and llama.cpp read.
-- [ ] Format detection, and the flagged-format rule from [how-it-could-work.md](how-it-could-work.md#safety).
+- [x] [Manifest format v0](cli/MANIFEST.md), a prototype convention until the BSIP: unsigned JSON, one embedded v2 torrent per nonempty file, complete piece layers and explicit sources.
+- [x] `modelswarm make`: hash a directory, build per-file torrents and write the manifest.
+- [x] `modelswarm verify`: check local sizes, SHA-256, pieces roots and formats against a manifest.
+- [x] `modelswarm pull` from a manifest file: download from peers and HTTP, verify pieces and complete files, resume from flushed checkpoints, and publish verified snapshots in a Hugging Face-compatible cache. Offline `huggingface_hub` lookup is tested; GGUF consumers can use the returned file path. Inference with `transformers` or llama.cpp is not tested.
+- [x] Format inspection and the flagged-format download rule: code, pickle and unknown files are excluded by default and require `--allow-unsafe`.
 
-Estimate: 2 to 3 weeks. Blocked by: the library choice from milestone 1.
+Prototype completed 2026-11-13; see [verification and remaining work](cli/EVALUATION.md). This does not establish production readiness, publisher identity, cross-platform installation, WAN operation or power-loss durability.
 
 ### 3. The Hugging Face endpoint
 
-- [ ] Record the requests made by `huggingface_hub`, `transformers`, the `hf` command, llama.cpp and Ollama.
-- [ ] `modelswarm serve`: answer them from local manifests.
-- [ ] Pass-through for models with no manifest: fetch from Hugging Face, verify whole files against its metadata.
-- [ ] Tests that run each real tool against the endpoint.
+- [x] Record and implement `huggingface_hub` 2.4.0 model info, tree, HEAD and file/range requests.
+- [x] `modelswarm serve`: serve registered local manifests through a loopback endpoint.
+- [x] Fallback for unregistered public models: pin upstream revisions, verify whole files against LFS SHA-256 or Git blob SHA-1, then serve them.
+- [x] Real SDK end-to-end tests, including a 491 MB model through local manifests and public HTTPS fallback.
+- [ ] Record and test `transformers`, the `hf` command, llama.cpp and Ollama independently; compatibility with the SDK does not establish all of them.
 
-Estimate: about 2 weeks. Blocked by: milestone 2.
+SDK prototype completed 2026-11-13; see [evidence and remaining scope](cli/ENDPOINT-EVALUATION.md). Private/gated models, streaming verified pieces and production hardening remain. The original two-week estimate covered the broader multi-consumer milestone.
 
 After this milestone the tool is useful to one person with no network of publishers: verified downloads, resumable from several sources.
 
 ### 4. Publishing and reading releases
 
-- [ ] RPC connection settings: Forge RPC by default, with another compatible provider or a self-hosted node selectable. Publishers retain their keys.
-- [ ] `modelswarm publish`: post a release to the publisher's profile on a node they run, or a compatible hosted profile once supported.
-- [ ] `pull` and the endpoint resolve releases from profiles.
+- [x] Explicit RPC connection settings (`--rpc`/`MODELSWARM_RPC`); publishers retain their keys locally.
+- [ ] A validated hosted Forge default and provider-hosted profile onboarding.
+- [x] `keygen`, `profile-init` and `modelswarm publish`: initialize a delegated author profile and post a locally signed manifest announcement on an operator-controlled PKC node.
+- [x] `profile-start` and `profile-renew`: a publisher node keeps its profile, delegation and releases across clean restarts and hard kills, the owner can renew the delegation, and a separate reader node resolves all of it over a private swarm (2026-11-13). A reader on a second machine pulled a signed 491 MB model from the first over a private swarm and BitTorrent. See the [evaluation](cli/PERSISTENCE-EVALUATION.md). Both machines were at one site; public-internet, NAT and DHT runs remain to do.
+- [x] `pull pkc://…` and `serve --release` resolve explicit publisher/version or CID-pinned releases, verify signatures and bind the manifest before downloading.
 - [ ] Mirror records v0: publish one when seeding a Hugging Face model, and check records on completed downloads.
 - [ ] A demo publisher profile on a Bitsocial node we run, with real releases of permissively licensed models, the way WeTube's demo channel works.
 - [ ] Web client, read-only: publisher pages, release pages with the model card, file list, format flags and sources. On the stack of 5chan and WeTube.
 
-Estimate: 3 to 4 weeks. Blocked by: the name question in [open-questions.md](open-questions.md#names-and-impersonation) needs a prototype answer.
+The signed CLI/profile slice is implemented; see [evidence and remaining scope](cli/RELEASES-EVALUATION.md). It uses explicit bare publisher keys rather than unproven human-readable names. Tests use a private real PKC/Kubo network, not public hosting. Mirror records, a public demo, name proofs and the read-only web client remain. The original 3–4 week estimate covered this broader milestone.
 
 ### 5. Hubs and search
 

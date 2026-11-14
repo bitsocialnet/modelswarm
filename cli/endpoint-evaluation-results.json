@@ -1,0 +1,127 @@
+{
+  "schema": "modelswarm/endpoint-evaluation/v0",
+  "date": "2026-11-13",
+  "environment": {
+    "os": "Darwin",
+    "macos": "27.0.1",
+    "machine": "arm64",
+    "python": "3.11.15",
+    "libtorrent": "2.1.1",
+    "libtorrent_native": "2.1.1.0",
+    "huggingface_hub": "2.4.0"
+  },
+  "tests": {
+    "passed": 65,
+    "failed": 0,
+    "seconds": 38.487,
+    "existing_cli_manifest_format_cache": 45,
+    "upstream": 14,
+    "endpoint_sdk_e2e": 6
+  },
+  "repository_checks": {
+    "workflow_generated_changes": 0,
+    "workflow_check": "passed",
+    "workflow_tests_passed": 29,
+    "lint": "passed",
+    "typescript": "passed",
+    "production_build": "passed",
+    "knip": "passed",
+    "diff_whitespace": "passed"
+  },
+  "real_model": {
+    "local_manifest": {
+      "scenario": "local-manifest-real-gguf",
+      "repo": "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
+      "revision": "ed19ee7d15599a97a629a96d5d950bad70145b4d",
+      "bytes": 491400032,
+      "sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+      "seconds": 2.809,
+      "server_cache": "warm",
+      "sdk_cache": "empty",
+      "ok": true
+    },
+    "public_upstream": {
+      "scenario": "public-upstream-real-gguf",
+      "repo": "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
+      "revision": "9217f5db79a29953eb74d5343926648285ec7e67",
+      "bytes": 491400032,
+      "sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+      "git_files": [
+        "README.md",
+        ".gitattributes"
+      ],
+      "server_cache": "empty",
+      "sdk_cache": "empty",
+      "seconds": 10.084,
+      "ok": true
+    },
+    "public_upstream_endpoint_requests": [
+      {
+        "event": "request",
+        "method": "GET",
+        "path": "/api/models/Qwen/Qwen2.5-0.5B-Instruct-GGUF/revision/9217f5db79a29953eb74d5343926648285ec7e67",
+        "status": 200,
+        "source": "upstream"
+      },
+      {
+        "event": "request",
+        "method": "GET",
+        "path": "/api/models/Qwen/Qwen2.5-0.5B-Instruct-GGUF/tree/9217f5db79a29953eb74d5343926648285ec7e67",
+        "status": 200,
+        "source": "upstream"
+      },
+      {
+        "event": "request",
+        "method": "HEAD",
+        "path": "/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/9217f5db79a29953eb74d5343926648285ec7e67/README.md",
+        "status": 200,
+        "source": "upstream"
+      },
+      {
+        "event": "request",
+        "method": "HEAD",
+        "path": "/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/9217f5db79a29953eb74d5343926648285ec7e67/.gitattributes",
+        "status": 200,
+        "source": "upstream"
+      },
+      {
+        "event": "request",
+        "method": "GET",
+        "path": "/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/9217f5db79a29953eb74d5343926648285ec7e67/.gitattributes",
+        "status": 200,
+        "source": "upstream"
+      },
+      {
+        "event": "request",
+        "method": "GET",
+        "path": "/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/9217f5db79a29953eb74d5343926648285ec7e67/README.md",
+        "status": 200,
+        "source": "upstream"
+      },
+      {
+        "event": "request",
+        "method": "HEAD",
+        "path": "/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/9217f5db79a29953eb74d5343926648285ec7e67/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+        "status": 200,
+        "source": "upstream"
+      },
+      {
+        "event": "request",
+        "method": "GET",
+        "path": "/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/9217f5db79a29953eb74d5343926648285ec7e67/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+        "status": 200,
+        "source": "upstream"
+      }
+    ],
+    "client_download_timeout_seconds": 600
+  },
+  "limitations": [
+    "Unsigned local manifests; public upstream metadata is trusted.",
+    "Complete-file verification precedes response body; cold downloads need extended SDK timeout.",
+    "Fallback uses HTTPS only, no peer distribution or transfer resume.",
+    "Upstream metadata is process-local; restart requires upstream even with cached blobs.",
+    "Only SDK2.4.0 tested; no inference or other-consumer compatibility claim.",
+    "Private/gated models, non-model repositories and write/account APIs unsupported.",
+    "Trusted local user, macOSarm64 only; WAN/platform/scale/durability work remains."
+  ]
+}

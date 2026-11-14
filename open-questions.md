@@ -22,6 +22,8 @@ The hardest question is not technical. Publishers already have their audience on
 
 ## Manifest
 
+The CLI implements [manifest v0](cli/MANIFEST.md): a separate portable JSON file, required name/version/license/files, one embedded v2 torrent per nonempty file, and explicit per-file HTTP sources. Nested files/shards work. The [release prototype](cli/RELEASES.md) authenticates its digest in native owner-signed PKC profile posts; manifests live separately at HTTPS/IPFS locations. This is a tested prototype convention, not a finalized BSIP. The following richer release semantics remain undecided.
+
 - Is the manifest a field of the comment, or a separate document referenced by its content identifier? Which fields may a comment carry beyond those in BSIP-2?
 - Which fields are required?
 - How are very large repositories handled, with hundreds of shards?
@@ -30,6 +32,8 @@ The hardest question is not technical. Publishers already have their audience on
 - How does a publisher withdraw a release, and what does a client show for a withdrawn release whose files are still seeded?
 
 ## Torrents
+
+The [download-engine prototype](prototypes/download-engine/EVALUATION.md) established libtorrent 2.1.1 as a viable candidate on macOS arm64. The [CLI](cli/EVALUATION.md) now implements releases containing several files using one embedded v2-only torrent per file, 1 MiB pieces by default (configurable), and complete piece layers for HTTP-only startup. Standalone manifests remain unsigned; profile releases now authenticate their exact digest. Cross-platform packaging, production-scale shard counts and WAN operation remain untested; this is a provisional engine choice.
 
 - BitTorrent v2 only, or hybrid torrents that v1 clients can join? Hybrid torrents add padding files and a second set of hashes.
 - Which piece size, given that the piece layer has to be fetched before the first piece can be checked?
@@ -49,12 +53,16 @@ The hardest question is not technical. Publishers already have their audience on
 
 ## Names and Impersonation
 
+The prototype requires a full publisher Peer ID and explicit version, with optional immutable CID pinning. It checks that the requested key signed the release in its own profile; this prevents another key from claiming that namespace but does not prove ownership of a human-readable name. Version scans can detect observed conflicts, not feed completeness/freshness.
+
 - Existing tools ask for `organization/model`. What does that resolve to: a publisher's `.bso` name, a name in a list the reader chose, or a mapping kept by each hub?
 - Anyone can publish a release called `llama-4`. How does a reader tell the real publisher from an imitator before `.bso` names are common?
 - How does a publisher prove that a Hugging Face organization and a Bitsocial key belong to the same party? Candidates: the key posted in the organization's Hugging Face profile or model card, on its website, or in its GitHub organization.
 - What happens to a publisher's releases when the key is lost or stolen?
 
 ## Safety
+
+The [CLI policy](cli/README.md#select-files-and-formats) implements conservative header/content classification, flags code/pickle/unknown files, checks risky suffixes independently of declarations, and rejects a mismatched format before cache publication. This is not complete format parsing or malware scanning; scanner services and the remaining policy questions below are still open.
 
 - Which formats are data-only by default, and who maintains that list as formats appear?
 - How does the client detect a file whose content does not match its declared format?
@@ -64,6 +72,8 @@ The hardest question is not technical. Publishers already have their audience on
 - Repositories that require `trust_remote_code`: flagged, or refused by the local endpoint unless the user allows them per publisher?
 
 ## The Hugging Face Endpoint
+
+The [SDK endpoint prototype](cli/ENDPOINT.md) answers model info/tree and HEAD/GET/range requests. Explicitly registered local names own their entire namespace; missing local files/revisions never fall back upstream. Fallback is public-only and never forwards client credentials. Complete bytes are verified before serving. These provisional choices leave the broader product questions below open.
 
 - Which requests do `huggingface_hub`, `transformers`, llama.cpp and Ollama actually make, and how stable are they between versions?
 - Ollama does not read `HF_ENDPOINT`. Is a registry-style route enough, or does it need a change upstream?
