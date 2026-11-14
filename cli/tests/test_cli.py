@@ -198,6 +198,42 @@ class CliTests(unittest.TestCase):
         self.assertIn(str(blocked), result["error"])
         self.assertFalse(self.manifest.exists())
 
+    def test_make_accepts_host_only_http_base(self):
+        (self.source / "shards" / "labels #1.txt").write_text("labels\n")
+        origin = "https://Files.example.com:8443"
+        mirror = "https://mirror.example.com/model%20files/"
+        self.make("--http-base", origin, "--http-base", mirror)
+        paths = {entry["path"]: entry["sources"] for entry in json.loads(self.manifest.read_text())["files"]}
+        self.assertEqual(paths["shards/labels #1.txt"], [
+            {"type": "http", "url": origin + "/shards/labels%20%231.txt"},
+            {"type": "http", "url": mirror + "shards/labels%20%231.txt"},
+        ])
+
+        second = self.root / "with-slash.json"
+        self.command("make", self.source, "-o", second, "--name", "test/model",
+                     "--version", "release-1", "--license", "apache-2.0",
+                     "--http-base", origin + "/", "--http-base", mirror)
+        self.assertEqual(second.read_bytes(), self.manifest.read_bytes())
+
+    def test_make_rejects_invalid_http_bases(self):
+        for index, (base, error) in enumerate((
+            ("https://user@files.example.com", "without credentials"),
+            ("https://files.exa\tmple.com", "unencoded whitespace"),
+            (" https://files.example.com", "unencoded whitespace"),
+            ("https://files.example.com ", "unencoded whitespace"),
+            ("https://files.example.com#fragment", "fragment"),
+            ("https://files.example.com/#", "fragment"),
+            ("https://files.example.com?download=1", "query parameters"),
+            ("https://files.example.com/?", "query parameters"),
+        )):
+            with self.subTest(base=base):
+                output = self.root / f"invalid-{index}.json"
+                result, _ = self.command("make", self.source, "-o", output,
+                                         "--name", "test/model", "--license", "apache-2.0",
+                                         "--http-base", base, ok=False)
+                self.assertIn(error, result["error"])
+                self.assertFalse(output.exists())
+
     def test_make_omits_huggingface_local_dir_cache(self):
         cache = self.source / ".cache"
         bookkeeping = cache / "huggingface"

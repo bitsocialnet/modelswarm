@@ -55,7 +55,18 @@ def make(args):
         raise ValueError("manifest output already exists; choose a new path")
     if args.piece_size < 16384 or args.piece_size > 16 * MIB or args.piece_size & (args.piece_size - 1):
         raise ValueError("piece size must be a power of two between 16 KiB and 16 MiB")
-    bases = [validate_source_url(url) for url in args.http_base]
+    bases = []
+    for url in args.http_base:
+        if any(char.isspace() for char in url):
+            raise ValueError("HTTP base URLs cannot contain unencoded whitespace")
+        # Check the raw URL because reconstruction drops empty queries and fragments.
+        if "?" in url:
+            raise ValueError("HTTP base URLs cannot contain query parameters")
+        if "#" in url:
+            raise ValueError("HTTP base URLs cannot contain a fragment")
+        parts = urlsplit(url)
+        validate_source_url(url if parts.path else url + "/")
+        bases.append(parts)
 
     def raise_walk_error(error):
         raise error
@@ -88,8 +99,7 @@ def make(args):
     entries = []
     for relative, path in sorted(paths):
         sources = []
-        for base in bases:
-            parts = urlsplit(base)
+        for parts in bases:
             url = urlunsplit(parts._replace(path=parts.path.rstrip("/") + "/" + quote(relative, safe="/")))
             sources.append({"type": "http", "url": url})
         entry = describe_file(path, relative, detect_format(path), sources, args.piece_size)
