@@ -1,9 +1,11 @@
-"""End-to-end tests run the installed command in separate processes."""
+"""Exercise the CLI in subprocesses and inject filesystem failures in-process."""
 
 import base64
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
+import errno
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import io
 import json
 import os
 from pathlib import Path
@@ -16,10 +18,12 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 from urllib.parse import unquote, urlsplit
 
 import libtorrent as lt
 
+from modelswarm.cli import main
 from modelswarm.engine import MIB, session_settings
 
 
@@ -165,6 +169,55 @@ class CliTests(unittest.TestCase):
         (self.source / "config.json").write_text('{"model_type":"changed"}')
         bad, _ = self.command("verify", self.manifest, self.source, ok=False)
         self.assertEqual(bad["errors"][0]["path"], "config.json")
+
+    def test_make_fails_before_publishing_on_traversal_error(self):
+        blocked = self.source / "shards"
+        scandir = os.scandir
+
+        def scan(path):
+            if Path(path) == blocked:
+                raise PermissionError(errno.EACCES, os.strerror(errno.EACCES), path)
+            return scandir(path)
+
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with (patch("modelswarm.cli.os.scandir", side_effect=scan),
+              redirect_stdout(stdout), redirect_stderr(stderr)):
+            code = main(["make", str(self.source), "-o", str(self.manifest),
+                         "--name", "test/model", "--license", "apache-2.0"])
+        self.assertEqual(code, 1, stdout.getvalue())
+        result = json.loads(stdout.getvalue())
+        self.assertFalse(result["ok"])
+        self.assertIn(str(blocked), result["error"])
+        self.assertFalse(self.manifest.exists())
+
+    def test_make_omits_huggingface_local_dir_cache(self):
+        cache = self.source / ".cache"
+        bookkeeping = cache / "huggingface"
+        download = bookkeeping / "download" / "shards"
+        download.mkdir(parents=True)
+        (bookkeeping / ".gitignore").write_text("*")
+        (bookkeeping / "CACHEDIR.TAG").write_text("Signature: 8a477f597d28d172789f06886806bc55\n")
+        (download / "part.safetensors.lock").touch()
+        metadata = download / "part.safetensors.metadata"
+        metadata_prefix = f"{'a' * 40}\netag\n"
+        metadata.write_text(metadata_prefix + "1\n")
+        (download / "digest.etag.incomplete").write_bytes(b"partial data")
+        (cache / "settings.json").write_text("{}")
+        nested = self.source / "shards" / ".cache" / "huggingface"
+        nested.mkdir(parents=True)
+        (nested / "notes.txt").write_text("Model documentation\n")
+
+        self.make()
+        metadata.write_text(metadata_prefix + "2\n")
+        second = self.root / "same.json"
+        self.command("make", self.source, "-o", second, "--name", "test/model",
+                     "--version", "release-1", "--license", "apache-2.0")
+
+        self.assertEqual(second.read_bytes(), self.manifest.read_bytes())
+        paths = {entry["path"] for entry in json.loads(self.manifest.read_text())["files"]}
+        self.assertTrue({".cache/settings.json", "shards/.cache/huggingface/notes.txt",
+                         "shards/part.safetensors"}.issubset(paths))
+        self.assertFalse(any(path.startswith(".cache/huggingface/") for path in paths))
 
     def test_http_pull_safe_selection_cache_and_sdk(self):
         with http_source(self.source) as (url, requests):

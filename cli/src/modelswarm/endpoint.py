@@ -13,8 +13,8 @@ import tempfile
 import threading
 from urllib.parse import quote, unquote, urlsplit, parse_qs
 
-from .cache import cache_root, ensure_directory, snapshot_revision
-from .engine import InterruptedDownload, check_file, peer_address
+from .cache import cache_root, cached_snapshot_file, ensure_directory, snapshot_revision
+from .engine import InterruptedDownload, check_file, peer_address, public_source_filter
 from .formats import (TEXT_NAMES, TEXT_SUFFIXES, detect_format, is_flagged,
                       is_flagged_path)
 from .manifest import load_manifest, validate_relative_path
@@ -68,7 +68,8 @@ class Endpoint:
                     raise ValueError("register at most one manifest or release per model name")
                 self.registered[manifest["name"]] = (manifest, digest)
                 self.provenance[manifest["name"]] = provenance
-            self.upstream = None if args.no_upstream else PublicHub(self.cache, base_url=args.upstream, timeout=args.timeout, cancel=self.cancel)
+            self.upstream = None if args.no_upstream else PublicHub(
+                self.cache, base_url=args.upstream, timeout=min(args.timeout, PublicHub.MAX_TIMEOUT), cancel=self.cancel)
         except Exception:
             self.scratch.cleanup()
             raise
@@ -114,9 +115,14 @@ class Endpoint:
             if self.cancel.is_set():
                 raise UpstreamError(503, "Endpoint is shutting down", "Unavailable")
             if model.source == "local":
-                from .cli import pull_release
                 manifest, digest = self.registered[model.repo]
                 selected = next(item for item in manifest["files"] if item["path"] == entry.path)
+                path = cached_snapshot_file(self.cache, manifest, digest, entry.path)
+                if path is not None:
+                    check_file(selected, path)
+                    self.emit("file_cached", path=entry.path)
+                    return path
+                from .cli import pull_release
                 result = pull_release(manifest, digest, [selected], [], self.cache,
                                       peers=self.args.peer, discovery=not self.args.no_discovery,
                                       timeout=self.args.timeout, rate=self.args.rate_limit,
@@ -423,7 +429,15 @@ def serve(args):
         raise ValueError("checkpoint interval must be finite and at least one second")
     if not 0 <= args.rate_limit <= 2**31 - 1:
         raise ValueError("rate limit must be between 0 and 2147483647")
-    args.peer = [peer_address(value) for value in args.peer]
+    source_filter = public_source_filter() if args.peer and args.release and not args.allow_local_sources else None
+    peers = []
+    for value in args.peer:
+        peer = peer_address(value)
+        if source_filter is not None and source_filter.access(peer[0]):
+            raise ValueError(f"explicit --peer {value} is blocked by the signed-release IP policy "
+                             f"(address {peer[0]}); use --allow-local-sources to permit it")
+        peers.append(peer)
+    args.peer = peers
     backend = Endpoint(args, progress)
     server, handlers = None, {}
     try:

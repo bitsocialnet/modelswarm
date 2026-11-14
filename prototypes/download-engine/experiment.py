@@ -32,7 +32,13 @@ def require(condition, message):
 def web_seed(source, corrupt=False, delay=0.0):
     events = []
 
+    class WebSeedServer(ThreadingHTTPServer):
+        # server_close() joins request threads so the event log is complete.
+        daemon_threads = False
+
     class Handler(BaseHTTPRequestHandler):
+        timeout = 5
+
         def log_message(self, *_):
             pass
 
@@ -59,15 +65,15 @@ def web_seed(source, corrupt=False, delay=0.0):
                 if start > end or start >= size:
                     self.send_error(416)
                     return
-            self.send_response(206 if value else 200)
-            self.send_header("Content-Length", str(end - start + 1))
-            self.send_header("Accept-Ranges", "bytes")
-            if value:
-                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
-            self.end_headers()
             sent = 0
             changed = False
             try:
+                self.send_response(206 if value else 200)
+                self.send_header("Content-Length", str(end - start + 1))
+                self.send_header("Accept-Ranges", "bytes")
+                if value:
+                    self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+                self.end_headers()
                 if body:
                     with source.open("rb") as stream:
                         stream.seek(start)
@@ -80,12 +86,12 @@ def web_seed(source, corrupt=False, delay=0.0):
                             sent += len(block)
                             if delay:
                                 time.sleep(delay)
-            except (BrokenPipeError, ConnectionResetError):
+            except (BrokenPipeError, ConnectionResetError, TimeoutError):
                 pass
             finally:
                 events.append({"range": value, "start": start, "end": end, "sent": sent, "corrupted": changed})
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server = WebSeedServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -93,7 +99,7 @@ def web_seed(source, corrupt=False, delay=0.0):
     finally:
         server.shutdown()
         server.server_close()
-        thread.join(timeout=5)
+        thread.join()
 
 
 @contextmanager
@@ -200,11 +206,11 @@ def run(args):
 
     with web_seed(source) as (url, requests):
         result = fetch("http_only", ["--http", url])
-        result["http_bytes_sent"] = sum(r["sent"] for r in requests)
-        require(result["http_bytes_sent"] >= manifest["size"], "HTTP did not supply the file")
-        require(any(r["range"] for r in requests), "HTTP range requests were not exercised")
-        (root / "http_only.requests.json").write_text(json.dumps(requests, indent=2))
-        record("http_only", result)
+    result["http_bytes_sent"] = sum(r["sent"] for r in requests)
+    require(result["http_bytes_sent"] >= manifest["size"], "HTTP did not supply the file")
+    require(any(r["range"] for r in requests), "HTTP range requests were not exercised")
+    (root / "http_only.requests.json").write_text(json.dumps(requests, indent=2))
+    record("http_only", result)
 
     if args.transport_only:
         print(f"Evidence: {root / 'results.json'}", flush=True)
@@ -213,17 +219,17 @@ def run(args):
     with peer_seed(torrent, source) as (peer, seed), web_seed(source, delay=0.001) as (url, requests):
         result = fetch("mixed", ["--peer", peer, "--http", url, "--rate", str(32 * MIB)])
         result["seed_payload_uploaded"] = seed.status().total_payload_upload
-        result["http_bytes_sent"] = sum(r["sent"] for r in requests)
-        require(result["seed_payload_uploaded"] > 0 and result["http_bytes_sent"] > 0, "both sources must transfer data")
-        record("mixed", result)
+    result["http_bytes_sent"] = sum(r["sent"] for r in requests)
+    require(result["seed_payload_uploaded"] > 0 and result["http_bytes_sent"] > 0, "both sources must transfer data")
+    record("mixed", result)
 
     with peer_seed(torrent, source) as (peer, _), web_seed(source, corrupt=True) as (url, requests):
         result = fetch("corrupt_http", ["--http", url, "--peer-after-failure", peer, "--rate", str(args.fault_rate_mib * MIB), "--sequential"])
-        require(result["hash_failures"], "corrupted HTTP piece was not rejected")
-        require(result["hash_failures"][0]["payload_bytes"] < manifest["size"], "corruption detected only after full download")
-        require(any(r["corrupted"] for r in requests), "HTTP corruption was not injected")
-        result["http_corrupted_responses"] = sum(r["corrupted"] for r in requests)
-        record("corrupt_http", result)
+    require(result["hash_failures"], "corrupted HTTP piece was not rejected")
+    require(result["hash_failures"][0]["payload_bytes"] < manifest["size"], "corruption detected only after full download")
+    require(any(r["corrupted"] for r in requests), "HTTP corruption was not injected")
+    result["http_corrupted_responses"] = sum(r["corrupted"] for r in requests)
+    record("corrupt_http", result)
 
     bad_dir = root / "malicious-peer"
     bad_dir.mkdir()
@@ -235,13 +241,13 @@ def run(args):
         stream.write(bytes([first[0] ^ 0xFF]))
     with peer_seed(torrent, bad_file, corrupt=True) as (peer, _), web_seed(source) as (url, requests):
         result = fetch("corrupt_peer", ["--peer", peer, "--http-after-failure", url, "--rate", str(args.fault_rate_mib * MIB), "--sequential"])
-        require(result["hash_failures"], "malicious peer did not trigger receiver-side hash failure")
-        require(result["hash_failures"][0]["payload_bytes"] < manifest["size"], "peer corruption detected too late")
-        require(sum(r["sent"] for r in requests) > 0, "healthy fallback never transferred data")
-        record("corrupt_peer", result)
+    require(result["hash_failures"], "malicious peer did not trigger receiver-side hash failure")
+    require(result["hash_failures"][0]["payload_bytes"] < manifest["size"], "peer corruption detected too late")
+    require(sum(r["sent"] for r in requests) > 0, "healthy fallback never transferred data")
+    record("corrupt_peer", result)
 
     # Loopback peers bypass session rate limits; throttle the fixture itself.
-    with web_seed(source, delay=0.003) as (url, requests):
+    with web_seed(source, delay=0.003) as (url, _):
         destination = root / "resume"
         checkpoint = root / "resume.data"
         partial = fetch("resume_checkpoint", ["--http", url, "--rate", str(8 * MIB),
@@ -250,20 +256,19 @@ def run(args):
         require(0 < partial["verified_pieces"] < manifest["pieces"], "checkpoint must be partial")
         saved = lt.read_resume_data(checkpoint.read_bytes())
         have = list(saved.have_pieces)
-    # A new server gives phase 2 its own event stream; old handlers may finish
-    # after SIGKILL, so slicing a shared list would misattribute late responses.
+    # A separate server records only the fresh process's requests.
     with web_seed(source) as (url, requests):
         result = fetch("resume_restart", ["--http", url, "--resume", str(checkpoint)], destination)
-        require(result["worker_pid"] != partial["worker_pid"], "resume must use a new process")
-        require(result["resumed_pieces"] >= partial["verified_pieces"], "verified progress was lost")
-        require(result["payload_bytes"] < manifest["size"], "resume downloaded the entire file again")
-        for request in requests:
-            for piece in range(request["start"] // manifest["piece_size"], request["end"] // manifest["piece_size"] + 1):
-                require(not have[piece], f"resume re-requested verified piece {piece}")
-        result["checkpoint"] = partial
-        result["http_resumed_bytes"] = sum(r["sent"] for r in requests)
-        (root / "resume.requests.json").write_text(json.dumps(requests, indent=2))
-        record("resume_restart", result)
+    require(result["worker_pid"] != partial["worker_pid"], "resume must use a new process")
+    require(result["resumed_pieces"] >= partial["verified_pieces"], "verified progress was lost")
+    require(result["payload_bytes"] < manifest["size"], "resume downloaded the entire file again")
+    for request in requests:
+        for piece in range(request["start"] // manifest["piece_size"], request["end"] // manifest["piece_size"] + 1):
+            require(not have[piece], f"resume re-requested verified piece {piece}")
+    result["checkpoint"] = partial
+    result["http_resumed_bytes"] = sum(r["sent"] for r in requests)
+    (root / "resume.requests.json").write_text(json.dumps(requests, indent=2))
+    record("resume_restart", result)
 
     if args.http_url:
         result = fetch("external_http", ["--http", args.http_url, "--external-http"])

@@ -55,14 +55,22 @@ def make(args):
     if args.piece_size < 16384 or args.piece_size > 16 * MIB or args.piece_size & (args.piece_size - 1):
         raise ValueError("piece size must be a power of two between 16 KiB and 16 MiB")
     bases = [validate_source_url(url) for url in args.http_base]
+
+    def raise_walk_error(error):
+        raise error
+
     paths = []
-    for root, directories, files in os.walk(directory, followlinks=False):
+    for root, directories, files in os.walk(directory, onerror=raise_walk_error, followlinks=False):
+        root = Path(root)
         for name in directories + files:
-            path = Path(root) / name
+            path = root / name
             if path.is_symlink():
                 raise ValueError(f"source symlinks are not supported: {path.relative_to(directory)}")
+        # Hugging Face uses this subtree for local-dir metadata and partial downloads.
+        if root == directory / ".cache" and "huggingface" in directories:
+            directories.remove("huggingface")
         for name in files:
-            path = Path(root) / name
+            path = root / name
             if not stat.S_ISREG(path.stat().st_mode):
                 raise ValueError(f"source is not a regular file: {path.relative_to(directory)}")
             relative = validate_relative_path(path.relative_to(directory).as_posix())

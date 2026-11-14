@@ -98,9 +98,11 @@ def _new_digest(file):
 
 
 class PublicHub:
+    MAX_TIMEOUT = 3600
+
     def __init__(self, cache, base_url="https://huggingface.co", timeout=30, cancel=None):
-        if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or not 0 < timeout <= 3600:
-            raise ValueError("upstream timeout must be between 0 and 3600 seconds")
+        if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or not 0 < timeout <= self.MAX_TIMEOUT:
+            raise ValueError(f"upstream timeout must be between 0 and {self.MAX_TIMEOUT} seconds")
         self.timeout = float(timeout)
         self.cancel = cancel if cancel is not None else threading.Event()
         self.base_url = base_url.rstrip("/")

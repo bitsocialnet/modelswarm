@@ -32,7 +32,37 @@ The actual installed command also processed Qwen's **491,400,032-byte** `qwen2.5
 4. A second empty-cache run with `--rate-limit 33554432 --checkpoint-interval 2` completed in 33.426 seconds, exercising 15 flushed periodic checkpoints and continued HTTPS transfers. These settings deliberately slow the transfer; this is not a throughput comparison.
 5. The CLI's `verify` independently checked the final snapshot. Offline Hugging Face SDK snapshot/file lookup found the same snapshot and exact GGUF file; an independent SHA-256 calculation matched all 491,400,032 bytes. No model inference or remote code was executed.
 
-The real commands and artifacts are reproducible from [README.md](README.md); this worktree retains raw evidence under `cli/artifacts/real-model/`. [evaluation-results.json](evaluation-results.json) records the source identifiers and measured results without local paths. The earlier isolated engine prototype remains unchanged, with its own [evaluation](../prototypes/download-engine/EVALUATION.md).
+To repeat the real-model CLI checks, install the CLI as described in [README.md](README.md) and run these commands from the repository root. The commands use a new run directory and two empty caches.
+
+```sh
+set -e
+run_dir=$(mktemp -d)
+repo=Qwen/Qwen2.5-0.5B-Instruct-GGUF
+revision=9217f5db79a29953eb74d5343926648285ec7e67
+file=qwen2.5-0.5b-instruct-q4_k_m.gguf
+http_base="https://huggingface.co/$repo/resolve/$revision/"
+file_sha=74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db
+manifest_sha=ed19ee7d15599a97a629a96d5d950bad70145b4d4afec0937c8a2a12a8e5065f
+manifest="$run_dir/qwen.json"
+
+mkdir "$run_dir/source"
+curl --fail --location --retry 2 --output "$run_dir/source/$file" "$http_base$file"
+printf '%s  %s\n' "$file_sha" "$run_dir/source/$file" | shasum -a 256 -c
+
+cli/.venv/bin/modelswarm make "$run_dir/source" --output "$manifest" \
+  --name "$repo" --version "$revision" --license apache-2.0 --http-base "$http_base"
+cli/.venv/bin/modelswarm verify "$manifest" "$run_dir/source" --manifest-sha256 "$manifest_sha"
+
+cli/.venv/bin/modelswarm pull "$manifest" --manifest-sha256 "$manifest_sha" \
+  --no-discovery --cache-dir "$run_dir/cache"
+cli/.venv/bin/modelswarm pull "$manifest" --manifest-sha256 "$manifest_sha" \
+  --no-discovery --cache-dir "$run_dir/final-cache" --rate-limit 33554432 --checkpoint-interval 2
+
+snapshot="$run_dir/final-cache/models--Qwen--Qwen2.5-0.5B-Instruct-GGUF/snapshots/ed19ee7d15599a97a629a96d5d950bad70145b4d"
+cli/.venv/bin/modelswarm verify "$manifest" "$snapshot" --manifest-sha256 "$manifest_sha"
+```
+
+[evaluation-results.json](evaluation-results.json) records the source identifiers and measured results. The isolated download-engine prototype has its own [evaluation](../prototypes/download-engine/EVALUATION.md).
 
 Repository lint, TypeScript, production build, advisory Knip, workflow validation and all 29 workflow tests pass. Independent code review has no remaining actionable findings. Root docs and landing-page status copy reflect the completed prototype; no visual layout work or browser verification was performed. The checkpoint, recheck and finite-timeout regressions provide the prevention selected by the repository's retrospective check.
 

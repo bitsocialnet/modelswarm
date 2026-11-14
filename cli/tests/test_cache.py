@@ -7,7 +7,9 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from modelswarm.cache import cache_root, cached_files, ensure_directory, materialize, snapshot_revision
+from modelswarm.cache import (
+    cache_root, cached_files, cached_snapshot_file, ensure_directory, materialize, snapshot_revision,
+)
 
 
 class CacheTests(unittest.TestCase):
@@ -156,6 +158,48 @@ class CacheTests(unittest.TestCase):
         blob = ensure_directory(self.cache / "models--owner--model" / "blobs") / manifest["files"][0]["sha256"]
         blob.write_bytes(b"value")
         self.assertEqual(cached_files(self.cache, manifest, self.digest), {"file.txt": blob})
+        self.assertIsNone(cached_snapshot_file(self.cache, manifest, self.digest, "file.txt"))
+
+    def test_selected_lookup_rejects_unowned_revision(self):
+        manifest, verified = self.fixture({"config.json": b"{}"})
+        snapshot = materialize(self.cache, manifest, self.digest, verified)
+        with self.assertRaisesRegex(ValueError, "another manifest"):
+            cached_snapshot_file(self.cache, manifest, "a" * 40 + "b" * 24, "config.json")
+        (snapshot.parent.parent / ".modelswarm" / f"{snapshot.name}.json").unlink()
+        with self.assertRaisesRegex(ValueError, "not owned"):
+            cached_snapshot_file(self.cache, manifest, self.digest, "config.json")
+
+    def test_selected_lookup_checks_unrelated_snapshot_links_and_blob_types(self):
+        manifest, verified = self.fixture({"config.json": b"{}", "nested/weights.gguf": b"GGUF-test"})
+        snapshot = materialize(self.cache, manifest, self.digest, verified)
+        link = snapshot / "nested/weights.gguf"
+        expected_target = os.readlink(link)
+        link.unlink()
+        link.symlink_to(verified["nested/weights.gguf"])
+        with self.assertRaisesRegex(ValueError, "expected blob link"):
+            cached_snapshot_file(self.cache, manifest, self.digest, "config.json")
+
+        link.unlink()
+        link.symlink_to(expected_target)
+        blob = link.resolve()
+        blob.unlink()
+        blob.symlink_to(verified["nested/weights.gguf"])
+        with self.assertRaisesRegex(ValueError, "regular private"):
+            cached_snapshot_file(self.cache, manifest, self.digest, "config.json")
+
+    def test_selected_lookup_fails_if_snapshot_subtree_cannot_be_read(self):
+        manifest, verified = self.fixture({"config.json": b"{}", "nested/weights.gguf": b"GGUF-test"})
+        snapshot = materialize(self.cache, manifest, self.digest, verified)
+        scandir = os.scandir
+
+        def deny_nested(path):
+            if path == snapshot / "nested" or path == str(snapshot / "nested"):
+                raise PermissionError("snapshot subtree is unreadable")
+            return scandir(path)
+
+        with (patch("modelswarm.cache.os.scandir", side_effect=deny_nested),
+              self.assertRaisesRegex(PermissionError, "snapshot subtree is unreadable")):
+            cached_snapshot_file(self.cache, manifest, self.digest, "config.json")
 
     def test_path_escape_is_rejected(self):
         for relative in ("../outside", "nested/../../outside", "/absolute", "a\\b", "C:/outside", "a//b"):

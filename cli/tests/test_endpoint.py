@@ -1,8 +1,9 @@
 """Exercise the real CLI endpoint with an isolated Hugging Face SDK process."""
 
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stdout
 import hashlib
 import http.client
+import io
 import json
 import os
 from pathlib import Path
@@ -12,9 +13,15 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 from urllib.parse import urlsplit
 
-from test_cli import gguf, http_source
+from modelswarm import cache
+from modelswarm.cli import main, parser
+from modelswarm.endpoint import Endpoint
+from modelswarm.engine import file_sha256
+from modelswarm.manifest import encode_manifest, load_manifest
+from test_cli import gguf, http_source, peers
 from test_upstream import public_hub_fixture
 
 
@@ -55,24 +62,39 @@ class EndpointTests(unittest.TestCase):
             "NO_PROXY": "127.0.0.1,localhost",
         })
 
-    def make(self, url):
+    def make(self, url=None):
         result = subprocess.run(
             [sys.executable, "-m", "modelswarm", "make", str(self.source),
              "-o", str(self.manifest), "--name", "test/model", "--version", "release-1",
-             "--license", "apache-2.0", "--http-base", url],
+             "--license", "apache-2.0", *(["--http-base", url] if url else [])],
             capture_output=True, text=True, env=self.environment, timeout=20,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.commit = json.loads(result.stdout)["manifest_sha256"][:40]
 
     @contextmanager
-    def serve(self, *options, upstream=None):
+    def serve(self, *options, upstream=None, signed=False):
         self.sequence += 1
         log_path = self.root / f"server-{self.sequence}.jsonl"
-        args = [sys.executable, "-m", "modelswarm", "serve",
+        args = [sys.executable, "-m", "modelswarm"]
+        if signed:
+            args = [sys.executable, "-c", """
+import sys
+from pathlib import Path
+from unittest.mock import patch
+from modelswarm.cli import main
+from modelswarm.manifest import load_manifest
+manifest, digest = load_manifest(Path(sys.argv[1]))
+provenance = {'signed': True, 'publisher': 'fixture', 'release_cid': 'fixture'}
+with patch('modelswarm.releases.resolve', return_value=(manifest, digest, provenance)):
+    raise SystemExit(main(sys.argv[2:]))
+""", str(self.manifest)]
+        args += ["serve",
                 "--cache-dir", str(self.cache), "--host", "127.0.0.1", "--port", "0",
                 "--no-discovery", "--timeout", "10"]
-        if self.manifest.exists():
+        if signed:
+            args.extend(["--release", "pkc://publisher/test/model@release-1"])
+        elif self.manifest.exists():
             args.extend(["--manifest", str(self.manifest)])
         args.extend(["--no-upstream"] if upstream is None else ["--upstream", upstream])
         args.extend(map(str, options))
@@ -205,6 +227,88 @@ print(json.dumps({{f.relative_to(p).as_posix(): hashlib.sha256(f.read_bytes()).h
                 status, headers, _ = self.request(endpoint, pinned, headers={"Range": "bytes=999999999-"})
                 self.assertEqual(status, 416)
                 self.assertEqual(headers["Content-Range"], f"bytes */{len(original)}")
+
+    def test_warm_config_only_hashes_the_requested_file_without_staging(self):
+        gguf(self.source / "weights.gguf", 4 * 1024 * 1024 + 79)
+        self.make()
+        manifest, digest = load_manifest(self.manifest)
+        snapshot = cache.materialize(
+            self.cache, manifest, digest,
+            {path: self.source / path for path in ("config.json", "weights.gguf")},
+        )
+        args = parser().parse_args(["serve", "--manifest", str(self.manifest),
+                                    "--cache-dir", str(self.cache), "--no-upstream"])
+        backend = Endpoint(args, lambda *args, **fields: None)
+        self.addCleanup(backend.close)
+        model = backend.model("test/model", "main")
+        entry = backend.entry(model, "config.json")
+        with (patch.object(cache, "_verify_file", wraps=cache._verify_file) as cache_hash,
+              patch("modelswarm.engine.file_sha256", wraps=file_sha256) as file_hash):
+            path = backend.obtain(model, entry)
+        self.assertEqual(path, snapshot / "config.json")
+        self.assertEqual(path.read_bytes(), (self.source / "config.json").read_bytes())
+        cache_hash.assert_not_called()
+        file_hash.assert_called_once_with(path)
+        self.assertFalse((self.cache / ".modelswarm" / digest).exists())
+
+    def test_warm_get_rejects_same_size_corrupt_payload_and_false_format(self):
+        self.make()
+        manifest, _ = load_manifest(self.manifest)
+        next(entry for entry in manifest["files"] if entry["path"] == "nested/config.json")["format"] = "text"
+        encoded = encode_manifest(manifest)
+        self.manifest.write_bytes(encoded)
+        digest = hashlib.sha256(encoded).hexdigest()
+        snapshot = cache.materialize(
+            self.cache, manifest, digest,
+            {path: self.source / path for path in ("config.json", "nested/config.json")},
+        )
+        blob = (snapshot / "config.json").resolve()
+        blob.write_bytes(blob.read_bytes().replace(b"fixture", b"changed"))
+        with self.serve() as (endpoint, _):
+            for path, expected in (("config.json", "SHA-256 mismatch"), ("nested/config.json", "format mismatch")):
+                with self.subTest(path=path):
+                    status, _, body = self.request(endpoint, f"/test/model/resolve/{snapshot.name}/{path}")
+                    self.assertEqual(status, 400, body)
+                    self.assertIn(expected, json.loads(body)["error"])
+
+    def test_long_native_timeout_keeps_upstream_enabled(self):
+        with public_hub_fixture() as (upstream, remote):
+            with self.serve("--timeout", "7200", upstream=upstream) as (endpoint, _):
+                status, _, body = self.request(endpoint, "/api/models/fixture/public")
+                self.assertEqual(status, 200, body)
+                self.assertEqual(json.loads(body)["sha"], remote.commit)
+        with self.serve("--timeout", "7200") as (endpoint, _):
+            self.assertEqual(self.request(endpoint, "/health")[0], 200)
+
+    def test_signed_explicit_loopback_peer_requires_opt_in_before_startup(self):
+        stdout = io.StringIO()
+        with patch("modelswarm.releases.resolve") as resolve, redirect_stdout(stdout):
+            code = main(["serve", "--release", "pkc://publisher/test/model@release-1",
+                         "--no-discovery", "--no-upstream", "--peer", "127.0.0.1:6881",
+                         "--cache-dir", str(self.cache), "--port", "0"])
+        self.assertEqual(code, 1)
+        error = json.loads(stdout.getvalue())["error"]
+        self.assertIn("127.0.0.1:6881", error)
+        self.assertIn("--allow-local-sources", error)
+        resolve.assert_not_called()
+        self.assertFalse(self.cache.exists())
+
+    def test_signed_opt_in_and_unsigned_endpoint_download_from_loopback_peer(self):
+        self.make()
+        manifest, digest = load_manifest(self.manifest)
+        path = f"/test/model/resolve/{digest[:40]}/config.json"
+        with peers(manifest, self.source) as (peer, handles):
+            with self.serve("--peer", peer, signed=False) as (endpoint, _):
+                status, _, body = self.request(endpoint, path)
+                self.assertEqual(status, 200, body)
+                self.assertEqual(body, (self.source / "config.json").read_bytes())
+            self.cache = self.root / "signed-cache"
+            with self.serve("--peer", peer, "--allow-local-sources", signed=True) as (endpoint, _):
+                status, headers, body = self.request(endpoint, path)
+                self.assertEqual(status, 200, body)
+                self.assertEqual(body, (self.source / "config.json").read_bytes())
+                self.assertEqual(headers["X-Modelswarm-Publisher"], "fixture")
+            self.assertGreater(sum(handle.status().total_payload_upload for handle in handles), 0)
 
     def test_shutdown_closes_a_held_keepalive_connection(self):
         connection = None

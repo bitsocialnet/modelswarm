@@ -130,14 +130,18 @@ def _publish_blob(blobs, entry, source):
     return blob
 
 
-def _check_snapshot(snapshot, blobs, entries):
+def _check_snapshot(snapshot, blobs, entries, *, verify_payloads):
     existing = set()
     if not os.path.lexists(snapshot):
         return existing
     _directories(snapshot, create=False)
     expected_directories = {str(parent) for relative in entries
                             for parent in PurePosixPath(relative).parents if str(parent) != "."}
-    for directory, children, files in os.walk(snapshot, followlinks=False):
+
+    def raise_walk_error(error):
+        raise error
+
+    for directory, children, files in os.walk(snapshot, onerror=raise_walk_error, followlinks=False):
         directory = Path(directory)
         for name in children:
             path = directory / name
@@ -153,7 +157,10 @@ def _check_snapshot(snapshot, blobs, entries):
             blob = blobs / entry["sha256"]
             if not path.is_symlink() or os.readlink(path) != os.path.relpath(blob, path.parent):
                 raise ValueError(f"snapshot file is not its expected blob link: {path}")
-            _verify_file(blob, entry)
+            if verify_payloads:
+                _verify_file(blob, entry)
+            elif not stat.S_ISREG(blob.lstat().st_mode):
+                raise ValueError(f"expected a regular private file: {blob}")
             existing.add(relative)
     return existing
 
@@ -191,6 +198,41 @@ def _manifest_marker(directory, revision, digest):
         temporary.unlink(missing_ok=True)
 
 
+def _read_snapshot(cache, manifest, digest, *, verify_payloads):
+    revision = snapshot_revision(digest)
+    name, entries = _entries(manifest)
+    root = cache_root(cache)
+    if not os.path.lexists(root):
+        return None
+    _directories(root, create=False)
+    repository = root / ("models--" + name.replace("/", "--"))
+    if not os.path.lexists(repository):
+        return None
+    _directories(repository, create=False)
+    blobs, snapshots, metadata = (repository / part for part in ("blobs", "snapshots", ".modelswarm"))
+    for directory in (blobs, snapshots, metadata):
+        if os.path.lexists(directory):
+            _directories(directory, create=False)
+    snapshot = snapshots / revision
+    published = os.path.lexists(snapshot)
+    _check_manifest_marker(metadata, revision, digest, required=published)
+    existing = _check_snapshot(snapshot, blobs, entries, verify_payloads=verify_payloads) if published else set()
+    return snapshot, blobs, entries, existing
+
+
+def cached_snapshot_file(cache, manifest, digest, relative):
+    """Look up a published path in a structurally valid snapshot without reading blobs.
+
+    The caller must verify the requested payload before serving it.
+    """
+    cached = _read_snapshot(cache, manifest, digest, verify_payloads=False)
+    if cached is not None:
+        snapshot, _, _, existing = cached
+        if relative in existing:
+            return snapshot / relative
+    return None
+
+
 def cached_files(cache, manifest, digest):
     """Return verified existing blobs, without creating cache directories or files.
 
@@ -198,23 +240,10 @@ def cached_files(cache, manifest, digest):
     The returned regular files have digest filenames; callers needing format
     inspection by suffix should copy them to private staging under the entry name.
     """
-    revision = snapshot_revision(digest)
-    name, entries = _entries(manifest)
-    root = cache_root(cache)
-    if not os.path.lexists(root):
+    cached = _read_snapshot(cache, manifest, digest, verify_payloads=True)
+    if cached is None:
         return {}
-    _directories(root, create=False)
-    repository = root / ("models--" + name.replace("/", "--"))
-    if not os.path.lexists(repository):
-        return {}
-    _directories(repository, create=False)
-    blobs, snapshots, metadata = (repository / part for part in ("blobs", "snapshots", ".modelswarm"))
-    for directory in (blobs, snapshots, metadata):
-        if os.path.lexists(directory):
-            _directories(directory, create=False)
-    snapshot = snapshots / revision
-    _check_manifest_marker(metadata, revision, digest, required=os.path.lexists(snapshot))
-    _check_snapshot(snapshot, blobs, entries)
+    _, blobs, entries, _ = cached
     found = {}
     for relative, entry in entries.items():
         blob = blobs / entry["sha256"]
@@ -245,7 +274,7 @@ def materialize(cache, manifest, digest, verified):
     metadata = ensure_directory(repository / ".modelswarm")
     snapshot = snapshots / revision
     _check_manifest_marker(metadata, revision, digest, required=os.path.lexists(snapshot))
-    existing = _check_snapshot(snapshot, blobs, entries)
+    existing = _check_snapshot(snapshot, blobs, entries, verify_payloads=True)
     for relative, source in verified.items():
         _publish_blob(blobs, entries[relative], source)
     _manifest_marker(metadata, revision, digest)
