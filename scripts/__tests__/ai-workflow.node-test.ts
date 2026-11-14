@@ -83,7 +83,7 @@ test('duplicate legacy skill roots fail validation', (t) => {
 
 test('shared skills reject stale Cursor skill references after synchronization', (t) => {
   const root = fixture(t);
-  const relative = '.agents/skills/commit/SKILL.md';
+  const relative = path.join('.agents/skills', 'commit/SKILL.md');
   fs.appendFileSync(path.join(root, relative), '\nSee .cursor/skills/commit/SKILL.md.\n');
   for (const [file, content] of generatedFiles(root)) {
     fs.writeFileSync(path.join(root, file), content);
