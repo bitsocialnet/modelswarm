@@ -25,6 +25,7 @@ The fixes have focused regressions. Independent reviews covered the download/cac
 - Valid safetensors headers can share short pickle or code signatures. Full structural validation now disambiguates those bytes while preserving risky filename rules and rejection of malformed data. Existing manifests that misclassified these files need regeneration; signed releases require a new version rather than a verification bypass.
 - Endpoint cache contention returns `503 ReleaseBusy` with `Retry-After`. Other internal verification/configuration failures return a generic `502` with detailed diagnostics in the server log; malformed requests retain `400` responses. Lock I/O failures unrelated to contention preserve their original error type.
 - An empty `MODELSWARM_CACHE` uses the default cache instead of writing into the working directory. Explicit cache-directory choices retain precedence.
+- The landing page's endpoint description and comparison row now limit compatibility claims to the tested Hugging Face SDK; `transformers` and llama.cpp remain untested, matching the root docs.
 
 The review's upstream timeout/resume concern remains a documented prototype limitation: upstream operations have a total deadline, and interrupted upstream payloads restart from zero. Native registered-manifest transfers support checkpoint resume. Adding upstream resume or changing deadline semantics is outside this correction; see [ENDPOINT.md](ENDPOINT.md) and [ENDPOINT-EVALUATION.md](ENDPOINT-EVALUATION.md).
 
@@ -32,7 +33,7 @@ Native resume rechecking intentionally consumes the per-file native-session time
 
 ## Verification
 
-Environment: macOS arm64, Python 3.11.15, libtorrent 2.1.1, Node 26.12.1, PKC SDK 0.0.142 and Kubo 0.43.1. Raw local logs and screenshots are retained under the ignored `cli/artifacts/pr-readiness/` and `cli/artifacts/pr-1-feedback/` directories. Bridge, site, build and packaging evidence below is reused from the submission pass because those surfaces are unchanged by the PR feedback corrections.
+Environment: macOS arm64, Python 3.11.15, libtorrent 2.1.1, Node 26.12.1, PKC SDK 0.0.142 and Kubo 0.43.1. Raw local logs and screenshots are retained under the ignored `cli/artifacts/pr-readiness/` and `cli/artifacts/pr-1-feedback/` directories. Bridge, build and packaging evidence below is reused from the submission pass. The later site correction changes prose only; it was checked against the root docs and with the formatter, reusing the prior browser coverage for unchanged rendering.
 
 | Check | Result |
 | --- | --- |

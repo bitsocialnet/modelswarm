@@ -33,8 +33,8 @@ export const PARTS: Part[] = [
   },
   {
     term: 'HF_ENDPOINT',
-    title: 'Existing tools keep working',
-    body: 'A local endpoint speaks the Hugging Face API. Point `HF_ENDPOINT` at it and `transformers` or llama.cpp download through the swarm without changes.',
+    title: 'Use the Hugging Face SDK',
+    body: 'Point `HF_ENDPOINT` at the local endpoint to download with the Hugging Face SDK. Compatibility with `transformers` and llama.cpp is still untested.',
   },
   {
     term: 'safetensors, gguf',
@@ -70,7 +70,7 @@ export const COMPARE_ROWS: { label: string; cells: [string, string, string] }[] 
     cells: ['The host is trusted', "After each file downloads, against Hugging Face's SHA-256", 'During the download, piece by piece'],
   },
   { label: 'Where discussion happens', cells: ['Hugging Face', 'On Pirate Face', 'Peer-to-peer communities, each with its own rules'] },
-  { label: 'Works with existing tools', cells: ['Yes', 'Yes, through its pip package for Python tools', 'Yes, through a local Hugging Face endpoint'] },
+  { label: 'Works with existing tools', cells: ['Yes', 'Yes, through its pip package for Python tools', 'Hugging Face SDK tested; other tools unverified'] },
 ];
 
 export type Step = {
@@ -82,9 +82,22 @@ export type Step = {
 
 export const STEPS: Step[] = [
   { title: 'Measurements', body: 'The engine prototype works; community scale, larger real models and WAN tests remain.', estimate: '~1 week' },
-  { title: 'Manifest and command line', body: 'Implemented: make, verify and pull unsigned manifests into a verified local cache.', estimate: 'Prototype complete', complete: true },
-  { title: 'The Hugging Face endpoint', body: 'Implemented for the SDK: local releases and verified public fallback. Other consumers remain.', estimate: 'SDK prototype complete' },
-  { title: 'Publishing and reading releases', body: 'Signed profile publishing, pulls and endpoint registration work locally. Public hosting, mirrors and web client remain.', estimate: 'CLI prototype complete' },
+  {
+    title: 'Manifest and command line',
+    body: 'Implemented: make, verify and pull unsigned manifests into a verified local cache.',
+    estimate: 'Prototype complete',
+    complete: true,
+  },
+  {
+    title: 'The Hugging Face endpoint',
+    body: 'Implemented for the SDK: local releases and verified public fallback. Other consumers remain.',
+    estimate: 'SDK prototype complete',
+  },
+  {
+    title: 'Publishing and reading releases',
+    body: 'Signed profile publishing, pulls and endpoint registration work locally. Public hosting, mirrors and web client remain.',
+    estimate: 'CLI prototype complete',
+  },
   { title: 'Hubs and search', body: 'Curated boards with discussion, and search across several indexers.', estimate: '2–3 weeks' },
   { title: 'Desktop client', body: 'One app with a node, a torrent engine and the local endpoint.', estimate: '3–4 weeks' },
 ];
