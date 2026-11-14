@@ -6,9 +6,9 @@ export const PIECES =
 
 export const TRANSFORM = 'translate(0 430) scale(0.1 -0.1)';
 
-// Widens every seam between the pieces by 32 logo units: a 32-unit stroke along each edge (320 in path units)
-// masks 16 units off both sides of it. public/logo.svg uses the same mask.
-export const GAP_STROKE = 320;
+// Widens every seam between the pieces by 6 logo units: a 6-unit stroke along each edge (60 in path units)
+// masks 3 units off both sides of it. public/logo.svg uses the same mask.
+export const GAP_STROKE = 60;
 
 // The four pieces on their own, with each one's centre and the unit direction from the mark's centre to it
 // (in logo units), measured from the path.
