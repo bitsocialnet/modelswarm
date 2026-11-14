@@ -33,15 +33,17 @@ class FormatTests(unittest.TestCase):
 
     def test_safetensors_offsets_and_header_length(self):
         header = {"tensor": {"dtype": "F32", "shape": [1], "data_offsets": [0, 4]}}
-        encoded = json.dumps(header).encode().ljust(128, b" ")
-        path = self.file("model.safetensors", struct.pack("<Q", len(encoded)) + encoded + b"\0" * 4)
-        self.assertEqual(detect_format(path), "safetensors")
-        # A 128-byte safetensors header starts with 0x80; it is not pickle.
-        self.assertFalse(is_flagged(detect_format(path)))
-        header["tensor"]["data_offsets"] = [1, 4]
         encoded = json.dumps(header).encode()
-        path.write_bytes(struct.pack("<Q", len(encoded)) + encoded + b"\0" * 4)
-        self.assertEqual(detect_format(path), "unknown")
+        header["tensor"]["data_offsets"] = [1, 4]
+        invalid = json.dumps(header).encode()
+        # The little-endian length can start with pickle protocol, shebang or DOS magic.
+        for length in (128, 640, 896, 1152, 1408, 8483, 23117):
+            with self.subTest(length=length):
+                prefix = struct.pack("<Q", length)
+                path = self.file("model.safetensors", prefix + encoded.ljust(length, b" ") + b"\0" * 4)
+                self.assertEqual(detect_format(path), "safetensors")
+                path.write_bytes(prefix + invalid.ljust(length, b" ") + b"\0" * 4)
+                self.assertTrue(is_flagged(detect_format(path)))
 
     def test_safetensors_rejects_duplicate_header_and_trailing_data(self):
         for encoded, data in ((b'{"x":{},"x":{}}', b""), (b"{}", b"unindexed")):
@@ -59,11 +61,24 @@ class FormatTests(unittest.TestCase):
         for name, contents, expected in (("fake.gguf", pickle.dumps({"a": 1}, protocol=4), "pickle"),
                                          ("config.json", b"PK\x03\x04archive", "pickle"),
                                          ("readme.txt", b"#!/usr/bin/python\nprint('x')", "code"),
+                                         ("fake.safetensors", b"MZexample", "code"),
                                          ("loader.py", b"GGUF" + struct.pack("<IQQ", 3, 0, 0), "code"),
                                          ("weights.bin", b"opaque", "pickle")):
             with self.subTest(name=name):
                 self.assertEqual(detect_format(self.file(name, contents)), expected)
                 self.assertTrue(is_flagged(expected))
+
+    def test_pickle_protocols_remain_flagged_under_safetensors_extension(self):
+        for protocol in range(2, 6):
+            with self.subTest(protocol=protocol):
+                path = self.file("fake.safetensors", pickle.dumps({"a": 1}, protocol=protocol))
+                self.assertEqual(detect_format(path), "pickle")
+
+    def test_risky_suffix_takes_priority_over_valid_safetensors(self):
+        header = json.dumps({"tensor": {"dtype": "F32", "shape": [1], "data_offsets": [0, 4]}}).encode()
+        contents = struct.pack("<Q", len(header)) + header + b"\0" * 4
+        self.assertEqual(detect_format(self.file("weights.py", contents)), "code")
+        self.assertEqual(detect_format(self.file("weights.bin", contents)), "pickle")
 
     def test_json_text_and_empty_file(self):
         self.assertEqual(detect_format(self.file("config.json", b'{"model_type":"qwen2"}')), "json")

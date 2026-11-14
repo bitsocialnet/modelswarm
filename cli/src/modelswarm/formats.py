@@ -109,7 +109,13 @@ def detect_format(path):
         prefix = stream.read(64)
     suffix = path.suffix.casefold()
     # Filename risk takes priority over a forged data-only magic prefix.
-    if suffix in CODE_SUFFIXES or prefix.startswith((b"#!", b"\x7fELF", b"MZ")):
+    if suffix in CODE_SUFFIXES:
+        return "code"
+    # A little-endian safetensors length can start with pickle or code magic.
+    if (suffix != ".gguf" and suffix not in PICKLE_SUFFIXES
+            and prefix[8:9] == b"{" and _safetensors(path, size)):
+        return "safetensors"
+    if prefix.startswith((b"#!", b"\x7fELF", b"MZ")):
         return "code"
     pickle_magic = len(prefix) >= 2 and prefix[0] == 0x80 and 2 <= prefix[1] <= 5
     if suffix in PICKLE_SUFFIXES or pickle_magic or prefix.startswith(b"PK\x03\x04"):
@@ -120,8 +126,6 @@ def detect_format(path):
         return "unknown"
     if suffix == ".gguf":
         return "unknown"
-    if _safetensors(path, size):
-        return "safetensors"
     if suffix == ".safetensors":
         return "unknown"
     if suffix == ".json":

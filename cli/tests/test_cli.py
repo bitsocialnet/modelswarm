@@ -132,7 +132,8 @@ class CliTests(unittest.TestCase):
         nested = self.source / "shards"
         nested.mkdir()
         header = json.dumps({"tensor": {"dtype": "U8", "shape": [MIB + 123], "data_offsets": [0, MIB + 123]}}).encode()
-        header += b" " * ((-len(header)) % 8)
+        # The little-endian length starts with the pickle protocol 3 prefix.
+        header = header.ljust(896, b" ")
         (nested / "part.safetensors").write_bytes(struct.pack("<Q", len(header)) + header + b"x" * (MIB + 123))
         (self.source / "custom.py").write_text("raise RuntimeError('must never execute')\n")
         self.manifest = self.root / "release.json"
