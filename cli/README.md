@@ -32,6 +32,8 @@ cli/.venv/bin/modelswarm pull ./release.json \
 
 The example mirror must actually serve those files, including HTTP Range requests. `--http-base` can be repeated for multiple mirrors or omitted for peer-only distribution. File paths are appended to each base URL. With a pinned Hugging Face revision, the base is `https://huggingface.co/OWNER/REPO/resolve/COMMIT/`.
 
+Payload source URLs cannot contain a query delimiter (`?`) or query parameters: the pinned native web-seed transport does not support them. For files with torrent padding, the decoded URL basename must match the model filename. Unsupported URLs are rejected during manifest validation. A signed release's separate HTTPS manifest URL can still use query parameters.
+
 Each command prints one JSON result to stdout; progress events go to stderr. Errors return status 1; an interrupted pull that saves its progress returns 130. `verify` checks all listed files by default, including flagged ones, without executing them. A missing file, changed size/hash/root or detected format mismatch makes verification fail.
 
 `make` builds one v2-only torrent per nonempty file and embeds complete metadata, including piece layers, into the JSON manifest. An empty file needs no torrent. The manifest is portable: neither relative `.torrent` paths nor online peers are needed to bootstrap an HTTP download.
@@ -100,3 +102,5 @@ cli/.venv/bin/python -m unittest discover -s cli/tests -v
 ```
 
 Tests use local servers and explicit loopback peers with DHT disabled. They exercise the installed package in subprocesses, safe/flagged selection, nested files, metadata rejection, cache reuse, corrupted sources, checkpoint recovery and the real Hugging Face SDK with networking disabled. The separate real-model experiment in [EVALUATION.md](EVALUATION.md) uses a pinned public HTTPS model. Signed profile tests need the optional Node bridge and Kubo 0.43.1; see [release test setup](RELEASES.md#reproduce-the-tests). Without that Kubo version they explicitly skip.
+
+See [PR scope and hardening](PR-READINESS.md) for the latest review corrections, verification and remaining milestone boundaries.

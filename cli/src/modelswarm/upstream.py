@@ -301,6 +301,18 @@ class PublicHub:
                     raise UpstreamError(502, "upstream metadata exceeds the size limit", "UpstreamMetadataError")
         try:
             data = json.loads(encoded, object_pairs_hook=_unique_keys)
+            if not isinstance(data, dict):
+                raise ValueError("upstream metadata must be an object")
+            private = data.get("private", False)
+            if private is True:
+                raise UpstreamError(404, "repository is not available from the public upstream", "RepoNotFound")
+            if private is not False:
+                raise ValueError("upstream private flag is invalid")
+            gated = data.get("gated", False)
+            if gated is True or gated in ("auto", "manual"):
+                raise UpstreamError(403, "gated repositories are excluded from the public upstream", "GatedRepo")
+            if gated is not False:
+                raise ValueError("upstream gated flag is invalid")
             commit = data["sha"]
             siblings = data["siblings"]
             if not isinstance(commit, str) or not _COMMIT.fullmatch(commit):

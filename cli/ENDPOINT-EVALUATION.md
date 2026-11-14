@@ -2,6 +2,8 @@
 
 **The requested SDK milestone works:** `modelswarm serve` provides `HF_ENDPOINT` downloads from registered local manifests and verified public Hugging Face fallback. It is ready for consumer-specific integration work; it is not complete Hub compatibility or a production service.
 
+This records the original endpoint milestone. The subsequent [signed-release milestone](RELEASES-EVALUATION.md) added publisher authentication and `serve --release`; [restart and renewal testing](PERSISTENCE-EVALUATION.md) followed. The results and limits below describe the endpoint at the time of its evaluation.
+
 ## Implemented and tested
 
 - Loopback server with model information, recursive/shallow file trees, lightweight HEAD metadata, pinned-revision redirects and verified GET/range responses.

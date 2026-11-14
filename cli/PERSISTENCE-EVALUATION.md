@@ -54,6 +54,8 @@ The two Kubo nodes share only a private swarm key and the publisher's address. T
 
 To repeat it, copy `cli/` to the second machine, create the Python environment and install the bridge there as in [RELEASES.md](RELEASES.md#install-the-optional-bridge), make Kubo 0.43.1 available as `ipfs`, then run the command in the test file's header. The test removes its data on the second machine afterwards.
 
+The timeout in the first row is the historical result of that run. On 2026-11-14, signed `pull` gained a preflight check for explicit peers using the same native IP filter. A blocked peer now produces an error naming the peer and `--allow-local-sources` before staging. Local regression tests cover loopback, resolved localhost, IPv6 and tailnet addresses with zero upload; opting in downloads and verifies the file. The cross-machine run was not repeated for this diagnostic change.
+
 ## Findings in the pinned SDK
 
 Both were reproduced and traced in the node's debug log. Neither loses data. The tests assert the behaviour; the durations quoted are single measurements from manual probe runs, not asserted thresholds.

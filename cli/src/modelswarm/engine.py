@@ -93,6 +93,23 @@ def peer_address(value):
         return addresses[0][4][:2]
 
 
+def public_source_filter():
+    """Build the IP policy shared by explicit peer validation and native transfers."""
+    blocked = lt.ip_filter()
+    for network in ("0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8",
+                    "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.2.0/24",
+                    "192.88.99.0/24", "192.168.0.0/16", "198.18.0.0/15", "198.51.100.0/24",
+                    "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4", "::/0"):
+        subnet = ipaddress.ip_network(network)
+        blocked.add_rule(str(subnet.network_address), str(subnet.broadcast_address), 1)
+    # Only global-unicast IPv6, excluding documentation/special-use space.
+    blocked.add_rule("2000::", "3fff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 0)
+    for network in ("2001::/23", "2001:db8::/32", "2002::/16", "3fff::/20"):
+        subnet = ipaddress.ip_network(network)
+        blocked.add_rule(str(subnet.network_address), str(subnet.broadcast_address), 1)
+    return blocked
+
+
 def session_settings(discovery, rate):
     return {
         "listen_interfaces": "0.0.0.0:0,[::]:0" if discovery else "127.0.0.1:0",
@@ -180,19 +197,7 @@ def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoi
     if not allow_local_sources:
         # Applied by the native engine to actual connection endpoints;
         # a DNS preflight alone would leave a re-resolution race.
-        blocked = lt.ip_filter()
-        for network in ("0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8",
-                        "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.2.0/24",
-                        "192.88.99.0/24", "192.168.0.0/16", "198.18.0.0/15", "198.51.100.0/24",
-                        "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4", "::/0"):
-            subnet = ipaddress.ip_network(network)
-            blocked.add_rule(str(subnet.network_address), str(subnet.broadcast_address), 1)
-        # Only global-unicast IPv6, excluding documentation/special-use space.
-        blocked.add_rule("2000::", "3fff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 0)
-        for network in ("2001::/23", "2001:db8::/32", "2002::/16", "3fff::/20"):
-            subnet = ipaddress.ip_network(network)
-            blocked.add_rule(str(subnet.network_address), str(subnet.broadcast_address), 1)
-        session.set_ip_filter(blocked)
+        session.set_ip_filter(public_source_filter())
     classes = lt.ip_filter()
     classes.add_rule("0.0.0.0", "255.255.255.255", 1)
     classes.add_rule("::", "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 1)

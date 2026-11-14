@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import re
 import unicodedata
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 import libtorrent as lt
 
@@ -150,6 +150,9 @@ def _validate_torrent(entry):
         padding = (-entry["size"]) % piece_length
         if storage.num_files() != (2 if padding else 1):
             raise ValueError("torrent contains extra files")
+        if padding and any(unquote(urlsplit(source["url"]).path.rsplit("/", 1)[-1]) != basename
+                           for source in entry["sources"]):
+            raise ValueError("payload source URL must end with the model file name for a padded torrent")
         if padding and (storage.file_path(1) != f"{basename}/.pad/{padding}"
                         or storage.file_size(1) != padding or storage.file_offset(1) != entry["size"]
                         or int(storage.file_flags(1)) != int(lt.file_storage.flag_pad_file)):
@@ -178,6 +181,7 @@ def validate_manifest(value):
     if not isinstance(entries, list) or not 1 <= len(entries) <= MAX_FILES:
         raise ValueError(f"manifest must contain between 1 and {MAX_FILES} files")
     paths = set()
+    directories = {}
     total = 0
     for entry in entries:
         _keys(entry, {"path", "size", "sha256", "pieces_root", "format", "torrent", "sources"}, "file")
@@ -186,6 +190,13 @@ def validate_manifest(value):
         if key in paths:
             raise ValueError(f"duplicate or case/Unicode-colliding file path: {path}")
         paths.add(key)
+        # Distinct leaf names can still alias a shared directory on APFS/NTFS.
+        parts = path.split("/")
+        for depth in range(1, len(parts)):
+            directory = "/".join(parts[:depth])
+            directory_key = _path_key(directory)
+            if directories.setdefault(directory_key, directory) != directory:
+                raise ValueError(f"case/Unicode-colliding directory path: {directory}")
         _integer(entry["size"], 0, MAX_FILE_BYTES, "file size")
         total += entry["size"]
         if total > MAX_TOTAL_BYTES:
@@ -201,6 +212,8 @@ def validate_manifest(value):
             if source["type"] != "http":
                 raise ValueError("manifest v0 supports only explicit HTTP sources")
             validate_source_url(source["url"])
+            if "?" in source["url"]:
+                raise ValueError("payload source URLs cannot contain query parameters; use a direct file URL")
         if entry["size"] == 0:
             if (entry["pieces_root"] is not None or entry["torrent"] is not None
                     or entry["sha256"] != EMPTY_SHA256 or sources):

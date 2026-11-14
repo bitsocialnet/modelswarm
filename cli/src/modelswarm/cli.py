@@ -17,9 +17,9 @@ from urllib.parse import quote, urlsplit, urlunsplit
 
 from . import __version__
 from .cache import cache_root, cached_files, ensure_directory, materialize, snapshot_revision
-from .engine import InterruptedDownload, MIB, check_file, describe_file, download_file, peer_address
+from .engine import InterruptedDownload, MIB, check_file, describe_file, download_file, peer_address, public_source_filter
 from .formats import detect_format, is_flagged, is_flagged_path
-from .manifest import MAX_FILES, SCHEMA, encode_manifest, load_manifest, validate_manifest, validate_relative_path, validate_source_url
+from .manifest import HEX256, MAX_FILES, SCHEMA, encode_manifest, load_manifest, validate_manifest, validate_relative_path, validate_source_url
 
 
 def progress(event, **fields):
@@ -145,10 +145,12 @@ def release_lock(directory, digest):
 def pull(args):
     provenance = {}
     if str(args.manifest).startswith("pkc://"):
+        if args.manifest_sha256 is not None and not HEX256.fullmatch(args.manifest_sha256):
+            raise ValueError("expected manifest SHA-256 must be 64 lowercase hexadecimal characters")
         from .releases import resolve
         manifest, digest, provenance = resolve(str(args.manifest), rpc=args.rpc,
             timeout=args.rpc_timeout, allow_local=args.allow_local_sources)
-        if args.manifest_sha256 and args.manifest_sha256 != digest:
+        if args.manifest_sha256 is not None and args.manifest_sha256 != digest:
             raise ValueError("signed manifest does not match the requested SHA-256")
     else:
         manifest, digest = load_manifest(args.manifest, args.manifest_sha256)
@@ -165,7 +167,15 @@ def pull(args):
         raise ValueError("timeout must be finite and positive; rate limit must be between 0 and 2147483647")
     if not math.isfinite(args.checkpoint_interval) or args.checkpoint_interval < 1:
         raise ValueError("checkpoint interval must be finite and at least one second")
-    peers = [peer_address(value) for value in args.peer]
+    allow_local_sources = not provenance or args.allow_local_sources
+    source_filter = public_source_filter() if args.peer and not allow_local_sources else None
+    peers = []
+    for value in args.peer:
+        peer = peer_address(value)
+        if source_filter is not None and source_filter.access(peer[0]):
+            raise ValueError(f"explicit --peer {value} is blocked by the signed-release IP policy "
+                             f"(address {peer[0]}); use --allow-local-sources to permit it")
+        peers.append(peer)
     cancel = threading.Event()
     original_handlers = {}
     for signum in (signal.SIGINT, signal.SIGTERM):
@@ -175,7 +185,7 @@ def pull(args):
                             discovery=not args.no_discovery, timeout=args.timeout,
                             rate=args.rate_limit, checkpoint_interval=args.checkpoint_interval,
                             cancel=cancel, emit=progress,
-                            allow_local_sources=not provenance or args.allow_local_sources)
+                            allow_local_sources=allow_local_sources)
         return {**result, **provenance}
     finally:
         for signum, handler in original_handlers.items():

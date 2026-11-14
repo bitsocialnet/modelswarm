@@ -1,13 +1,20 @@
 """Exercise signed-release network restrictions in libtorrent, without PKC nodes."""
 
+from contextlib import redirect_stderr, redirect_stdout
+import hashlib
+import io
+import json
 from pathlib import Path
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 
 import libtorrent as lt
 
+from modelswarm.cli import main
 from modelswarm.engine import check_file, describe_file, download_file, peer_address
+from modelswarm.manifest import SCHEMA, encode_manifest
 from test_cli import gguf, http_source, peers
 
 
@@ -21,6 +28,17 @@ class ReleaseNetworkPolicyTests(unittest.TestCase):
         self.model = self.source / "tiny.gguf"
         gguf(self.model, 96 * 1024 + 319)
         self.entry = describe_file(self.model, self.model.name, "gguf", [], piece_size=16 * 1024)
+
+    def pull_signed(self, cache, peer, *options):
+        manifest = {"schema": SCHEMA, "name": "owner/model", "version": "v0",
+                    "license": "MIT", "files": [self.entry]}
+        digest = hashlib.sha256(encode_manifest(manifest)).hexdigest()
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with (patch("modelswarm.releases.resolve", return_value=(manifest, digest, {"signed": True})),
+              redirect_stdout(stdout), redirect_stderr(stderr)):
+            code = main(["pull", "pkc://publisher/owner/model@v0", "--cache-dir", str(cache),
+                         "--no-discovery", "--peer", peer, *options])
+        return code, json.loads(stdout.getvalue())
 
     def transfer(self, entry, name, *, allow_local_sources, peer_list=(), timeout=10):
         directory = self.root / name
@@ -83,15 +101,29 @@ class ReleaseNetworkPolicyTests(unittest.TestCase):
             self.assertEqual(sum(handle.status().total_payload_upload for handle in handles), 0)
             self.assertEqual(sum(handle.status().total_upload for handle in handles), 0)
 
-    def test_explicit_local_sources_allows_the_same_loopback_peer(self):
+    def test_signed_pull_refuses_explicit_nonpublic_peers_before_transfer(self):
         with peers({"files": [self.entry]}, self.source) as (peer, handles):
-            _, events, run = self.transfer(
-                self.entry, "peer-allowed", allow_local_sources=True, peer_list=[peer_address(peer)])
-            path = run()
-            check_file(self.entry, path)
+            endpoints = (peer, peer.replace("127.0.0.1", "localhost"), "[::1]:6881",
+                         "100.64.0.1:6881", "[fd7a:115c:a1e0::1]:6881", "[::ffff:8.8.8.8]:6881")
+            for index, endpoint in enumerate(endpoints):
+                with self.subTest(endpoint=endpoint):
+                    cache = self.root / f"blocked-{index}"
+                    code, result = self.pull_signed(cache, endpoint, "--timeout", "0.1")
+                    self.assertEqual(code, 1, result)
+                    self.assertIn(endpoint, result["error"])
+                    self.assertIn("--allow-local-sources", result["error"])
+                    self.assertFalse(cache.exists())
+            self.assertEqual(sum(handle.status().total_payload_upload for handle in handles), 0)
+            self.assertEqual(sum(handle.status().total_upload for handle in handles), 0)
+
+    def test_signed_pull_with_local_sources_allows_the_same_loopback_peer(self):
+        with peers({"files": [self.entry]}, self.source) as (peer, handles):
+            code, result = self.pull_signed(self.root / "allowed", peer, "--allow-local-sources", "--timeout", "10")
+            self.assertEqual(code, 0, result)
+            self.assertTrue(result["signed"])
+            path = Path(result["snapshot"]) / self.model.name
             self.assertEqual(path.read_bytes(), self.model.read_bytes())
             self.assertGreater(sum(handle.status().total_payload_upload for handle in handles), 0)
-            self.assertTrue(any(event["event"] == "file_complete" for event in events), events)
 
 
 if __name__ == "__main__":

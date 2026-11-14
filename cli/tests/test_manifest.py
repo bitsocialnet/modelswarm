@@ -3,14 +3,17 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 
 import libtorrent as lt
 
+from modelswarm.engine import describe_file
 from modelswarm.manifest import (
     EMPTY_SHA256, MAX_MANIFEST_BYTES, SCHEMA, encode_manifest, load_manifest,
-    validate_manifest, validate_relative_path,
+    validate_manifest, validate_relative_path, validate_source_url,
 )
 
 
@@ -80,6 +83,34 @@ class ManifestTests(unittest.TestCase):
             with self.subTest(paths=(first, second)), self.assertRaises(ValueError):
                 validate_manifest(manifest)
 
+    def test_reject_directory_aliases_before_cache_creation(self):
+        pairs = (("Dir/a.txt", "dir/b.txt"), ("café/a.txt", "cafe\u0301/b.txt"),
+                 ("nested/Dir/a.txt", "nested/dir/deeper/b.txt"))
+        for pair in pairs:
+            for paths in (pair, tuple(reversed(pair))):
+                with self.subTest(paths=paths), tempfile.TemporaryDirectory() as temporary:
+                    root = Path(temporary).resolve()
+                    manifest = self.manifest()
+                    manifest["files"] = [self.empty(path) for path in paths]
+                    with self.assertRaisesRegex(ValueError, "colliding directory"):
+                        validate_manifest(manifest)
+                    path = root / "release.json"
+                    path.write_bytes(encode_manifest(manifest))
+                    cache = root / "cache"
+                    result = subprocess.run(
+                        [sys.executable, "-m", "modelswarm", "pull", str(path),
+                         "--cache-dir", str(cache), "--no-discovery"],
+                        capture_output=True, text=True, timeout=10)
+                    self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                    self.assertIn("colliding directory", json.loads(result.stdout)["error"])
+                    self.assertFalse(cache.exists(), "invalid paths must fail before creating a cache")
+
+    def test_shared_directory_spelling_remains_valid(self):
+        manifest = self.manifest()
+        manifest["files"] = [self.empty(path) for path in
+                             ("Dir/a.txt", "Dir/nested/b.txt", "Dir/nested/c.txt", "cafe\u0301/a.txt", "cafe\u0301/b.txt")]
+        self.assertEqual(validate_manifest(manifest), manifest)
+
     def test_reject_wrong_size_root_and_infohash(self):
         mutations = [("size", self.entry["size"] + 1), ("pieces_root", "0" * 64)]
         for field, value in mutations:
@@ -141,6 +172,32 @@ class ManifestTests(unittest.TestCase):
             manifest["files"][0]["sources"][0]["url"] = url
             with self.subTest(url=url), self.assertRaises(ValueError):
                 validate_manifest(manifest)
+
+    def test_reject_unsupported_payload_urls_before_alternate_sources(self):
+        for url, error in (("https://mirror.example/weights.gguf?download=1", "query parameters"),
+                           ("https://mirror.example/weights.gguf?", "query parameters"),
+                           ("https://mirror.example/download", "model file name")):
+            with self.subTest(url=url):
+                manifest = self.manifest()
+                manifest["files"][0]["sources"].insert(0, {"type": "http", "url": url})
+                with self.assertRaisesRegex(ValueError, error):
+                    validate_manifest(manifest)
+
+    def test_encoded_payload_names_and_manifest_url_queries_remain_valid(self):
+        manifest = self.manifest()
+        manifest["files"][0]["sources"] = [{"type": "http", "url": "https://mirror.example/weights%2Egguf"}]
+        self.assertEqual(validate_manifest(manifest), manifest)
+        reference = "https://mirror.example/release.json?download=1"
+        self.assertEqual(validate_source_url(reference), reference)
+
+    def test_piece_aligned_torrent_allows_alternate_url_basename(self):
+        source = self.root / "aligned.gguf"
+        source.write_bytes(b"GGUF\x03\x00\x00\x00" + b"\x00" * (16 * 1024 - 8))
+        manifest = self.manifest()
+        manifest["files"] = [describe_file(source, source.name, "gguf",
+                            [{"type": "http", "url": "https://mirror.example/alias.gguf"}],
+                            piece_size=16 * 1024)]
+        self.assertEqual(validate_manifest(manifest), manifest)
 
     def test_reject_duplicate_json_and_oversized_manifest(self):
         path = self.root / "bad.json"

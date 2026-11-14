@@ -199,6 +199,9 @@ class UpstreamTests(unittest.TestCase):
             lambda data: data["siblings"][0].update(rfilename="../escape"),
             lambda data: data["siblings"].append(dict(data["siblings"][0], rfilename="CONFIG.JSON")),
             lambda data: data.update(sha="not-a-commit"),
+            lambda data: data.update(private=0),
+            lambda data: data.update(gated=None),
+            lambda data: data.update(gated="unknown"),
         ]
         with public_hub_fixture() as (url, state):
             for mutate in mutations:
@@ -233,6 +236,36 @@ class UpstreamTests(unittest.TestCase):
             with self.assertRaises(UpstreamError) as raised:
                 PublicHub(self.root, url).metadata(state.repo)
             self.assertEqual((raised.exception.status, raised.exception.code), (403, "GatedRepo"))
+
+    def test_metadata_rejects_private_or_gated_repositories_even_with_http_200(self):
+        cases = (
+            ({"private": True}, 404, "RepoNotFound"),
+            ({"gated": "auto"}, 403, "GatedRepo"),
+            ({"gated": "manual"}, 403, "GatedRepo"),
+            ({"gated": True}, 403, "GatedRepo"),
+        )
+        with public_hub_fixture() as (url, state):
+            for flags, status, code in cases:
+                with self.subTest(flags=flags):
+                    state.metadata_override = {**state.metadata(), **flags}
+                    hub = PublicHub(self.root, url)
+                    with self.assertRaises(UpstreamError) as raised:
+                        hub.metadata(state.repo)
+                    self.assertEqual((raised.exception.status, raised.exception.code), (status, code))
+                    with self.assertRaises(UpstreamError) as raised:
+                        hub.obtain(state.repo, state.commit, "config.json")
+                    self.assertEqual((raised.exception.status, raised.exception.code), (status, code))
+                    self.assertFalse(hub.cache.exists())
+            self.assertFalse(any("/resolve/" in item["path"] for item in state.requests))
+
+    def test_metadata_accepts_omitted_visibility_fields(self):
+        with public_hub_fixture() as (url, state):
+            state.metadata_override = state.metadata()
+            state.metadata_override.pop("private")
+            state.metadata_override.pop("gated")
+            model = PublicHub(self.root, url).metadata(state.repo)
+            self.assertEqual(model.commit, state.commit)
+            self.assertIn("config.json", model.files)
 
     def test_redirect_to_another_http_origin_is_rejected(self):
         with public_hub_fixture() as (url, state):

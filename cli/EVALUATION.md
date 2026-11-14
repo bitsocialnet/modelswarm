@@ -2,7 +2,7 @@
 
 **The prototype milestone is implemented:** installable `modelswarm make`, `verify` and `pull`, portable unsigned manifest v0, nested files, format policy, resumable v2/HTTP transfers and verified Hugging Face-compatible cache snapshots. This is ready for the local-endpoint milestone and further hardening, not a production release.
 
-The subsequent [endpoint milestone](ENDPOINT-EVALUATION.md) implements `serve` and public upstream fallback; the results below remain the original manifest/CLI evaluation.
+The subsequent [endpoint milestone](ENDPOINT-EVALUATION.md) implements `serve` and public upstream fallback, and the [signed-release milestone](RELEASES-EVALUATION.md) adds publisher authentication and publishing. The results and missing features below describe the original manifest/CLI evaluation at that time.
 
 ## Implemented
 

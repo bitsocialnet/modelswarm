@@ -14,7 +14,7 @@ import tempfile
 import unittest
 from urllib.request import Request, urlopen
 
-from modelswarm.releases import BRIDGE, bridge
+from modelswarm.releases import BRIDGE, MAX_IPFS_MANIFEST_BYTES, bridge
 from pkc_fixture import pkc_fixture
 from test_cli import gguf, http_source
 
@@ -144,6 +144,50 @@ class ReleaseTests(ReleaseCommands, unittest.TestCase):
     def setUp(self):
         self.prepare_workspace(Path(self.fixture["data_dir"]).parent)
         self.create_profile()
+
+    def test_ipfs_manifest_size_limit_and_http_alternative(self):
+        content = self.manifest.read_bytes()
+        large = self.root / "large.json"
+        # Whitespace keeps the same valid manifest while testing its exact wire size.
+        at_limit = content + b" " * (MAX_IPFS_MANIFEST_BYTES - len(content))
+        large.write_bytes(at_limit)
+        uri = self.ipfs_add(large)
+        result = bridge({"op": "fetch-manifest", "cid": uri.removeprefix("ipfs://"),
+                         "rpc": self.fixture["rpc_url"]}, timeout=60)
+        self.assertEqual(result["content"].encode(), at_limit)
+        # Convert the same root CID; re-adding as v1 also changes child DAG links.
+        cid_v1 = subprocess.run([required_kubo(), "cid", "format", "-v", "1", uri.removeprefix("ipfs://")],
+                                check=True, capture_output=True, text=True, timeout=5).stdout.strip()
+        result = bridge({"op": "fetch-manifest", "cid": cid_v1,
+                         "rpc": self.fixture["rpc_url"]}, timeout=60)
+        self.assertEqual(result["content"].encode(), at_limit)
+
+        large.write_bytes(at_limit + b" ")
+        uri = self.ipfs_add(large)
+        with self.assertRaisesRegex(ValueError, "IPFS manifests are limited to 1 MiB"):
+            bridge({"op": "fetch-manifest", "cid": uri.removeprefix("ipfs://"),
+                    "rpc": self.fixture["rpc_url"]}, timeout=60)
+        refused = self.publish(manifest=large, manifest_url=uri, ok=False)
+        self.assertIn("IPFS manifests are limited to 1 MiB", refused["error"])
+        published = self.publish(manifest=large, manifest_url=self.url + large.name)
+        self.assertTrue(published["signed"])
+        self.assertEqual(published["manifest_sha256"], hashlib.sha256(large.read_bytes()).hexdigest())
+
+    def test_escaped_card_respects_signed_publication_size(self):
+        card = self.root / "card.md"
+        card.write_text("\n".join(json.dumps({"path": r"C:\example\foo\bar", "value": "abc"},
+                                           separators=(",", ":")) for _ in range(440)))
+        self.assertLess(card.stat().st_size, 24 * 1024)
+        refused = self.publish(card=card, ok=False)
+        self.assertIn("Signed publication exceeds 40,000 bytes", refused["error"])
+        card.write_text("\t" * (24 * 1024))
+        refused = self.publish(card=card, ok=False)
+        self.assertIn("release content exceeds 40 KiB", refused["error"])
+        # No rejected record should occupy the version: a shorter card can publish it.
+        card.write_text("# Fixture model\n")
+        published = self.publish(card=card)
+        self.assertTrue(published["signed"])
+        self.assertFalse(published["reused"])
 
     def test_profile_persists_and_version_and_cid_pulls_verify_bytes(self):
         card = self.root / "card.md"

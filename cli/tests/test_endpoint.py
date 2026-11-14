@@ -309,6 +309,18 @@ print(json.dumps({{f.relative_to(p).as_posix(): f.read_text()
                 self.assertEqual(repeated, snapshot)
                 self.assertEqual(len(remote.requests), count)
 
+    def test_public_upstream_rejects_gated_model_info_and_files(self):
+        with public_hub_fixture() as (upstream, remote):
+            remote.metadata_override = dict(remote.metadata(), gated="auto")
+            with self.serve(upstream=upstream) as (endpoint, _):
+                for path in (f"/api/models/{remote.repo}",
+                             f"/{remote.repo}/resolve/{remote.commit}/config.json"):
+                    with self.subTest(path=path):
+                        status, headers, body = self.request(endpoint, path)
+                        self.assertEqual(status, 403, body)
+                        self.assertEqual(headers["X-Error-Code"], "GatedRepo")
+                self.assertFalse(any("/resolve/" in item["path"] for item in remote.requests))
+
 
 if __name__ == "__main__":
     unittest.main()

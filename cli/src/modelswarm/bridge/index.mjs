@@ -8,7 +8,7 @@ import { encodeRelease, parsePublisher, verifyRelease } from './protocol.mjs';
 class RequestError extends Error {}
 const fail = (message) => { throw new RequestError(message); };
 const MAX_INPUT = 128 * 1024;
-const MAX_MANIFEST = 16 * 1024 * 1024;
+const MAX_MANIFEST = 1024 * 1024; // Pinned PKC fetchCid RPC limit; no size override.
 let pkc;
 let timer;
 const resources = [];
@@ -181,7 +181,9 @@ async function main(request) {
   }
   if(request.op==='publish') {
     const owner=await signer(request.privateKey);
-    const content=encodeRelease(request.release);
+    let content;
+    // These errors describe local release fields, never an SDK object with secrets.
+    try { content=encodeRelease(request.release); } catch(error) { fail(error.message); }
     const profile=await loadProfile(owner.address);
     if(profile.anchor?.publicKey!==owner.address||profile.roles?.[owner.address]?.role!=='owner'||!profile.settings?.disablePubsubChallengeExchange) fail('Publishing requires your feed-only delegated profile on this RPC node');
     const existing=await discover(owner.address,request.release.name,request.release.version);
@@ -192,6 +194,8 @@ async function main(request) {
     const comment=await pkc.createComment({signer:owner,communityPublicKey:owner.address,
       title:`${request.release.name} ${request.release.version}`,content});
     resources.push(comment);
+    // JSON escapes the card again inside the signed PKC publication.
+    if(Buffer.byteLength(JSON.stringify(comment.raw.pubsubMessageToPublish))>40000) fail('Signed publication exceeds 40,000 bytes after encoding; shorten the model card or manifest URL');
     const verification=await event(comment,'challengeverification',()=>comment.publish());
     if(!verification?.challengeSuccess||!comment.cid) fail('The profile rejected publication');
     // Read back the immutable record and verify locally, even when our RPC
@@ -209,8 +213,16 @@ async function main(request) {
   }
   if(request.op==='fetch-manifest') {
     const cid=CID.parse(request.cid);
-    const {content}=await pkc.fetchCid({cid:cid.toString()});
-    if(typeof content!=='string'||Buffer.byteLength(content)>MAX_MANIFEST) fail('Manifest exceeds the 16 MiB limit');
+    // At the size boundary, the pinned SDK compares its CIDv0 hash as a string.
+    // Normalize equivalent default UnixFS CIDs before that transport check.
+    const fetchCid=cid.code===0x70&&cid.multihash.code===0x12&&cid.multihash.digest.byteLength===32?cid.toV0():cid;
+    let content;
+    try { ({content}=await pkc.fetchCid({cid:fetchCid.toString()})); }
+    catch(error) {
+      if(error?.code==='ERR_OVER_DOWNLOAD_LIMIT') fail('IPFS manifests are limited to 1 MiB by the pinned PKC SDK; use an HTTPS manifest URL');
+      throw error;
+    }
+    if(typeof content!=='string'||Buffer.byteLength(content)>MAX_MANIFEST) fail('IPFS manifest exceeds the 1 MiB limit; use an HTTPS manifest URL');
     const computed=CID.parse(await ipfsHash(Buffer.from(content)));
     if(!computed.toV1().equals(cid.toV1())) fail('IPFS manifest bytes do not match their CID');
     return {content};

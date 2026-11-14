@@ -24,6 +24,8 @@ from .upstream import PublicHub, UpstreamError
 BRIDGE = Path(__file__).parent / "bridge" / "index.mjs"
 PEER_ID = r"12D3KooW[1-9A-HJ-NP-Za-km-z]{44}"
 KEY_SCHEMA = "modelswarm/key/v0"
+# The pinned PKC RPC fetchCid API does not expose its 1 MiB override.
+MAX_IPFS_MANIFEST_BYTES = 1024 * 1024
 
 
 def rpc_url(value=None):
@@ -148,7 +150,8 @@ def parse_uri(value):
     parts = urlsplit(value)
     # Use netloc verbatim: URL hostname normalization would corrupt Base58 keys.
     if (parts.scheme != "pkc" or not re.fullmatch(PEER_ID, parts.netloc)
-            or parts.query or "@" not in parts.path or "%" in parts.netloc):
+            or parts.query or "@" not in parts.path or "%" in parts.netloc
+            or ("#" in value and not parts.fragment)):
         raise ValueError("release URI must be pkc://PUBLISHER/owner/model@VERSION[#CID]")
     name, version = unquote(parts.path.lstrip("/")).rsplit("@", 1)
     if (not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,95}/[A-Za-z0-9][A-Za-z0-9_.-]{0,95}", name)
@@ -222,6 +225,8 @@ def resolve(value, *, rpc=None, timeout=120, allow_local=False):
 
 def publish(args):
     manifest, digest = load_manifest(args.manifest)
+    if args.manifest_url.startswith("ipfs://") and args.manifest.stat().st_size > MAX_IPFS_MANIFEST_BYTES:
+        raise ValueError("IPFS manifests are limited to 1 MiB by the pinned PKC SDK; use an HTTPS manifest URL")
     rpc = rpc_url(args.rpc)
     private_key = read_key(args.key)
     # Fetch and validate before publishing a public pointer, including exact bytes.

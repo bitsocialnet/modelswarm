@@ -165,13 +165,15 @@ modelswarm make DIR -o MANIFEST --name OWNER/MODEL --version VERSION --license L
 modelswarm verify MANIFEST DIR
 modelswarm keygen -o KEY
 modelswarm profile-init --key KEY --rpc RPC_URL
+modelswarm profile-start PUBLISHER --rpc RPC_URL
+modelswarm profile-renew --key KEY --minter MINTER --rpc RPC_URL
 modelswarm publish MANIFEST --key KEY --manifest-url URL --rpc RPC_URL
 modelswarm pull MANIFEST
 modelswarm pull pkc://PUBLISHER/OWNER/MODEL@VERSION#CID --rpc RPC_URL
 modelswarm serve --release pkc://PUBLISHER/OWNER/MODEL@VERSION#CID --rpc RPC_URL
 ```
 
-Local manifest commands need no Bitsocial node. Publisher commands require a compatible RPC node; `publish` posts a signed reference to already-hosted manifest bytes and does not upload weights. Bare-name lookup, hosted defaults and profile lifecycle management remain future work.
+Local manifest commands need no Bitsocial node. Publisher commands require a compatible RPC node; `publish` posts a signed reference to already-hosted manifest bytes and does not upload weights. Profiles persist across restarts; `profile-start` recovers hosting and `profile-renew` renews delegation to the same minter. See the [restart and cross-machine evidence](cli/PERSISTENCE-EVALUATION.md), including the pinned SDK's restart workarounds. Bare-name lookup, hosted defaults, migration and key revocation remain future work.
 
 ## Search and Discovery
 
