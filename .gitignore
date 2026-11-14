@@ -6,3 +6,4 @@ build/
 .vercel
 .env*
 .playwright-cli/
+/.cursor/

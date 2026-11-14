@@ -18,7 +18,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function editedPaths(payload: unknown): string[] {
   if (!isRecord(payload)) return [];
   const { hook_event_name: event, tool_name: tool, tool_input, tool_response, file_path } = payload;
-  if (event && event !== 'PostToolUse' && event !== 'afterFileEdit') return [];
+  if (event && event !== 'PostToolUse') return [];
   if (tool && (typeof tool !== 'string' || !editTools.has(tool))) return [];
   if (isRecord(tool_response) && (tool_response.isError === true || tool_response.success === false)) return [];
 

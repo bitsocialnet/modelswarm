@@ -12,17 +12,7 @@ const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '.
 function fixture(t: TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'modelswarm-workflow-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  for (const relative of [
-    '.agents',
-    '.codex/config.toml',
-    '.codex/hooks.json',
-    '.codex/hooks',
-    '.cursor/hooks.json',
-    '.cursor/hooks',
-    '.claude/settings.json',
-    '.claude/hooks',
-    'CLAUDE.md',
-  ]) {
+  for (const relative of ['.agents', '.codex/config.toml', '.codex/hooks.json', '.codex/hooks', '.claude/settings.json', '.claude/hooks', 'CLAUDE.md']) {
     const target = path.join(root, relative);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.cpSync(path.join(repository, relative), target, { recursive: true });
@@ -46,18 +36,17 @@ test('shared sources generate valid, deterministic harness outputs', (t) => {
   assert.ok(typeof codexBrowserCheck === 'string');
   assert.match(codexBrowserCheck, /name = ['"]browser-check['"]/);
   assert.doesNotMatch(codexBrowserCheck, /(?:^|\n)model\s*=/);
-  for (const harness of ['claude', 'cursor']) {
-    const relative = `.${harness}/agents/browser-check.md`;
-    const content = before.get(relative);
-    assert.ok(typeof content === 'string');
-    assert.equal(readFrontmatter(content, relative).metadata.model, undefined);
-  }
+  const relative = '.claude/agents/browser-check.md';
+  const content = before.get(relative);
+  assert.ok(typeof content === 'string');
+  assert.equal(readFrontmatter(content, relative).metadata.model, undefined);
+  assert.ok(!fs.existsSync(path.join(root, '.cursor')));
 });
 
 test('validation detects a missing agent and obsolete compatibility files', (t) => {
   const root = fixture(t);
   fs.unlinkSync(path.join(root, '.codex/agents/reviewer.toml'));
-  fs.writeFileSync(path.join(root, '.cursor/agents/obsolete.md'), 'old role');
+  fs.writeFileSync(path.join(root, '.claude/agents/obsolete.md'), 'old role');
   const errors = validateWorkflow(root).errors;
   assert.ok(errors.some((error) => error.includes('reviewer.toml')));
   assert.ok(errors.some((error) => error.includes('Obsolete generated file')));
@@ -106,11 +95,11 @@ test('logical paths use forward slashes and skill assets retain their bytes', (t
 
 test('edit hooks and wrappers reject appended lifecycle commands', (t) => {
   const root = fixture(t);
-  for (const harness of ['.codex', '.claude', '.cursor']) {
+  for (const harness of ['.codex', '.claude']) {
     const configPath = path.join(root, harness, harness === '.claude' ? 'settings.json' : 'hooks.json');
     const original = fs.readFileSync(configPath, 'utf8');
     const config: { hooks: Record<string, { command?: string; hooks?: { command: string }[] }[]> } = JSON.parse(original);
-    const handler = harness === '.cursor' ? config.hooks.afterFileEdit[0] : config.hooks.PostToolUse[0].hooks?.[0];
+    const handler = config.hooks.PostToolUse[0].hooks?.[0];
     assert.ok(handler && typeof handler.command === 'string');
     handler.command += '; git fetch --prune';
     fs.writeFileSync(configPath, JSON.stringify(config));
@@ -128,7 +117,7 @@ test('role sources reject model settings and invalid sandbox values', (t) => {
   const root = fixture(t);
   const file = path.join(root, '.agents/roles/browser-check.md');
   const original = fs.readFileSync(file, 'utf8');
-  for (const key of ['model', 'model_reasoning_effort', 'claude-model', 'cursor-model']) {
+  for (const key of ['model', 'model_reasoning_effort', 'claude-model']) {
     fs.writeFileSync(file, original.replace('name: browser-check', `name: browser-check\n${key}: inherit`));
     assert.throws(() => generatedFiles(root), /Unsupported role field/);
   }
