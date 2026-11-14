@@ -11,8 +11,8 @@ export function Hero() {
             The hub of <span className={styles.nowrap}>open-weight</span> AI models that nobody owns
           </h1>
           <p className={styles.lede}>
-            Models served by a swarm of peers, as in a BitTorrent swarm: everyone who downloads a model seeds it, so no company has to host it. Every piece is checked
-            against the publisher's signed release while it downloads.
+            Models served by a swarm of peers, as in a BitTorrent swarm: people who seed a model share the work of hosting it. Every piece is checked against the
+            publisher's signed release while it downloads.
           </p>
           <p className={styles.stage}>
             <span className={styles.stageMark} aria-hidden='true' />

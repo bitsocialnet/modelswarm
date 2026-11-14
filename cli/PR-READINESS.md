@@ -26,6 +26,7 @@ The fixes have focused regressions. Independent reviews covered the download/cac
 - Endpoint cache contention returns `503 ReleaseBusy` with `Retry-After`. Other internal verification/configuration failures return a generic `502` with detailed diagnostics in the server log; malformed requests retain `400` responses. Lock I/O failures unrelated to contention preserve their original error type.
 - An empty `MODELSWARM_CACHE` uses the default cache instead of writing into the working directory. Explicit cache-directory choices retain precedence.
 - The landing page's endpoint description and comparison row now limit compatibility claims to the tested Hugging Face SDK; `transformers` and llama.cpp remain untested, matching the root docs.
+- The hero describes peers sharing model hosting without claiming every downloader keeps seeding. The CLI uploads only while running; default background seeding remains planned for the desktop client.
 
 The review's upstream timeout/resume concern remains a documented prototype limitation: upstream operations have a total deadline, and interrupted upstream payloads restart from zero. Native registered-manifest transfers support checkpoint resume. Adding upstream resume or changing deadline semantics is outside this correction; see [ENDPOINT.md](ENDPOINT.md) and [ENDPOINT-EVALUATION.md](ENDPOINT-EVALUATION.md).
 
