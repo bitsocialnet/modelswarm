@@ -1,6 +1,6 @@
 ---
 name: inspect-elements
-description: Map a visible Modelswarm page DOM node to its React source when file or component attribution is needed.
+description: Map a visible ModelSwarm page DOM node to its React source when file or component attribution is needed.
 ---
 
 <!-- Generated from .agents/skills/inspect-elements/SKILL.md; run yarn ai-workflow:sync. -->

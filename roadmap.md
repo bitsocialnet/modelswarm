@@ -97,7 +97,7 @@ Estimate: 3 to 4 weeks. Blocked by: milestones 3 and 5.
 
 ## BSIPs
 
-All existing BSIPs are drafts. Modelswarm builds on BSIP-2, 3, 10, 12, 13, 14 and 15, and would add:
+All existing BSIPs are drafts. ModelSwarm builds on BSIP-2, 3, 10, 12, 13, 14 and 15, and would add:
 
 | BSIP | Category | Requires | Written when |
 |---|---|---|---|

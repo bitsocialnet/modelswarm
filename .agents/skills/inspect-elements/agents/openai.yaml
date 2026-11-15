@@ -1,4 +1,4 @@
 interface:
   display_name: "Inspect Elements"
   short_description: "Map DOM nodes to source files"
-  default_prompt: "Use $inspect-elements to map a Modelswarm page element to its React source file and component stack."
+  default_prompt: "Use $inspect-elements to map a ModelSwarm page element to its React source file and component stack."

@@ -115,7 +115,7 @@ export function Assembly() {
         </div>
         <div className={styles.caption}>
           <h2 id='assembly-title' className={styles.word}>
-            modelswarm
+            ModelSwarm
           </h2>
           <p className={styles.definition}>
             <span className={styles.pos}>noun</span> Open-weight AI models, distributed by a swarm of peers as in a BitTorrent swarm.

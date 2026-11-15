@@ -253,7 +253,7 @@ try {
                    "manifest": {"url": self.url + self.manifest.name,
                                 "sha256": hashlib.sha256(self.manifest.read_bytes()).hexdigest()},
                    "modelCard": ""}
-        # Bypass Modelswarm's duplicate-version preflight using the actual SDK.
+        # Bypass ModelSwarm's duplicate-version preflight using the actual SDK.
         # Two comments suffice: a large, valid profile description leaves room
         # for one preloaded announcement, putting the conflict on the next page.
         script = """

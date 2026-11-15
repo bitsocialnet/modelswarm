@@ -122,7 +122,7 @@ def read_key(path):
     if (not isinstance(value, dict) or set(value) != {"schema", "type", "privateKey"}
             or value["schema"] != KEY_SCHEMA or value["type"] != "ed25519"
             or not isinstance(value["privateKey"], str) or not re.fullmatch(r"[A-Za-z0-9+/]{43}", value["privateKey"])):
-        raise ValueError("invalid Modelswarm Ed25519 key file")
+        raise ValueError("invalid ModelSwarm Ed25519 key file")
     return value["privateKey"]
 
 

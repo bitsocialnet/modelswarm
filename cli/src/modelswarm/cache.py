@@ -172,7 +172,7 @@ def _check_manifest_marker(directory, revision, digest, *, required=False):
     expected = json.dumps({"manifest_sha256": digest}, sort_keys=True).encode() + b"\n"
     if not os.path.lexists(marker):
         if required:
-            raise ValueError("existing snapshot is not owned by Modelswarm")
+            raise ValueError("existing snapshot is not owned by ModelSwarm")
         return False
     with _open_regular(marker, single_link=True) as stream:
         if stream.read(len(expected) + 1) != expected:

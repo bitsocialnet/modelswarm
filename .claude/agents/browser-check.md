@@ -1,6 +1,6 @@
 ---
 name: browser-check
-description: Verify an assigned Modelswarm site browser flow against explicit acceptance criteria.
+description: Verify an assigned ModelSwarm site browser flow against explicit acceptance criteria.
 ---
 
 <!-- Generated from .agents/roles/browser-check.md; run yarn ai-workflow:sync. -->

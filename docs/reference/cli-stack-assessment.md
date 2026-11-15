@@ -1,4 +1,4 @@
-# Modelswarm CLI stack assessment
+# ModelSwarm CLI stack assessment
 
 Assessment date: 2026-11-14.
 

@@ -12,9 +12,9 @@ export function Topbar() {
   return (
     <header className={styles.topbar}>
       <div className={`wrap ${styles.inner}`}>
-        <a className={styles.brand} href='./' aria-label='Modelswarm home'>
+        <a className={styles.brand} href='./' aria-label='ModelSwarm home'>
           <Logo size={30} />
-          <span>modelswarm</span>
+          <span>ModelSwarm</span>
         </a>
         <nav className={styles.nav} aria-label='Main'>
           {LINKS.map((link) => (

@@ -1,7 +1,7 @@
 export const REPO = 'https://github.com/bitsocialnet/modelswarm';
 export const NEW_ISSUE = `${REPO}/issues/new`;
 export const doc = (path: string) => `${REPO}/blob/master/${path}`;
-// The original design Modelswarm builds on.
+// The original design ModelSwarm builds on.
 export const HUGGINGSOCIAL = 'https://github.com/Rinse12/huggingsocial';
 
 export type Part = {
@@ -43,7 +43,7 @@ export const PARTS: Part[] = [
   },
 ];
 
-export const COMPARE_COLUMNS = ['Hugging Face', 'Pirate Face', 'Modelswarm'] as const;
+export const COMPARE_COLUMNS = ['Hugging Face', 'Pirate Face', 'ModelSwarm'] as const;
 
 // Pirate Face as its own site describes it (pirateface.co, checked 2026-11-13).
 export const COMPARE_SOURCE = 'Pirate Face as described on pirateface.co in November 2026.';

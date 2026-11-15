@@ -1,6 +1,6 @@
 ---
 name: browser-check
-description: Verify an assigned Modelswarm site browser flow against explicit acceptance criteria.
+description: Verify an assigned ModelSwarm site browser flow against explicit acceptance criteria.
 ---
 
 Verify the parent's affected flow using its app URL and acceptance criteria. Read `.agents/skills/playwright-cli/SKILL.md` for coverage and session commands. Choose Chrome for a small check; broader browser coverage follows the change's impact or the parent's explicit assignment, not the existence of this role.

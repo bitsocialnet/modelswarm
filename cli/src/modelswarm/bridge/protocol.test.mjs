@@ -122,7 +122,7 @@ test('signature bytes, key bytes, encoding, and algorithm fail closed', async ()
   ]) {
     const comment = await fixture();
     mutate(comment);
-    await assert.rejects(verifyRelease(await withCid(comment)), /Invalid Modelswarm release/);
+    await assert.rejects(verifyRelease(await withCid(comment)), /Invalid ModelSwarm release/);
   }
 });
 
@@ -131,7 +131,7 @@ test('replies, crossposts, and runtime fields are outside the release format', a
     { depth: 1 }, { parentCid: await ipfsHash('parent') }, { postCid: await ipfsHash('post') },
     { crosspost: {} }, { cid: await ipfsHash('runtime') }, { author: { address: signer.address } },
   ]) {
-    await assert.rejects(verifyRelease(await withCid({ ...await fixture(), ...extra })), /Invalid Modelswarm release/);
+    await assert.rejects(verifyRelease(await withCid({ ...await fixture(), ...extra })), /Invalid ModelSwarm release/);
   }
 });
 
@@ -153,7 +153,7 @@ test('release schema, exact fields, model names, version, and manifest digest ar
     { ...release, name: 'alice/a--b' }, { ...release, version: '../v1' },
     { ...release, manifest: { ...release.manifest, sha256: 'A'.repeat(64) } },
     { ...release, manifest: { ...release.manifest, size: 10 } },
-  ]) assert.throws(() => encodeRelease(value), /Invalid Modelswarm release/);
+  ]) assert.throws(() => encodeRelease(value), /Invalid ModelSwarm release/);
   assert.throws(() => parseRelease('{'), /not valid JSON/);
 });
 
@@ -167,10 +167,10 @@ for (const [field, withSuffix] of [
   test(`${field} rejects trailing line terminators in encoded and signed releases`, async () => {
     for (const suffix of LINE_TERMINATORS) {
       const value = withSuffix(suffix);
-      assert.throws(() => encodeRelease(value), /Invalid Modelswarm release/);
-      assert.throws(() => parseRelease(JSON.stringify(value)), /Invalid Modelswarm release/);
+      assert.throws(() => encodeRelease(value), /Invalid ModelSwarm release/);
+      assert.throws(() => parseRelease(JSON.stringify(value)), /Invalid ModelSwarm release/);
       const comment = await fixture({ content: JSON.stringify(value) });
-      await assert.rejects(verifyRelease(await withCid(comment)), /Invalid Modelswarm release/);
+      await assert.rejects(verifyRelease(await withCid(comment)), /Invalid ModelSwarm release/);
     }
   });
 }
@@ -196,7 +196,7 @@ test('manifest references reject credentials, fragments, private addresses, and 
     'https://[fd00::1]/m', 'https://[::ffff:127.0.0.1]/m', 'https://intranet/m',
     'https://service.local/m', 'ipfs://not-a-cid', 'ipfs://cid/path', 'https://example.com/\nm',
     'https:example.com/m', 'https://example.com\\m',
-  ]) assert.throws(() => encodeRelease({ ...release, manifest: { ...release.manifest, url } }), /Invalid Modelswarm release/);
+  ]) assert.throws(() => encodeRelease({ ...release, manifest: { ...release.manifest, url } }), /Invalid ModelSwarm release/);
 });
 
 test('card and record limits count UTF-8 bytes, malformed Unicode and nesting fail closed', async () => {

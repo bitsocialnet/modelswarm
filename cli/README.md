@@ -1,4 +1,4 @@
-# Modelswarm CLI prototype
+# ModelSwarm CLI prototype
 
 `modelswarm make`, `verify` and `pull` implement the unsigned manifest/CLI milestone with Python 3.11+ and pinned libtorrent 2.1.1. `modelswarm serve` now exposes a [local Hugging Face endpoint with verified public fallback](ENDPOINT.md). The [signed publisher release milestone](RELEASES.md) adds `keygen`, `profile-init`, `profile-start`, `profile-renew`, `publish`, profile/CID pulls and signed endpoint registration. The landing page remains a separate static app. See [MANIFEST.md](MANIFEST.md) for v0 and [EVALUATION.md](EVALUATION.md) for tested behavior and remaining work.
 
@@ -69,7 +69,7 @@ The native-session `--timeout` defaults to 300 seconds and includes resume reche
 
 ### Use the verified cache
 
-The default root is `~/.cache/modelswarm/hub`, overridden by a nonempty `MODELSWARM_CACHE` or `--cache-dir`. An empty environment value uses the default; an explicit `--cache-dir` still takes precedence. This keeps Modelswarm's declared model namespace separate from the normal Hugging Face cache. JSON output provides `cache_dir`, `revision` and `snapshot`:
+The default root is `~/.cache/modelswarm/hub`, overridden by a nonempty `MODELSWARM_CACHE` or `--cache-dir`. An empty environment value uses the default; an explicit `--cache-dir` still takes precedence. This keeps ModelSwarm's declared model namespace separate from the normal Hugging Face cache. JSON output provides `cache_dir`, `revision` and `snapshot`:
 
 ```text
 models--example--model/

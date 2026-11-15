@@ -1,6 +1,6 @@
 # Open Questions
 
-Design decisions not yet made. These need answers before Modelswarm moves from idea to spec.
+Design decisions not yet made. These need answers before ModelSwarm moves from idea to spec.
 
 ## Who Publishes First
 
@@ -77,7 +77,7 @@ The [SDK endpoint prototype](cli/ENDPOINT.md) answers model info/tree and HEAD/G
 
 - Which requests do `huggingface_hub`, `transformers`, llama.cpp and Ollama actually make, and how stable are they between versions?
 - Ollama does not read `HF_ENDPOINT`. Is a registry-style route enough, or does it need a change upstream?
-- When a name exists both on Modelswarm and on Hugging Face with different files, which one does the endpoint serve, and how is the user told?
+- When a name exists both on ModelSwarm and on Hugging Face with different files, which one does the endpoint serve, and how is the user told?
 - Gated and private models need a Hugging Face token. Does the endpoint pass requests through for those, or refuse them?
 
 ## RPC Hosting

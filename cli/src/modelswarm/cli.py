@@ -1,4 +1,4 @@
-"""Noninteractive Modelswarm make/verify/pull commands; results are JSON."""
+"""Noninteractive ModelSwarm make/verify/pull commands; results are JSON."""
 
 import argparse
 from contextlib import contextmanager

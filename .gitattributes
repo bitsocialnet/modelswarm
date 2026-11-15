@@ -1,4 +1,4 @@
-# Third-party skill code is not Modelswarm application source.
+# Third-party skill code is not ModelSwarm application source.
 /.agents/skills/impeccable/** linguist-vendored
 
 # Generated compatibility copies should not inflate GitHub language statistics.

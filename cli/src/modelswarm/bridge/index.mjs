@@ -132,7 +132,7 @@ async function main(request) {
     // crosses RPC. The node generates and retains its distinct minter key.
     const profile=await pkc.createCommunity({
       anchor:{publicKey:owner.address}, roles:{[owner.address]:{role:'owner'}},
-      title:'Modelswarm publisher', suggested:{uiType:'author'},
+      title:'ModelSwarm publisher', suggested:{uiType:'author'},
       settings:{disablePubsubChallengeExchange:true,
         challenges:[{name:'fail',options:{error:'Only the publisher can post to this profile.'},publicOptions:['error'],exclude:[{roles:['owner']}]}],
         pages:{posts:[{name:'new',preloaded:true}],replies:[]}}

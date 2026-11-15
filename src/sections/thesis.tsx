@@ -16,7 +16,7 @@ export function Thesis() {
           </p>
           <p>
             Torrents already keep files alive without a host. What they lack is a way to know who published a file, and a list of models that does not live on one
-            website. Modelswarm adds both with <a href='https://bitsocial.net'>Bitsocial</a>, a peer-to-peer social protocol.
+            website. ModelSwarm adds both with <a href='https://bitsocial.net'>Bitsocial</a>, a peer-to-peer social protocol.
           </p>
         </div>
       </div>

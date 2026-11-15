@@ -10,7 +10,7 @@ The subsequent [endpoint milestone](ENDPOINT-EVALUATION.md) implements `serve` a
 - `verify MANIFEST DIR`: validate manifest/torrent consistency, recompute local sizes, SHA-256 and pieces roots, inspect formats and report every mismatched/missing selected file. It can read HF snapshot links and never executes code.
 - `pull MANIFEST`: validate before network/cache writes; use explicit peers and/or DHT plus HTTP; reject bad pieces; check complete-file hashes/formats; preserve partial data/checkpoints; expose only verified files through the cache. Known code/pickle suffixes remain flagged even if metadata claims otherwise.
 - Selection via repeatable `--file`; flagged files excluded by default, explicit `--allow-unsafe`; finite bounded timeouts and rate limits; progress JSON on stderr and result JSON on stdout.
-- Private staging, per-manifest process locks, validated cache reuse, content-addressed blobs and immutable revision snapshots. The default separate Modelswarm cache does not alter upstream `refs/main`.
+- Private staging, per-manifest process locks, validated cache reuse, content-addressed blobs and immutable revision snapshots. The default separate ModelSwarm cache does not alter upstream `refs/main`.
 
 ## Evidence
 

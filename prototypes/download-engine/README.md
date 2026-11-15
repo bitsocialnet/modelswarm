@@ -1,6 +1,6 @@
 # Download engine prototype
 
-An isolated experiment with **libtorrent 2.1.1** (the native binding reports `2.1.1.0`), Python 3.11, BitTorrent **v2-only** torrents and BEP 19 HTTP web seeds. This is not the Modelswarm CLI or a publisher-signature implementation. It handles one regular file per torrent, including libtorrent's virtual tail padding.
+An isolated experiment with **libtorrent 2.1.1** (the native binding reports `2.1.1.0`), Python 3.11, BitTorrent **v2-only** torrents and BEP 19 HTTP web seeds. This is not the ModelSwarm CLI or a publisher-signature implementation. It handles one regular file per torrent, including libtorrent's virtual tail padding.
 
 See [EVALUATION.md](EVALUATION.md) for measured results, failures found during development and the viability decision.
 

@@ -2,7 +2,7 @@
 
 This is a sketch, not a spec. The conventions would become an Application-category BSIP in `bitsocialnet/BSIPs` once the open questions are settled.
 
-It builds on [HuggingSocial's design](https://github.com/Rinse12/huggingsocial/blob/master/DESIGN.md) by Rinse12: the layers, hubs, downloading and seeding, the Hugging Face endpoint, the command line and search below come from it. What Modelswarm changes is listed under [Prior Art](README.md#prior-art).
+It builds on [HuggingSocial's design](https://github.com/Rinse12/huggingsocial/blob/master/DESIGN.md) by Rinse12: the layers, hubs, downloading and seeding, the Hugging Face endpoint, the command line and search below come from it. What ModelSwarm changes is listed under [Prior Art](README.md#prior-art).
 
 ## Layers
 
@@ -17,7 +17,7 @@ It builds on [HuggingSocial's design](https://github.com/Rinse12/huggingsocial/b
 | Hub list | A curated list of hubs and publishers | A community list ([BSIP-15](https://bsips.bitsocial.net/bsip-15)) |
 | Search | Full-text and faceted search over releases | `bitsocial-indexer` instances, remote or local |
 | Scan results | A scanner's verdict on a file | Signed records from replaceable scanner services |
-| Compatibility | Existing tools downloading through Modelswarm | A local endpoint that speaks the Hugging Face Hub API |
+| Compatibility | Existing tools downloading through ModelSwarm | A local endpoint that speaks the Hugging Face Hub API |
 
 Bitsocial carries text, so it holds releases, manifests and discussion. Model files never pass through it.
 
@@ -76,7 +76,7 @@ A manifest could look like this:
 ```
 
 - **A version is immutable.** A new version is a new release. The latest version is the publisher's most recent release under that name.
-- **Two hashes per file.** `pieces_root` verifies the download as it happens. `sha256` is what Hugging Face, Ollama and most model cards already use, so it links a Modelswarm release to the same file elsewhere.
+- **Two hashes per file.** `pieces_root` verifies the download as it happens. `sha256` is what Hugging Face, Ollama and most model cards already use, so it links a ModelSwarm release to the same file elsewhere.
 - **`format` is declared and checked.** The client reads the file's header and refuses a file whose content does not match its declared format.
 - **Where the manifest lives is open.** It could be a field of the comment or a separate document referenced by its content identifier. A model split into hundreds of shards makes a long manifest, which argues for the second. See [open-questions.md](open-questions.md#manifest).
 
@@ -129,7 +129,7 @@ Community members can add sources in replies, for example a new HTTP mirror. The
 
 ## Models That Are Only on Hugging Face
 
-Most models will have no publisher on Modelswarm for a long time. Two cases:
+Most models will have no publisher on ModelSwarm for a long time. Two cases:
 
 **Downloading.** The client reads the repository's metadata from Hugging Face, including the SHA-256 it publishes for large files, and downloads from Hugging Face. No Bitsocial record is needed. This verifies whole files, after the download, against Hugging Face's own word.
 

@@ -181,7 +181,7 @@ def _repo(parts):
 def handler_for(backend):
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
-        server_version = "Modelswarm/0.0.1"
+        server_version = "ModelSwarm/0.0.1"
 
         def setup(self):
             super().setup()

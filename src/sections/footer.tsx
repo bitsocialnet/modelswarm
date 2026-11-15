@@ -45,9 +45,9 @@ export function Footer() {
     <footer className={styles.footer}>
       <div className={`wrap ${styles.top}`}>
         <div className={styles.brand}>
-          <a className={styles.mark} href='./' aria-label='Modelswarm home'>
+          <a className={styles.mark} href='./' aria-label='ModelSwarm home'>
             <Logo size={34} />
-            <span>modelswarm</span>
+            <span>ModelSwarm</span>
           </a>
           <p>Open-weight AI models, distributed by a swarm of peers as in a BitTorrent swarm.</p>
           <a className={`button ${styles.star}`} href={REPO}>
@@ -73,7 +73,7 @@ export function Footer() {
       <div className={`wrap ${styles.bottom}`}>
         <p>
           Free software under <a href={doc('LICENSE')}>GPL-3.0-or-later</a>. The project would publish a client and tooling. It hosts no models. The planned client would
-          use Forge RPC by default, but users could switch providers or self-host. Modelswarm stays decentralized. Revenue from optional RPC metadata hosting is
+          use Forge RPC by default, but users could switch providers or self-host. ModelSwarm stays decentralized. Revenue from optional RPC metadata hosting is
           speculative; publisher willingness to pay is unvalidated.
         </p>
         {COMMIT && (

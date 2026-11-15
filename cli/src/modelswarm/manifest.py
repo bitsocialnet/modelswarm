@@ -1,4 +1,4 @@
-"""Portable, unsigned Modelswarm manifest v0 and its bounded transport metadata."""
+"""Portable, unsigned ModelSwarm manifest v0 and its bounded transport metadata."""
 
 import base64
 import binascii

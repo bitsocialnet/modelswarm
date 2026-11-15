@@ -23,7 +23,7 @@ const PUBLICATION_FIELDS = new Set([
 const RUNTIME_AUTHOR_FIELDS = new Set(['address', 'publicKey', 'shortAddress', 'community', 'nameResolved']);
 
 function invalid(message) {
-  throw new Error(`Invalid Modelswarm release: ${message}`);
+  throw new Error(`Invalid ModelSwarm release: ${message}`);
 }
 
 function object(value, label) {
