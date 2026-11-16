@@ -7,7 +7,7 @@
 
 .step {
   display: grid;
-  grid-template-columns: 4ch 3ch minmax(0, 20rem) minmax(0, 1fr) 11ch;
+  grid-template-columns: 4ch 3ch minmax(0, 20rem) minmax(0, 1fr) max-content;
   align-items: baseline;
   gap: 0.5rem 1.5rem;
   padding: 1.15rem 0;
