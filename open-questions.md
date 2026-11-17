@@ -87,6 +87,7 @@ Forge RPC as the optional default is settled: users must be able to switch compa
 - How do users select a provider or a self-hosted node, and what happens when their chosen provider is unavailable?
 - How do publishers migrate hosted profiles between providers while retaining their keys and releases?
 - Would publishers pay for metadata hosting, and what customer evidence would justify paid tiers? Model weight seeding is a separate service, not supplied by the RPC connection.
+- Should a signed release be able to list endpoints that sell inference for it, such as x402 services on [Agentic Market](https://agentic.market/)? Agents could find the weights and a paid way to run them through one publisher signature, and publishers could earn from inference rather than metadata hosting. The client could not verify that an endpoint actually runs those weights.
 
 ## Seeding
 
