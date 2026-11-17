@@ -17,20 +17,20 @@ That company can remove a model, and others can make it do so:
 - Hugging Face restricted access to [GPT-4chan](https://thegradient.pub/gpt-4chan-lessons/) in 2022.
 - Meta's [DMCA notice of March 2023](https://github.com/github/dmca/blob/master/2023/03/2023-03-21-meta.md) had GitHub take down repositories for downloading the leaked LLaMA weights.
 
-Torrents already solve the storage half. [Academic Torrents](https://academictorrents.com/) and [Pirate Face](https://pirateface.co/) publish models as magnet links, and a file with seeders cannot be deleted by any host. The list of magnets and the discussion around them still sit on one website each, and a magnet link says nothing about who published the file.
+Torrents already solve the storage half. [Academic Torrents](https://academictorrents.com/) and [Pirate Face](https://pirateface.co/) publish models as magnet links, and a file with seeders cannot be deleted by any host. Each list is still run by one website, which also hosts the discussion, and a magnet link says nothing about who published the file. Pirate Face's CLI can keep a copy of its magnet index on the user's machine, so listed models stay reachable when the site is down; what gets listed is still Pirate Face's decision.
 
 ModelSwarm splits the hub into parts that no single party holds:
 
 | | Hugging Face | Pirate Face | ModelSwarm |
 |---|---|---|---|
 | Where the files are | Hugging Face's servers | Seeders, with Hugging Face as a web seed | Seeders, plus any HTTP mirror, including Hugging Face |
-| Who can delist a model | Hugging Face | Pirate Face, which runs the list | Nobody across the network. A hub can drop a release from its own board, not from the publisher's profile |
+| Who can delist a model | Hugging Face | Pirate Face, which runs the list. A copy of its index synced earlier still finds the model | Nobody across the network. A hub can drop a release from its own board, not from the publisher's profile |
 | Who published this file | A Hugging Face account | A Pirate Face handle, verified through the matching Hugging Face account | A signing key, the same across every release by that publisher |
-| When a corrupted or swapped file is caught | The host is trusted | After each file downloads, against Hugging Face's SHA-256 | During the download, piece by piece |
+| When a corrupted or swapped file is caught | The host is trusted | Each piece against the listed torrent's hashes during the download, then each whole file against Hugging Face's SHA-256 | During the download, piece by piece, against the release its publisher signed |
 | Where discussion happens | Hugging Face | On Pirate Face | Peer-to-peer communities, each with its own rules |
 | Works with existing tools | Yes | Yes, through its `pirateface` pip package for Python tools | Yes, through a local endpoint that speaks the Hugging Face API |
 
-Pirate Face as described on [pirateface.co](https://pirateface.co/) in November 2026.
+Pirate Face as described on [pirateface.co](https://pirateface.co/) and in its [CLI README](https://github.com/pirateface/pirateface_cli) on 17 November 2026.
 
 ## Checked While It Downloads
 
@@ -77,7 +77,7 @@ RPC revenue from ModelSwarm is speculative, not a strong monetization pitch. RPC
 ## Prior Art
 
 - [HuggingSocial](https://github.com/Rinse12/huggingsocial), by Bitsocial developer Rinse12, is the design ModelSwarm builds on, and the source of most of its architecture (see [its DESIGN.md](https://github.com/Rinse12/huggingsocial/blob/master/DESIGN.md)). ModelSwarm differs in four ways: releases live in each publisher's own profile and hubs carry crossposts, so no hub can delist a release; every piece is verified during the download against a BitTorrent v2 pieces root, instead of whole files afterwards; formats that can run code are flagged and left out of default downloads; and mirror records are created when someone seeds a model, instead of mirroring Hugging Face in bulk.
-- [Pirate Face](https://pirateface.co/) lists models as magnet links with Hugging Face web seeds, checks files against Hugging Face's SHA-256 and offers a drop-in `pip` package for Python tools. It still relies on Hugging Face for its source records and runs the list on its own website. [Academic Torrents](https://academictorrents.com/) indexes models as torrents on its own website.
+- [Pirate Face](https://pirateface.co/) lists models as magnet links with Hugging Face web seeds, checks files against Hugging Face's SHA-256 and offers a `pip` package and [CLI](https://github.com/pirateface/pirateface_cli) that download, seed and build torrents without changes to existing Python code. The CLI can keep a local copy of the magnet index for when the site is down, and can submit a model that was never on Hugging Face. Pirate Face still decides what is listed, verifies creators through their Hugging Face accounts and hosts discussion on its own website. [Academic Torrents](https://academictorrents.com/) indexes models as torrents on its own website.
 
 ## Documents
 

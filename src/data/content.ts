@@ -45,8 +45,8 @@ export const PARTS: Part[] = [
 
 export const COMPARE_COLUMNS = ['Hugging Face', 'Pirate Face', 'ModelSwarm'] as const;
 
-// Pirate Face as its own site describes it (pirateface.co, checked 2026-11-13).
-export const COMPARE_SOURCE = 'Pirate Face as described on pirateface.co in November 2026.';
+// Pirate Face as its own site describes it (pirateface.co, and its CLI README, checked 2026-11-17).
+export const COMPARE_SOURCE = 'Pirate Face as described on pirateface.co and in its CLI README on 17 November 2026.';
 
 export const COMPARE_ROWS: { label: string; cells: [string, string, string] }[] = [
   {
@@ -55,7 +55,11 @@ export const COMPARE_ROWS: { label: string; cells: [string, string, string] }[] 
   },
   {
     label: 'Who can delist a model',
-    cells: ['Hugging Face', 'Pirate Face, which runs the list', 'Nobody across the network. A hub can only drop it from its own board'],
+    cells: [
+      'Hugging Face',
+      'Pirate Face, which runs the list. A copy of its index synced earlier still finds the model',
+      'Nobody across the network. A hub can only drop it from its own board',
+    ],
   },
   {
     label: 'Who published this file',
@@ -67,7 +71,11 @@ export const COMPARE_ROWS: { label: string; cells: [string, string, string] }[] 
   },
   {
     label: 'When a swapped file is caught',
-    cells: ['The host is trusted', "After each file downloads, against Hugging Face's SHA-256", 'During the download, piece by piece'],
+    cells: [
+      'The host is trusted',
+      "Each piece against the listed torrent's hashes, then each whole file against Hugging Face's SHA-256",
+      'During the download, piece by piece, against the release its publisher signed',
+    ],
   },
   { label: 'Where discussion happens', cells: ['Hugging Face', 'On Pirate Face', 'Peer-to-peer communities, each with its own rules'] },
   { label: 'Works with existing tools', cells: ['Yes', 'Yes, through its pip package for Python tools', 'Hugging Face SDK tested; other tools unverified'] },
