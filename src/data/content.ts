@@ -81,6 +81,18 @@ export const COMPARE_ROWS: { label: string; cells: [string, string, string] }[] 
   { label: 'Works with existing tools', cells: ['Yes', 'Yes, through its pip package for Python tools', 'Hugging Face SDK tested; other tools unverified'] },
 ];
 
+// What no project that only moves files can add (README.md#nobody-runs-the-list).
+export const ONLY_HERE: { title: string; body: string }[] = [
+  {
+    title: 'Nobody runs the list',
+    body: "A release is a signed post in its publisher's own profile. No hub, indexer or company can remove it from there, and anyone can run an indexer over the same public data.",
+  },
+  {
+    title: 'Nobody owns the communities',
+    body: 'Hubs are Bitsocial communities. Anyone can create one, each sets its own rules, and the discussion about a model does not depend on one website staying online.',
+  },
+];
+
 export type Step = {
   title: string;
   body: string;

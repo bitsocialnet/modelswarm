@@ -32,6 +32,25 @@ ModelSwarm splits the hub into parts that no single party holds:
 
 Pirate Face as described on [pirateface.co](https://pirateface.co/) and in its [CLI README](https://github.com/pirateface/pirateface_cli) on 17 November 2026.
 
+## Nobody Runs the List
+
+Moving model files over torrents is a solved problem, and several projects do it well. Each of them still runs the list:
+
+- [Pirate Face](https://pirateface.co/) decides what its index lists and hosts the discussion on its website.
+- [Tensorseed](https://tensorseed.dev/) serves a catalog signed by the project.
+- [Hippius Hub](https://hippius.com/hippius-hub) stores files on independent miners, behind accounts, namespaces and a search index that Hippius runs.
+
+Whoever runs the list can be made to remove a model from it, and the list and the discussion go with them if they stop.
+
+ModelSwarm has no such party, because its list and its discussion are [Bitsocial](https://bitsocial.net) content:
+
+- **Nobody runs the list.** A release is a signed post in its publisher's own profile. No hub, indexer or company can remove it from there, and anyone can run an indexer over the same public data.
+- **Nobody owns the communities.** Hubs are Bitsocial communities. Anyone can create one, each sets its own rules, and the discussion about a model does not depend on one website staying online.
+
+A project that only moves files cannot add these two without first building a peer-to-peer social network. Bitsocial is that network. [Radicle](https://radicle.xyz/), which is peer-to-peer Git, is the nearest: it has no central list either, and has announced but not shipped support for model weights.
+
+The dependency runs both ways. ModelSwarm is an experimental CLI with no public network yet, and these two properties are worth only as much as the publishers and communities that are on Bitsocial. ModelSwarm grows with Bitsocial, not ahead of it.
+
 ## Checked While It Downloads
 
 A checksum of a whole file can only be compared when the download is finished. For a 40 GB model that means finding out at the end.
