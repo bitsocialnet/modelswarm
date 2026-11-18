@@ -15,7 +15,21 @@ const commitRef = (() => {
 export default defineConfig({
   // Relative asset paths so the static build also works from an IPFS gateway path.
   base: './',
-  plugins: [react()],
+  plugins: [
+    react(),
+    // Only Vercel deployments serve this endpoint. Local and IPFS builds omit the script.
+    process.env.VERCEL === '1' && {
+      name: 'vercel-web-analytics',
+      apply: 'build',
+      transformIndexHtml: () => [
+        {
+          tag: 'script',
+          attrs: { defer: true, src: '/_vercel/insights/script.js' },
+          injectTo: 'body',
+        },
+      ],
+    },
+  ],
   server: {
     port: 5191,
   },
