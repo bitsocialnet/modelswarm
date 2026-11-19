@@ -40,6 +40,7 @@
     "element-source": "0.0.5",
     "js-yaml": "5.5.0",
     "knip": "6.42.1",
+    "modern-web-guidance": "1.0.0",
     "oxfmt": "0.74.0",
     "oxlint": "1.89.0",
     "portless": "0.11.1",
