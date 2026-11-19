@@ -37,6 +37,7 @@ For an unexpected repo-specific issue, tell the contributor and continue indepen
 | Visual design, layout, CSS, typography, or colour | Use the tokens in `src/index.css`; use the `impeccable` skill for design work |
 | Code or automation changed | Select affected checks using [verification.md](docs/agent-playbooks/verification.md); use `agent:verify` for integration/build changes or an explicitly requested full pass |
 | React state, effects, or rendering performance changed | Review relevant React guidance; use advisory `yarn doctor` for newly introduced diagnostics |
+| Choosing a native control, focus behavior, browser API, or browser-sensitive layout | Consult [Modern Web Guidance](.agents/skills/modern-web-guidance/SKILL.md) for the relevant feature |
 | UI behavior/layout changed | Verify the affected flow; select browsers/viewports using [verification.md](docs/agent-playbooks/verification.md) |
 | `package.json` changed | Run `corepack yarn install` to synchronize `yarn.lock`; keep `yarn deps:check-pinned` passing |
 | Dependencies, moved files, or imports changed | Run advisory `yarn knip`; resolve relevant new findings |
