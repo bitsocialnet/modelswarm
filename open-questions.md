@@ -97,6 +97,19 @@ Forge RPC as the optional default is settled: users must be able to switch compa
 - Could an outside incentive network, such as a Bittensor subnet or Filecoin, pay for seeding rarely used models? How would it prove independent storage and public availability, instead of bytes fetched on demand when challenged? Someone other than the project would have to run it.
 - How much disk and upload does default seeding cost a typical user, and what should the default cap be?
 
+## Agents as Participants
+
+ModelSwarm is designed for people who publish and download models. AI agents could use the same command line and take on work the network is short of. This is an idea, not a plan, and none of the six milestones depends on it.
+
+- Which jobs can an agent do that anyone can check? Candidates: seeding, confirming mirror records and publishing scan results. A post in a hub cannot be checked the same way.
+- Could a treasury pay agents for those jobs? It would have to be a contract with fixed payout rules and no key that can withdraw the funds, on Ethereum or Bitsocial Chain, and the project could not hold it. Where its money would come from is not known.
+- One operator can run thousands of agents. What stops them collecting rewards many times for the same bytes, or for bytes fetched only when challenged? This is the proof problem of paid [seeding](#seeding), with more reason to cheat.
+- Do hubs want agents posting? Each hub sets its own rules and can refuse them. Should agent accounts be labelled, and can a label be enforced when an agent is only a key?
+- Model cards and hub discussion are untrusted text to an agent that reads them. How does the tooling keep a post from instructing an agent that seeds or holds funds?
+- An agent that runs on open weights pulled from the swarm does not depend on one model provider. It still rents compute from someone. Does that change who can shut it down?
+- The README says ModelSwarm is not a blockchain. Can a treasury stay optional, so that releases, discussion and downloads work the same without it?
+- Is this part of ModelSwarm, or a separate Bitsocial client for agents that uses ModelSwarm for its models and its paid work?
+
 ## Licenses and Takedowns
 
 - Many model licenses restrict redistribution, and some models are gated. Does the client warn before seeding a model whose license forbids it?

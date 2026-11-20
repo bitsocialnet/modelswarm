@@ -113,3 +113,4 @@ All existing BSIPs are drafts. ModelSwarm builds on BSIP-2, 3, 10, 12, 13, 14 an
 - [ ] Hosted profiles for publishers without a node, when Forge RPC or another compatible provider offers them. Revenue from this metadata hosting is speculative; validate publisher willingness to pay before treating it as a business case.
 - [ ] Hub-funded seedboxes.
 - [ ] Mobile clients for browsing and discussion.
+- [ ] AI agents as participants that seed, confirm mirror records and publish scan results, possibly paid from a treasury with fixed rules. Undecided; see [open-questions.md](open-questions.md#agents-as-participants).
