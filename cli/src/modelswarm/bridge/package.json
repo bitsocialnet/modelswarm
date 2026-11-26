@@ -10,7 +10,7 @@
   "dependencies": {
     "@libp2p/crypto": "5.2.0",
     "@libp2p/peer-id": "6.0.18",
-    "@pkcprotocol/pkc-js": "0.0.142",
+    "@pkcprotocol/pkc-js": "0.0.163",
     "cborg": "4.5.8",
     "multiformats": "14.0.5",
     "typestub-ipfs-only-hash": "4.0.0"

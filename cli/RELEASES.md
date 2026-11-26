@@ -12,7 +12,7 @@ corepack yarn install --immutable
 cd ../../../..
 ```
 
-The bridge pins `@pkcprotocol/pkc-js` 0.0.142 and uses Node, Corepack Yarn 4.17.1 and the native `better-sqlite3` dependency. Install and run with the same Node major version; switching versions may require rebuilding the native dependency. Tested on macOS arm64 with Node 26.12.1. `MODELSWARM_NODE` selects another Node executable. The Python wheel includes bridge source/lockfile, but does not bundle Node, native dependencies or a node operator. A single-command cross-platform installer remains work to do.
+The bridge pins `@pkcprotocol/pkc-js` 0.0.163 and uses Node, Corepack Yarn 4.17.1 and the native `better-sqlite3` dependency. Install and run with the same Node major version; switching versions may require rebuilding the native dependency. Tested on macOS arm64 with Node 26.12.1. `MODELSWARM_NODE` selects another Node executable. The Python wheel includes bridge source/lockfile, but does not bundle Node, native dependencies or a node operator. A single-command cross-platform installer remains work to do.
 
 Local manifest commands and ordinary upstream fallback do not need this bridge. Profile operations require an accessible PKC RPC node compatible with the pinned SDK. Set `MODELSWARM_RPC` or pass `--rpc`; remote connections require `wss://`, while loopback accepts `ws://`. RPC URLs may contain a capability in their path: keep them private. There is no assumed/default Forge URL. Publishing currently requires an operator-controlled node capable of creating and hosting delegated profiles.
 
@@ -37,17 +37,14 @@ The generated key file has mode 0600, is never overwritten, and must be backed u
 ## Keep a profile hosted
 
 ```sh
-# After a node crash: ask the node to host the profile again. No key is needed.
+# If a profile is not hosted after a restart: ask the node to host it. No key is needed.
 cli/.venv/bin/modelswarm profile-start PUBLISHER
 
 # Sign a newer delegation to the same node-held minter.
 cli/.venv/bin/modelswarm profile-renew --key ~/.config/modelswarm/publisher.key.json --minter MINTER
 ```
 
-A node that stops cleanly hosts its profiles again when it restarts on the same data directory: same publisher, minter, delegation sequence and release CIDs, with no client involved. Two behaviours of the pinned SDK matter to operators:
-
-- **Killed nodes.** A node killed without cleanup (SIGKILL, power loss) leaves a start lock that goes stale after 10 seconds. Restarted sooner, it does not host the profile and does not retry; `publish` then fails with `ERR_COMMUNITY_CHALLENGE_EXCHANGE_DISABLED`. Either delay the restart by more than 10 seconds, or run `profile-start` once the lock is stale. `profile-start` is safe to repeat on a running profile and refuses publishers the node does not host. Releases already published stay readable throughout.
-- **First record after a restart.** A restarted minter looks its own IPNS name up before publishing its next record. With no peers that lookup runs into Kubo's 60-second timeout; with one connected peer it took about 10 seconds. A release published in that window is accepted and pullable by its pinned CID at once, but version discovery finds it only after that record. Timing on a public network is untested.
+A node that restarts on the same data directory hosts its profiles again with no client involved: same publisher, minter, delegation sequence and release CIDs. This holds for a node killed without cleanup (SIGKILL, power loss) and restarted at once, because the pinned SDK's start lock is released when its process dies. In the loopback tests the profile was hosted again within about a second of the restart, and a release published right after it was found by version within two seconds. Timing on a public network is untested. If a profile is not hosted after a restart, `profile-start` asks the node to host it; it is safe to repeat on a running profile and refuses publishers the node does not host.
 
 `profile-renew` asks the node which sequence beats every delegation it knows (the SDK answers the highest known plus five), signs that record locally with the owner key, and has the node verify and publish it. `MINTER` is the minter Peer ID that `profile-init` printed: the CLI signs only for that minter and refuses a sequence more than 1,000 above the node's current one, because the node supplies both values and a signed delegation cannot be withdrawn. Keep the minter ID with the key backup. The node refuses records that roll the sequence back or repeat it, point at another minter, or carry another key's signature. The minter, publisher identity and existing release CIDs do not change. The SDK signs delegations with a fixed lifetime of about 100 years, so renewal re-asserts the current delegation; it is not needed to prevent expiry. Moving a profile to a new node or minter, and revoking a leaked minter, are not implemented.
 
@@ -108,4 +105,4 @@ MODELSWARM_KUBO_BIN=/absolute/path/to/kubo-0.43.1/ipfs \
   cli/.venv/bin/python -m unittest discover -s cli/tests -v
 ```
 
-Install [test dependencies](README.md#tests) first. `test_persistence.py` stops, kills and resumes that node on one data directory and takes about four and a half minutes, mostly the waits described above. `test_two_nodes.py` adds a second node in the same private swarm that reads the publisher without using its RPC. The real profile tests start a fresh private Kubo swarm and a loopback PKC RPC node, then stop them and remove their disposable repositories. They do not publish public releases. Without Kubo 0.43.1 those integration tests explicitly skip; a skipped suite is not evidence of profile functionality.
+Install [test dependencies](README.md#tests) first. `test_persistence.py` stops, kills and resumes that node on one data directory and takes about a minute. `test_two_nodes.py` adds a second node in the same private swarm that reads the publisher without using its RPC. The real profile tests start a fresh private Kubo swarm and a loopback PKC RPC node, then stop them and remove their disposable repositories. They do not publish public releases. Without Kubo 0.43.1 those integration tests explicitly skip; a skipped suite is not evidence of profile functionality.

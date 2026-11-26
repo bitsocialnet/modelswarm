@@ -1,6 +1,6 @@
 # Restart, renewal and cross-machine evaluation — 2026-11-13
 
-**A publisher node keeps its profile, delegation and releases across clean restarts and hard kills, the owner can renew the delegation, and a separate reader node resolves all of it over the swarm.** Two behaviours of the pinned SDK need operator attention after a restart; both are measured below. The automatic tests run on one machine over loopback in a private swarm. One manual run then put the reader on a second machine and pulled a real 491 MB model from the first. Both machines share a site and a Tailscale network, so this is cross-machine evidence, not public-internet, NAT or DHT evidence.
+**A publisher node keeps its profile, delegation and releases across clean restarts and hard kills, the owner can renew the delegation, and a separate reader node resolves all of it over the swarm.** Two behaviours of pkc-js 0.0.142 needed operator attention after a restart; both are measured below and fixed in the 0.0.163 the bridge now pins. The automatic tests run on one machine over loopback in a private swarm. One manual run then put the reader on a second machine and pulled a real 491 MB model from the first. Both machines share a site and a Tailscale network, so this is cross-machine evidence, not public-internet, NAT or DHT evidence.
 
 Commands and operator guidance are in [RELEASES.md](RELEASES.md#keep-a-profile-hosted). The earlier signed-release evidence is in [RELEASES-EVALUATION.md](RELEASES-EVALUATION.md).
 
@@ -56,9 +56,11 @@ To repeat it, copy `cli/` to the second machine, create the Python environment a
 
 The timeout in the first row is the historical result of that run. On 2026-11-14, signed `pull` gained a preflight check for explicit peers using the same native IP filter. A blocked peer now produces an error naming the peer and `--allow-local-sources` before staging. Local regression tests cover loopback, resolved localhost, IPv6 and tailnet addresses with zero upload; opting in downloads and verifies the file. The cross-machine run was not repeated for this diagnostic change.
 
-## Findings in the pinned SDK
+## Findings in pkc-js 0.0.142
 
 Both were reproduced and traced in the node's debug log. Neither loses data. The tests assert the behaviour; the durations quoted are single measurements from manual probe runs, not asserted thresholds.
+
+On 2026-11-26 the bridge moved to pkc-js 0.0.163, which fixes both: the start lock is released when its process dies (0.0.154), and a restarted minter no longer resolves its own IPNS name first (0.0.149). In a probe on that version a killed node restarted at once hosted its profile again within 0.8 seconds, and a release published right after the restart was found by version 1.6 seconds later. `test_persistence.py` now fails if either delay returns. The findings below are the historical 0.0.142 results.
 
 1. **A killed node restarted within 10 seconds stops hosting its profiles and never retries.** The start lock left by the killed process is still considered held, auto-start fails with `ERR_COMMUNITY_ALREADY_STARTED`, and nothing retries it. In a probe it stayed unhosted for the 97 seconds observed. Until recovered, `publish` fails with `ERR_COMMUNITY_CHALLENGE_EXCHANGE_DISABLED`; published releases stay readable. A process supervisor with a short restart delay would hit this on every crash. Mitigations verified here: restart after more than 10 seconds, or run `profile-start`.
 2. **Version discovery lags the first post-restart publication: about 61 seconds with no peers, about 10 seconds with one connected peer.** Before publishing its next record a restarted minter resolves its own IPNS name; Kubo with no peers and no routing holds that lookup for its full 60-second timeout, then the record is published normally. A release announced in that window is accepted and CID-addressable immediately and joins the profile feed with that record. Without a restart the same step takes about 1 second. Timing with public routing is untested.
