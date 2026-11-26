@@ -253,3 +253,41 @@ async function verifyPublication(rawComment, cid, community, { fields, required,
   if (!verify(null, encode(signedObject), key, signature)) invalid('Ed25519 signature verification failed');
   return { comment, author };
 }
+
+export async function scanDiscussionFeed(posts, readDiscussion) {
+  const entries = [];
+  const seen = new Set();
+  const atEntryLimit = () => seen.size >= 100 || entries.length >= 32;
+  let page = posts?.pages?.new;
+  let next = posts?.pageCids?.new;
+  for (let count = 0; page || next; count++) {
+    if (count >= 4 || atEntryLimit()) return { entries, truncated: true };
+    page ??= await posts.getPage({ cid: next });
+    for (const candidate of page.comments) {
+      if (seen.has(candidate.cid)) continue;
+      if (atEntryLimit()) return { entries, truncated: true };
+      seen.add(candidate.cid);
+      if (!candidate.crosspost || candidate.removed || candidate.deleted || candidate.pendingApproval) continue;
+      let entry;
+      try {
+        entry = await readDiscussion(candidate.cid);
+      } catch {
+        continue; // This community may carry native posts from other clients.
+      }
+      const replies = [];
+      for (const reply of (candidate.replies?.pages?.new?.comments ?? []).slice(0, 12)) {
+        if (reply.removed || reply.deleted || reply.pendingApproval) continue;
+        try {
+          replies.push(await readDiscussion(reply.cid, candidate.cid));
+        } catch {
+          continue;
+        }
+      }
+      const { name, version, manifest } = entry.release;
+      entries.push({ ...entry, release: { name, version, manifest }, replies });
+    }
+    next = page.nextCid;
+    page = undefined;
+  }
+  return { entries, truncated: false };
+}

@@ -5,7 +5,7 @@ import { CID } from 'multiformats/cid';
 import { of as ipfsHash } from 'typestub-ipfs-only-hash';
 import {
   RELEASE_SCHEMA, MAX_CARD_BYTES, MAX_RECORD_BYTES,
-  encodeRelease, parsePublisher, parseRelease, verifyDiscussion, verifyRelease,
+  encodeRelease, parsePublisher, parseRelease, scanDiscussionFeed, verifyDiscussion, verifyRelease,
 } from './protocol.mjs';
 
 let pkc;
@@ -239,4 +239,43 @@ test('card and record limits count UTF-8 bytes, malformed Unicode and nesting fa
   let nested = comment.author = {};
   for (let i = 0; i < 34; i++) nested = nested.nested = {};
   await assert.rejects(verifyRelease(await withCid(comment)), /nesting exceeds/);
+});
+
+test('discussion scan distinguishes a full final page from an unfetched successor', async () => {
+  for (const pageCount of [4, 5]) {
+    const fetched = [];
+    const posts = {
+      pageCids: { new: '1' },
+      async getPage({ cid }) {
+        fetched.push(cid);
+        const nextCid = Number(cid) < pageCount ? String(Number(cid) + 1) : undefined;
+        return { comments: [], nextCid };
+      },
+    };
+    assert.deepEqual(await scanDiscussionFeed(posts), { entries: [], truncated: pageCount > 4 });
+    assert.deepEqual(fetched, ['1', '2', '3', '4']);
+  }
+});
+
+test('discussion scan reports an unseen post beyond the candidate limit', async () => {
+  const comments = Array.from({ length: 100 }, (_, i) => ({ cid: String(i) }));
+  const posts = { pages: { new: { comments } } };
+  assert.deepEqual(await scanDiscussionFeed(posts), { entries: [], truncated: false });
+  comments.push(comments[0]);
+  assert.deepEqual(await scanDiscussionFeed(posts), { entries: [], truncated: false });
+  comments.push({ cid: 'later' });
+  assert.deepEqual(await scanDiscussionFeed(posts), { entries: [], truncated: true });
+});
+
+test('discussion scan caps verified releases and reports an unscanned successor', async () => {
+  const comments = Array.from({ length: 32 }, (_, i) => ({ cid: String(i), crosspost: {} }));
+  const posts = { pages: { new: { comments } } };
+  const read = async (cid) => ({ cid, release });
+  let feed = await scanDiscussionFeed(posts, read);
+  assert.equal(feed.entries.length, 32);
+  assert.equal(feed.truncated, false);
+  posts.pages.new.nextCid = 'later';
+  feed = await scanDiscussionFeed(posts, read);
+  assert.equal(feed.entries.length, 32);
+  assert.equal(feed.truncated, true);
 });

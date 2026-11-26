@@ -3,7 +3,7 @@
 import PKC, { createAnchorIpnsRecord } from '@pkcprotocol/pkc-js';
 import { CID } from 'multiformats/cid';
 import { of as ipfsHash } from 'typestub-ipfs-only-hash';
-import { encodeRelease, parsePublisher, verifyDiscussion, verifyRelease } from './protocol.mjs';
+import { encodeRelease, parsePublisher, scanDiscussionFeed, verifyDiscussion, verifyRelease } from './protocol.mjs';
 
 class RequestError extends Error {}
 const fail = (message) => { throw new RequestError(message); };
@@ -134,39 +134,7 @@ async function readDiscussion(cid, community, parent) {
 
 async function discussionFeed(community) {
   const profile = await loadProfile(community);
-  const entries = [];
-  const seen = new Set();
-  let page = profile.posts?.pages?.new;
-  let next = profile.posts?.pageCids?.new;
-  for (let count = 0; (page || next) && count < 4 && seen.size < 100 && entries.length < 32; count++) {
-    page ??= await profile.posts.getPage({ cid: next });
-    for (const candidate of page.comments) {
-      if (seen.size >= 100 || entries.length >= 32) break;
-      if (seen.has(candidate.cid)) continue;
-      seen.add(candidate.cid);
-      if (!candidate.crosspost || candidate.removed || candidate.deleted || candidate.pendingApproval) continue;
-      let entry;
-      try {
-        entry = await readDiscussion(candidate.cid, community);
-      } catch {
-        continue; // This community may carry native posts from other clients.
-      }
-      const replies = [];
-      for (const reply of (candidate.replies?.pages?.new?.comments ?? []).slice(0, 12)) {
-        if (reply.removed || reply.deleted || reply.pendingApproval) continue;
-        try {
-          replies.push(await readDiscussion(reply.cid, community, candidate.cid));
-        } catch {
-          continue;
-        }
-      }
-      const { name, version, manifest } = entry.release;
-      entries.push({ ...entry, release: { name, version, manifest }, replies });
-    }
-    next = page.nextCid;
-    page = undefined;
-  }
-  return { community, entries };
+  return { community, ...await scanDiscussionFeed(profile.posts, (cid, parent) => readDiscussion(cid, community, parent)) };
 }
 
 async function main(request) {

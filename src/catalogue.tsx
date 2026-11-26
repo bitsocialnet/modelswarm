@@ -9,7 +9,7 @@ import { doc } from './data/content';
 import { demoModel } from './data/demo-model';
 import { demoEntry, formatBytes, formatCount, loadCatalogue, type CommunityFile, type Model } from './data/catalogue';
 import { groupVariants, modelFamily, starterPicks } from './data/catalogue-selection';
-import { communityHttpsLink } from './lib/community-https';
+import { communityHttpsLink, communityTorrentLink } from './lib/community-links';
 import styles from './catalogue.module.css';
 
 const pageSize = 30;
@@ -364,15 +364,16 @@ function ModelRow({ model }: { model: Model }) {
 
 function CommunityFileRow({ file }: { file: CommunityFile }) {
   const https = file.flagged ? null : communityHttpsLink(file.https);
+  const torrent = file.flagged ? null : communityTorrentLink(file.torrent);
   return (
     <li>
       <strong>{file.path}</strong> · {formatBytes(file.bytes)}
       {file.flagged && <> · Download via CLI with explicit approval</>}
-      {!file.flagged && file.torrent?.startsWith('./community-torrents/') && (
+      {torrent && (
         <>
           {' '}
           ·{' '}
-          <a href={file.torrent} download>
+          <a href={torrent} download>
             Download .torrent
           </a>{' '}
           (open in a BitTorrent v2 client)

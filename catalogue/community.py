@@ -3,6 +3,7 @@
 import argparse
 import json
 from pathlib import Path
+import re
 import sys
 import tempfile
 
@@ -24,7 +25,17 @@ def atomic_write(path, content):
             temporary.unlink(missing_ok=True)
 
 
-def export_entry(post, manifest, torrent_dir):
+def torrent_url_prefix(torrent_dir):
+    try:
+        relative = torrent_dir.resolve().relative_to(Path("public").resolve())
+    except ValueError as error:
+        raise ValueError("Torrent directory must be inside the site's public directory") from error
+    if not relative.parts or any(not re.fullmatch(r"[A-Za-z0-9_-][A-Za-z0-9_.-]*", part) for part in relative.parts):
+        raise ValueError("Use a torrent subdirectory under public/ with URL-safe path components")
+    return f"./{relative.as_posix()}"
+
+
+def export_entry(post, manifest, torrent_dir, url_prefix):
     files = []
     for file in manifest["files"]:
         torrent = None
@@ -32,7 +43,7 @@ def export_entry(post, manifest, torrent_dir):
         if file["torrent"] and not flagged:
             filename = f"{file['torrent']['infohash_v2']}.torrent"
             atomic_write(torrent_dir / filename, torrent_bytes(file))
-            torrent = f"./community-torrents/{filename}"
+            torrent = f"{url_prefix}/{filename}"
         files.append({
             "path": file["path"],
             "bytes": file["size"],
@@ -60,6 +71,9 @@ def export_entry(post, manifest, torrent_dir):
 
 def sync(args, rpc):
     feed = bridge({"op": "community-list", "rpc": rpc, "community": args.community}, args.rpc_timeout)
+    if feed.get("truncated") is not False:
+        raise ValueError("Community scan is incomplete. The catalogue snapshot was not replaced.")
+    url_prefix = torrent_url_prefix(args.torrent_dir)
     entries = []
     for post in feed["entries"]:
         release = post["release"]
@@ -72,7 +86,7 @@ def sync(args, rpc):
         except ValueError as error:
             print(f"Skipped {release['name']} ({post['releaseCid']}): {error}", file=sys.stderr)
             continue
-        entries.append(export_entry(post, manifest, args.torrent_dir))
+        entries.append(export_entry(post, manifest, args.torrent_dir, url_prefix))
     result = {"version": 1, "community": feed["community"], "entries": entries}
     atomic_write(args.output, (json.dumps(result, ensure_ascii=False) + "\n").encode("utf-8"))
     return {"output": str(args.output), "community": args.community, "releases": len(entries)}
@@ -113,7 +127,8 @@ def main():
     export = commands.add_parser("sync", help="export signed community releases and their latest replies")
     export.add_argument("community")
     export.add_argument("--output", type=Path, default=Path("src/data/community-index.json"))
-    export.add_argument("--torrent-dir", type=Path, default=Path("public/community-torrents"))
+    export.add_argument("--torrent-dir", type=Path, default=Path("public/community-torrents"),
+                        help="torrent subdirectory under the site's public/ (default: public/community-torrents)")
     for command in (init, share, reply):
         command.add_argument("--key", type=Path, required=True)
     for command in (init, share, reply, export):

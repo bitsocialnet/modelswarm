@@ -4,6 +4,8 @@ export function communityHttpsLink(value: unknown): { href: string; hostname: st
   try {
     const url = new URL(value);
     if (url.protocol !== 'https:' || url.username || url.password || url.hash) return null;
+    const hostname = url.hostname.replace(/\.$/, '');
+    if (hostname === 'localhost' || hostname.endsWith('.localhost')) return null;
 
     // Browsers normalize legacy IPv4 spellings that the signed source policy treats as DNS names.
     const rawHostname = value.slice('https://'.length).split(/[/:?#]/, 1)[0];
@@ -12,4 +14,9 @@ export function communityHttpsLink(value: unknown): { href: string; hostname: st
   } catch {
     return null;
   }
+}
+
+export function communityTorrentLink(value: unknown) {
+  if (typeof value !== 'string' || !value.endsWith('.torrent')) return null;
+  return /^\.\/(?:[A-Za-z0-9_-][A-Za-z0-9_.-]*\/)+[0-9a-f]{64}\.torrent$/.test(value) ? value : null;
 }

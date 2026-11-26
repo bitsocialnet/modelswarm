@@ -5,12 +5,15 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import time
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
 import libtorrent as lt
 
+from catalogue import community as exporter
 from modelswarm.manifest import torrent_bytes
 from pkc_fixture import FixtureNode
 from test_persistence import PersistentNode
@@ -19,25 +22,46 @@ from test_persistence import PersistentNode
 ROOT = Path(__file__).resolve().parents[2]
 
 
+class CommunityExportTests(unittest.TestCase):
+    def test_default_torrent_directory_is_relative_to_public(self):
+        self.assertEqual(exporter.torrent_url_prefix(Path("public/community-torrents")), "./community-torrents")
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "inside the site's public directory"):
+                exporter.torrent_url_prefix(Path(directory))
+
+    def test_incomplete_scan_preserves_existing_snapshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "community-index.json"
+            old = b'{"version":1,"entries":[{"name":"existing/model"}]}\n'
+            output.write_bytes(old)
+            args = SimpleNamespace(community="hub", rpc_timeout=30, output=output, torrent_dir=Path("public/hub-torrents"))
+            with patch.object(exporter, "bridge", return_value={"truncated": True, "entries": []}):
+                with self.assertRaisesRegex(ValueError, "scan is incomplete"):
+                    exporter.sync(args, "ws://127.0.0.1")
+            self.assertEqual(output.read_bytes(), old)
+
+
 class CommunityCatalogueTests(PersistentNode, unittest.TestCase):
     def setUp(self):
         self.enterContext(patch.dict(os.environ, {"MODELSWARM_TEST_PUBSUB": "1"}))
         super().setUp()
 
-    def run_community(self, node, *args):
+    def run_community(self, node, *args, cwd=ROOT):
         command = [sys.executable, str(ROOT / "catalogue/community.py"), *map(str, args),
                    "--rpc", node["rpc_url"], "--rpc-timeout", "30"]
-        result = subprocess.run(command, env=self.environment, capture_output=True, text=True, timeout=50)
+        env = {**self.environment, "PYTHONPATH": str(ROOT / "cli/src")}
+        result = subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True, timeout=50)
         self.assert_no_secrets(result.stdout + result.stderr)
         self.assertNotIn(node["rpc_url"], result.stdout + result.stderr)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return json.loads(result.stdout)
 
     def snapshot_when(self, node, community, directory, predicate):
+        directory.mkdir(exist_ok=True)
         output = directory / "community-index.json"
         for _ in range(10):
             self.run_community(node, "sync", community, "--output", output,
-                               "--torrent-dir", directory / "community-torrents")
+                               "--torrent-dir", "public/hub-torrents", cwd=directory)
             snapshot = json.loads(output.read_text())
             self.assertEqual(snapshot["community"], community)
             if predicate(snapshot["entries"]):
@@ -75,7 +99,8 @@ class CommunityCatalogueTests(PersistentNode, unittest.TestCase):
         self.assertIsNone(script["https"])
         weights = next(file for file in entry["files"] if file["path"] == "weights.gguf")
         self.assertEqual(weights["sha256"], expected["sha256"])
-        metainfo = reader_dir / weights["torrent"].removeprefix("./")
+        self.assertEqual(weights["torrent"], f"./hub-torrents/{expected['torrent']['infohash_v2']}.torrent")
+        metainfo = reader_dir / "public" / weights["torrent"].removeprefix("./")
         self.assertEqual(metainfo.read_bytes(), torrent_bytes(expected))
         self.assertEqual(str(lt.torrent_info(str(metainfo)).info_hashes().v2), expected["torrent"]["infohash_v2"])
 
