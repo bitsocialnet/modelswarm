@@ -4,7 +4,7 @@
 
 **ModelSwarm is an idea for a hub of open-weight AI models that nobody owns.** The name means models distributed by a swarm of peers, as in a BitTorrent swarm, so no company has to host them. Publishers sign their releases from their own Bitsocial profile, and every piece of every file is checked against the signed release as it downloads. No company decides which models are listed, which stay available or what can be said about them.
 
-> **Status: experimental CLI.** The landing page, [download-engine prototype](prototypes/download-engine/README.md), and [manifest/CLI milestone](cli/README.md) exist. `make`, `verify` and `pull` work with unsigned local manifests, v2 peers/HTTP, format checks, checkpoint recovery and verified cache snapshots. The [local Hugging Face endpoint](cli/ENDPOINT.md) serves these manifests and verified public upstream fallback, tested with the SDK. The [signed release prototype](cli/RELEASES.md) adds local keys, publisher profile setup, publishing, profile/CID pulls and endpoint registration, tested with an isolated real PKC node. Hosted defaults, public-network operation, search and desktop client remain; [roadmap.md](roadmap.md) tracks the remaining work. It fits [Phase 5 of the Bitsocial master plan](https://bitsocial.net/#master-plan-phase-5), the long tail of Bitsocial clients. Most of it needs only what Bitsocial and BitTorrent already ship, so the first milestones are not blocked by earlier phases.
+> **Status: experimental CLI.** The landing page, [download-engine prototype](prototypes/download-engine/README.md), and [manifest/CLI milestone](cli/README.md) exist. `make`, `verify` and `pull` work with unsigned local manifests, v2 peers/HTTP, format checks, checkpoint recovery and verified cache snapshots. The [local Hugging Face endpoint](cli/ENDPOINT.md) serves these manifests and verified public upstream fallback, tested with the SDK. The [signed release prototype](cli/RELEASES.md) adds local keys, publisher profile setup, publishing, profile/CID pulls and endpoint registration, tested with a real PKC node. The [public signed demo](https://modelswarm.org/release.html) has a publisher and a peer-only model download. Hosted defaults, broader network testing, search and desktop client remain; [roadmap.md](roadmap.md) tracks the remaining work. It fits [Phase 5 of the Bitsocial master plan](https://bitsocial.net/#master-plan-phase-5), the long tail of Bitsocial clients. Most of it needs only what Bitsocial and BitTorrent already ship, so the first milestones are not blocked by earlier phases.
 
 > **Credit.** ModelSwarm builds on [HuggingSocial](https://github.com/Rinse12/huggingsocial) ([huggingsocial.co](https://huggingsocial.co/)), the original design by Bitsocial developer [Rinse12](https://github.com/Rinse12). Most of the architecture comes from it: Bitsocial for releases and discussion, BitTorrent and HTTP mirrors for the weights, signed manifests checked on the reader's machine, hubs, indexers, the command line and the local Hugging Face endpoint. ModelSwarm changes where releases live, how downloads are verified, how formats that can run code are handled and how models that are only on Hugging Face are covered; see [Prior Art](#prior-art).
 
@@ -68,7 +68,7 @@ ModelSwarm has no such party, because its list and its discussion are [Bitsocial
 
 A project that only moves files cannot add these two without first building a peer-to-peer social network. Bitsocial is that network. [Radicle](https://radicle.xyz/), which is peer-to-peer Git, is the nearest: it has no central list either, and has announced but not shipped support for model weights.
 
-The dependency runs both ways. ModelSwarm is an experimental CLI with no public network yet, and these two properties are worth only as much as the publishers and communities that are on Bitsocial. ModelSwarm grows with Bitsocial, not ahead of it.
+The dependency runs both ways. ModelSwarm has an experimental CLI and one public demo release. These two properties are worth only as much as the publishers and communities that are on Bitsocial. ModelSwarm grows with Bitsocial, not ahead of it.
 
 ## Checked While It Downloads
 
@@ -107,7 +107,7 @@ RPC revenue from ModelSwarm is speculative, not a strong monetization pitch. RPC
 
 ## What It Is Not
 
-- **Not a host.** The project would publish a client and tooling. It would run no hub, no index and no seedbox that others depend on.
+- **Client and developer tools.** The project operates a seeder for the public demo. Publishers and communities can run their own nodes and seeders.
 - **Not a tracker site.** There is no website whose removal takes the list of models with it.
 - **Not a replacement for Hugging Face's compute.** No hosted inference, no Spaces.
 - **Not a blockchain.** Releases and discussion are signed Bitsocial records; files are torrents. [Bitsocial Chain](https://chain.bitsocial.net) would only be used for `.bso` publisher names and tips.

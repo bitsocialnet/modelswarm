@@ -39,7 +39,7 @@ Two numbers decide the design, so they come before any product code.
 - [ ] **Piece verification over HTTP.** Take a multi-gigabyte model file, build a v2 torrent, and download it from an HTTP mirror while checking every piece against the pieces root. Record hashing cost and the time to detect a modified file. Answers part of [open-questions.md](open-questions.md#torrents).
   - The prototype records hashing and corruption timing with a 491 MB real model. A multi-gigabyte real-model benchmark and CPU/memory profiling remain to do.
 - [ ] **A swarm with web seeds.** Seed the same torrent from one machine with Hugging Face as a web seed, and download from another with a candidate library.
-  - Local peer/HTTP combinations and direct Hugging Face HTTPS passed separately. A distinct-machine peer transfer passed at one site (2026-11-13); public WAN testing remains to do.
+  - Local peer/HTTP combinations and direct Hugging Face HTTPS passed separately. A direct public peer transfer without an HTTP weight source passed for the signed demo. Mixed-source public transfers remain to test.
 
 Estimate: about 1 week. Blocked by: nothing.
 
@@ -70,13 +70,13 @@ After this milestone the tool is useful to one person with no network of publish
 - [x] Explicit RPC connection settings (`--rpc`/`MODELSWARM_RPC`); publishers retain their keys locally.
 - [ ] A validated hosted Forge default and provider-hosted profile onboarding.
 - [x] `keygen`, `profile-init` and `modelswarm publish`: initialize a delegated author profile and post a locally signed manifest announcement on an operator-controlled PKC node.
-- [x] `profile-start` and `profile-renew`: a publisher node keeps its profile, delegation and releases across clean restarts and hard kills, the owner can renew the delegation, and a separate reader node resolves all of it over a private swarm (2026-11-13). A reader on a second machine pulled a signed 491 MB model from the first over a private swarm and BitTorrent. See the [evaluation](cli/PERSISTENCE-EVALUATION.md). Both machines were at one site; public-internet, NAT and DHT runs remain to do.
+- [x] `profile-start` and `profile-renew`: a publisher node keeps its profile, delegation and releases across clean restarts and hard kills, the owner can renew the delegation, and a separate reader node resolves all of it over a private swarm (2026-11-13). A reader on a second machine pulled a signed 491 MB model from the first over a private swarm and BitTorrent. See the [evaluation](cli/PERSISTENCE-EVALUATION.md). Both machines were at one site. The public demo extends this to a direct WAN connection.
 - [x] `pull pkc://…` and `serve --release` resolve explicit publisher/version or CID-pinned releases, verify signatures and bind the manifest before downloading.
 - [ ] Mirror records v0: publish one when seeding a Hugging Face model, and check records on completed downloads.
-- [ ] A demo publisher profile on a Bitsocial node we run, with real releases of permissively licensed models, the way WeTube's demo channel works.
+- [x] A [public demo publisher and release](https://modelswarm.org/release.html) serving Qwen2.5-0.5B-Instruct GGUF with the Apache-2.0 license. A separate reader verified the signed release and downloaded both files from a public BitTorrent peer.
 - [ ] Web client, read-only: publisher pages, release pages with the model card, file list, format flags and sources. On the stack of 5chan and WeTube.
 
-The signed CLI/profile slice is implemented; see [evidence and remaining scope](cli/RELEASES-EVALUATION.md). It uses explicit bare publisher keys rather than unproven human-readable names. Tests use a private real PKC/Kubo network, not public hosting. Mirror records, a public demo, name proofs and the read-only web client remain. The original 3–4 week estimate covered this broader milestone.
+The signed CLI/profile slice is implemented; see [evidence and remaining scope](cli/RELEASES-EVALUATION.md). It uses explicit bare publisher keys rather than unproven human-readable names. Automated tests use a private PKC/Kubo network. The demo also has a public reader check and a [reproduction guide](cli/demo/README.md). Mirror records, name proofs and the general read-only web client remain. The original 3–4 week estimate covered this broader milestone.
 
 ### 5. Hubs and search
 

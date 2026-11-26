@@ -19,7 +19,7 @@ export const PARTS: Part[] = [
   {
     term: 'bittorrent v2, web seeds',
     title: 'Seeders hold the weights',
-    body: 'Files move over BitTorrent, with any HTTP mirror as an extra source. A file with seeders cannot be deleted by a host, and people who download a model seed it by default.',
+    body: 'Files move over BitTorrent, with any HTTP mirror as an extra source. The public demo has a persistent seeder. The experimental CLI can upload pieces for the duration of a pull.',
   },
   {
     term: 'pieces root',
@@ -101,7 +101,7 @@ export type Step = {
 };
 
 export const STEPS: Step[] = [
-  { title: 'Measurements', body: 'The engine prototype works; community scale, larger real models and WAN tests remain.', estimate: '~1 week' },
+  { title: 'Measurements', body: 'The engine and a direct public peer transfer are verified. Community scale and broader network tests remain.', estimate: '~1 week' },
   {
     title: 'Manifest and command line',
     body: 'Implemented: make, verify and pull unsigned manifests into a verified local cache.',
@@ -115,7 +115,7 @@ export const STEPS: Step[] = [
   },
   {
     title: 'Publishing and reading releases',
-    body: 'Signed profile publishing, pulls and endpoint registration work locally. Public hosting, mirrors and web client remain.',
+    body: 'The public demo has a signed publisher profile, peer-only downloads and a release page. Hosted onboarding and a catalogue remain.',
     estimate: 'CLI prototype complete',
   },
   { title: 'Hubs and search', body: 'Curated boards with discussion, and search across several indexers.', estimate: '2–3 weeks' },
