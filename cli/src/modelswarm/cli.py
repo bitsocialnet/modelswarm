@@ -367,9 +367,9 @@ def report_error(error, readable):
 
 def main(argv=None):
     args = parser().parse_args(argv)
-    # The pull view already shows the outcome, so a terminal gets no JSON copy;
-    # redirected stdout still receives the JSON result.
-    readable = human_progress(args) and sys.stdout.isatty()
+    # The pull view already shows the outcome on stderr, so a terminal gets no
+    # JSON copy. If either stream is redirected, stdout keeps the JSON result.
+    readable = human_progress(args) and sys.stdout.isatty() and sys.stderr.isatty()
     try:
         result = args.function(args)
         result["ok"] = not result.get("errors")

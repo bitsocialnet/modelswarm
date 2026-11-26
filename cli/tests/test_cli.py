@@ -586,9 +586,13 @@ class PullViewTests(unittest.TestCase):
         with redirect_stdout(stdout), redirect_stderr(stderr):
             self.assertEqual(main(["pull", "/nonexistent/release.json", "--progress", "human"]), 1)
             self.assertEqual(main(["pull", "/nonexistent/release.json", "--progress", "json"]), 1)
-        readable, data = stdout.getvalue().splitlines()
+        # A redirected stderr takes the view's lines away, so stdout keeps the JSON.
+        with redirect_stdout(stdout), redirect_stderr(io.StringIO()):
+            self.assertEqual(main(["pull", "/nonexistent/release.json", "--progress", "human"]), 1)
+        readable, data, redirected = stdout.getvalue().splitlines()
         self.assertRegex(readable, r"^error     \S")
         self.assertEqual(json.loads(data)["ok"], False)
+        self.assertEqual(json.loads(redirected)["ok"], False)
 
 
 if __name__ == "__main__":
