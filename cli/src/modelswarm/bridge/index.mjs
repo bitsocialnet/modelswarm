@@ -154,8 +154,10 @@ async function main(request) {
     try {
       await event(profile,'update',()=>profile.start(),()=>typeof profile.updatedAt==='number');
     } catch(error) {
-      // A killed node leaves its start lock behind until it goes stale.
-      if(error?.code==='ERR_COMMUNITY_ALREADY_STARTED') fail('The node still holds this profile\'s start lock; if the node was killed, retry in 10 seconds');
+      // The node attaches to a profile it already runs, and a dead process
+      // frees its start lock, so another live PKC instance on the node's data
+      // directory has started this profile.
+      if(error?.code==='ERR_COMMUNITY_ALREADY_STARTED') fail('Another running PKC instance on this node\'s data directory has started this profile; stop it, then retry');
       throw error;
     }
     return {publisher:request.publisher,minter:profile.signer.address,started:true};

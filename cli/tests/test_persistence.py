@@ -6,9 +6,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import time
-from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock, patch
 
 from modelswarm.releases import BRIDGE
 from pkc_fixture import FixtureNode
@@ -67,66 +65,44 @@ class PersistentNode(ReleaseCommands):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return json.loads(result.stdout)
 
-    def restart(self, *, abrupt, settle=0):
-        """Stop or SIGKILL the node, optionally wait, and resume it on the same data.
+    def restart(self, *, abrupt):
+        """Stop or SIGKILL the node and resume it at once on the same data.
 
-        pkc-js 0.0.142 leaves a killed node's start lock in place until it goes
-        stale after 10 seconds, and its auto-start does not retry a held lock.
-        ``settle`` waits that window out before restarting. An immediate restart
-        can still auto-start if boot takes long enough for the lock to go stale.
+        Since pkc-js 0.0.154 the kernel holds the profile's start lock, so a
+        killed process frees it as it dies and the restarted node hosts the
+        profile again by itself. A lock that outlives its process fails here
+        rather than being recovered with ``profile-start``.
         """
         previous = self.fixture
         if abrupt:
             self.node.kill()
         else:
             self.node.stop()
-        # PKC's `started` flag also reflects a dead process's still-fresh lock.
-        stale_after = time.monotonic() + 11
         deadline = time.monotonic() + 10
         while alive(previous["pid"]) or alive(previous["kubo_pid"]):
             self.assertLess(time.monotonic(), deadline, "fixture processes survived shutdown")
             time.sleep(0.05)
-        time.sleep(settle)
         logged = len(self.node.log_path.read_text())
         self.fixture = self.node.start(resume=True)
         self.assertTrue(self.fixture["resumed"])
         self.assertEqual(self.fixture["data_dir"], previous["data_dir"])
         deadline = time.monotonic() + 60
-        can_recover = abrupt and not settle
-        while True:
-            state = None
-            if not can_recover or time.monotonic() >= stale_after:
-                state = self.profile_state()
-            if "ERR_COMMUNITY_ALREADY_STARTED" in self.node.log_path.read_text()[logged:]:
-                self.assertTrue(can_recover, "auto-start unexpectedly hit a held profile start lock")
-                return self.recover_held_lock()
-            if state and state["started"]:
-                return state
+        while not (state := self.profile_state())["started"]:
+            held = "ERR_COMMUNITY_ALREADY_STARTED" in self.node.log_path.read_text()[logged:]
+            self.assertFalse(held, "auto-start hit a profile start lock left by the stopped process")
             self.assertLess(time.monotonic(), deadline, "restarted node did not resume hosting the profile")
             time.sleep(0.25)
-
-    def recover_held_lock(self):
-        self.while_unhosted()
-        deadline = time.monotonic() + 60
-        while not (started := self.command("profile-start", self.publisher, *self.rpc_options(), ok=None)).get("ok"):
-            self.assertIn("start lock", started["error"])
-            self.assertLess(time.monotonic(), deadline, "killed node never released the profile start lock")
-            time.sleep(1)
-        self.assertEqual(started["minter"], self.minter)
-        return self.profile_state()
-
-    def while_unhosted(self):
-        """Hook: runs while a killed, immediately restarted node hosts nothing."""
+        return state
 
     def pull_when_discoverable(self, uri, **options):
         """Version discovery of a release announced right after a restart.
 
-        A restarted minter in pkc-js 0.0.142 resolves its own IPNS name before
-        its first record; the isolated Kubo holds that lookup for 60 seconds.
-        The announcement is accepted and CID-addressable at once, but joins the
-        profile feed only with that delayed record.
+        Since pkc-js 0.0.149 a restarted minter publishes its next record
+        without first resolving its own IPNS name, which the isolated Kubo held
+        for 60 seconds. The release joins the profile feed within seconds; the
+        deadline fails a return of that delay.
         """
-        deadline = time.monotonic() + 150
+        deadline = time.monotonic() + 30
         while True:
             result = self.command("pull", uri, *self.rpc_options(), "--allow-local-sources", "--no-discovery",
                                   "--cache-dir", self.root / options["cache"], "--timeout", "15",
@@ -139,14 +115,14 @@ class PersistentNode(ReleaseCommands):
 
 
 class RestartTests(PersistentNode, unittest.TestCase):
-    def check_restart(self, *, abrupt, settle=0):
-        first = self.published = self.publish()
+    def check_restart(self, *, abrupt):
+        first = self.publish()
         by_version = self.pull(first["release_uri"].split("#")[0], cache="before", file="config.json")
         self.assertEqual(by_version["release_cid"], first["release_cid"])
         before = self.profile_state()
         self.assertEqual(before, {"minter": self.minter, "anchor": self.publisher, "sequence": "0", "started": True})
 
-        after = self.restart(abrupt=abrupt, settle=settle)
+        after = self.restart(abrupt=abrupt)
         self.assertEqual(after, before)
 
         # Fresh caches: nothing below can be satisfied by pre-restart state.
@@ -179,26 +155,9 @@ class RestartTests(PersistentNode, unittest.TestCase):
     def test_graceful_restart_keeps_profile_releases_and_accepts_new_ones(self):
         self.check_restart(abrupt=False)
 
-    def test_killed_node_restarted_after_lock_expiry_resumes_by_itself(self):
-        self.check_restart(abrupt=True, settle=11)
-
     def test_immediate_restarts_keep_both_releases(self):
-        def while_unhosted():
-            # Existing releases stay readable while the profile refuses new ones.
-            uri = self.published["release_uri"]
-            cid = self.published["release_cid"]
-            pinned = self.pull(uri, cache=f"unhosted-cid-{cid}", file="config.json")
-            by_version = self.pull(uri.split("#")[0], cache=f"unhosted-version-{cid}", file="config.json")
-            self.assertEqual((pinned["release_cid"], by_version["release_cid"]), (cid, cid))
-            manifest = self.root / f"unhosted-{cid}.json"
-            self.make(manifest, version=f"unhosted-{cid}")
-            refused = self.publish(manifest=manifest, ok=False)
-            self.assertIn("ERR_COMMUNITY_CHALLENGE_EXCHANGE_DISABLED", refused["error"])
-
-        self.while_unhosted = while_unhosted
         first, second = self.check_restart(abrupt=True)
-        self.published = second
-        # A second crash, immediately after the post-recovery publication.
+        # A second crash, immediately after the post-restart publication.
         before = self.profile_state()
         self.assertEqual(self.restart(abrupt=True), before)
         for published in (first, second):
@@ -217,56 +176,6 @@ class RestartTests(PersistentNode, unittest.TestCase):
         self.assertIn("does not host", refused["error"])
         published = self.publish()
         self.assert_snapshot(self.pull(published["release_uri"], file="config.json"), ["config.json"])
-
-
-class RestartOutcomeTests(unittest.TestCase):
-    def setUp(self):
-        self.clock = 0
-
-        def sleep(seconds):
-            self.clock += seconds
-
-        class RestartProbe(PersistentNode, unittest.TestCase):
-            pass
-
-        self.probe = RestartProbe()
-        self.probe.fixture = {"pid": 1, "kubo_pid": 2, "data_dir": "persistent-data"}
-        self.probe.node = Mock()
-        self.probe.node.log_path.read_text.return_value = ""
-        self.probe.profile_state = Mock(return_value={"started": True})
-        self.probe.while_unhosted = Mock()
-        self.probe.command = Mock()
-        self.probe.rpc_options = Mock(return_value=[])
-        self.probe.publisher = "publisher"
-        self.probe.minter = "minter"
-        self.enterContext(patch(f"{__name__}.alive", return_value=False))
-        self.enterContext(patch(f"{__name__}.time", SimpleNamespace(monotonic=lambda: self.clock, sleep=sleep)))
-
-    def resume(self):
-        return {**self.probe.fixture, "resumed": True}
-
-    def test_slow_startup_resumes_without_manual_recovery(self):
-        def start(*, resume):
-            self.clock += 31
-            return self.resume()
-
-        self.probe.node.start.side_effect = start
-        self.probe.profile_state.side_effect = [{"started": False}, {"started": True}]
-        self.assertEqual(self.probe.restart(abrupt=True), {"started": True})
-        self.probe.while_unhosted.assert_not_called()
-        self.probe.command.assert_not_called()
-
-    def test_fresh_start_lock_requires_manual_recovery(self):
-        self.probe.node.start.return_value = self.resume()
-        # The log can lag RPC readiness. A stale process still looks started
-        # to a client before the held-lock error arrives.
-        self.probe.node.log_path.read_text.side_effect = ["", "", "ERR_COMMUNITY_ALREADY_STARTED"]
-        self.probe.while_unhosted.side_effect = self.probe.profile_state.assert_not_called
-        self.probe.command.side_effect = [{"ok": False, "error": "start lock"}, {"ok": True, "minter": "minter"}]
-        self.assertEqual(self.probe.restart(abrupt=True), {"started": True})
-        self.probe.profile_state.assert_called_once_with()
-        self.probe.while_unhosted.assert_called_once_with()
-        self.assertEqual(self.probe.command.call_count, 2)
 
 
 ANCHOR_ATTEMPTS = """
@@ -351,7 +260,7 @@ class RenewalTests(PersistentNode, unittest.TestCase):
         self.assertEqual(self.restart(abrupt=False), self.state("5"))
         renewed = self.renew()
         self.assertEqual((renewed["previous_sequence"], renewed["sequence"]), ("5", "10"))
-        self.assertEqual(self.restart(abrupt=True, settle=11), self.state("10"))
+        self.assertEqual(self.restart(abrupt=True), self.state("10"))
         by_version = self.pull(first["release_uri"].split("#")[0], cache="restarted", file="config.json")
         self.assertEqual(by_version["release_cid"], first["release_cid"])
         second_manifest = self.root / "release-2.json"
