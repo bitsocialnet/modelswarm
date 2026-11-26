@@ -1,0 +1,41 @@
+.field {
+  overflow: hidden;
+  /* The back rows fade into the page like a horizon. */
+  mask-image: linear-gradient(to bottom, transparent, #000 45%);
+  background: linear-gradient(to bottom, var(--bg), color-mix(in srgb, var(--accent) 3%, var(--bg)));
+}
+
+.field svg {
+  display: block;
+  width: 100%;
+  height: clamp(9rem, 20vw, 15rem);
+}
+
+.far {
+  color: var(--rule);
+}
+
+.near {
+  color: var(--rule-strong);
+}
+
+.lit {
+  color: color-mix(in srgb, var(--accent) 70%, var(--bg));
+}
+
+.lead {
+  color: var(--accent);
+  filter: drop-shadow(0 6px 24px color-mix(in srgb, var(--accent) 45%, transparent));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lit {
+    animation: twinkle 6s ease-in-out infinite;
+  }
+
+  @keyframes twinkle {
+    50% {
+      opacity: 0.35;
+    }
+  }
+}

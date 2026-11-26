@@ -1,34 +1,39 @@
 .hero {
-  position: relative;
-  overflow: hidden;
+  padding-top: 2rem;
+  padding-bottom: 5rem;
 }
 
-/* A faint glow behind the terminal, as if the screen lights the room. */
-.hero::before {
-  content: '';
-  position: absolute;
-  top: -10rem;
-  right: -10rem;
-  width: 52rem;
-  height: 44rem;
-  pointer-events: none;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 7%, transparent), transparent);
+/* The console: one framed instrument holding the pitch, the live pull and the swarm strip. */
+.console {
+  position: relative;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%),
+    var(--console);
 }
 
-.inner {
-  position: relative;
+/* Rounds the strip to the console's corners; the console itself must not clip, or the download menu is cut. */
+.console > :last-child {
+  border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px);
+}
+
+.body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.02fr);
-  gap: 4rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: 3.5rem;
   align-items: center;
-  padding-top: 5.5rem;
-  padding-bottom: 6.5rem;
+  padding: 4.25rem 3.5rem 3.5rem;
+}
+
+.copy {
+  min-width: 0;
 }
 
 .title {
-  font-size: clamp(2.35rem, 5.3vw, 4.1rem);
+  font-size: clamp(2.35rem, 4.9vw, 4rem);
   font-weight: 700;
-  line-height: 1.04;
+  line-height: 1.03;
 }
 
 /* Keeps "open-weight" from breaking at its hyphen. */
@@ -37,64 +42,77 @@
 }
 
 .lede {
-  margin-top: 1.75rem;
-  max-width: 44ch;
-  font-size: 1.0625rem;
-  line-height: 1.65;
-}
-
-.stage {
-  display: flex;
-  gap: 0.75rem;
   margin-top: 1.5rem;
-  max-width: 48ch;
-  padding-left: 0.1rem;
+  max-width: 46ch;
   color: var(--dim);
-  font-size: 0.8125rem;
-  line-height: 1.6;
+  font-size: 1rem;
+  line-height: 1.7;
 }
 
-.stageMark {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  margin-top: 0.42rem;
-  border: 1px solid var(--accent);
-  border-radius: 1px;
-}
-
-.actions {
+.download {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 1rem 1.25rem;
   margin-top: 2.25rem;
 }
 
+.model {
+  display: grid;
+  gap: 0.05rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  text-decoration: none;
+}
+
+.model strong {
+  font-weight: 600;
+}
+
+.model > span {
+  color: var(--dim);
+}
+
+.model:hover strong {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+}
+
+.signed {
+  color: var(--accent);
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.75rem;
+  margin-top: 1.75rem;
+  color: var(--dim);
+}
+
+.links a:hover {
+  color: var(--text);
+}
+
 @media (max-width: 62rem) {
-  .inner {
+  .body {
     grid-template-columns: minmax(0, 1fr);
-    gap: 3.25rem;
-    padding-top: 3.5rem;
-    padding-bottom: 4.5rem;
+    gap: 3rem;
+    padding: 3rem 2rem 2.5rem;
   }
 }
 
 @media (max-width: 40rem) {
-  .inner {
-    padding-top: 2.5rem;
+  .hero {
+    padding-top: 1rem;
     padding-bottom: 3.5rem;
   }
 
-  /* Keeps "open-weight" from breaking at its hyphen. */
-  .nowrap {
-    white-space: nowrap;
+  .body {
+    padding: 2rem 1.1rem 1.75rem;
   }
 
   .lede {
     font-size: 0.9375rem;
-  }
-
-  .actions :global(.button) {
-    flex: 1 1 100%;
   }
 }

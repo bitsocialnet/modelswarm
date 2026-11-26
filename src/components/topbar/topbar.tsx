@@ -1,13 +1,17 @@
+import { useEffect, useRef } from 'react';
 import { REPO } from '../../data/content';
+import { catalogueSearch } from '../../data/catalogue';
 import { Logo } from '../logo/logo';
+import { GitHubMark, SearchIcon } from '../icons/icons';
 import styles from './topbar.module.css';
 
 const LINKS = [
   { href: './#how', label: 'How it works', primary: true },
   { href: './#compare', label: 'Compared' },
-  { href: './#roadmap', label: 'Roadmap' },
+  { href: './#faq', label: 'FAQ' },
 ];
 
+// On the catalogue the page has its own search, so the bar leaves it out.
 export function Topbar({ catalogue = false }: { catalogue?: boolean }) {
   return (
     <header className={styles.topbar}>
@@ -16,6 +20,7 @@ export function Topbar({ catalogue = false }: { catalogue?: boolean }) {
           <Logo size={30} />
           <span>ModelSwarm</span>
         </a>
+        {!catalogue && <ModelSearch />}
         <nav className={styles.nav} aria-label='Main'>
           <a className={styles.models} href='./catalogue.html' aria-current={catalogue ? 'page' : undefined}>
             Models
@@ -35,13 +40,41 @@ export function Topbar({ catalogue = false }: { catalogue?: boolean }) {
   );
 }
 
-function GitHubMark() {
+// Searching opens the catalogue with the query. The site's CSP forbids form submission, so navigation happens in script.
+function ModelSearch() {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // "/" focuses the search from anywhere except another text field.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
+      event.preventDefault();
+      inputRef.current?.focus();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
-    <svg width='15' height='15' viewBox='0 0 16 16' aria-hidden='true' focusable='false'>
-      <path
-        fill='currentColor'
-        d='M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z'
-      />
-    </svg>
+    <search className={styles.search}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          const query = inputRef.current?.value.trim() ?? '';
+          window.location.assign(query ? catalogueSearch(query) : './catalogue.html');
+        }}
+      >
+        <label htmlFor='topbar-search' className='visually-hidden'>
+          Search models
+        </label>
+        <SearchIcon size={14} className={styles.searchIcon} />
+        <input ref={inputRef} id='topbar-search' type='search' placeholder='Search models' autoComplete='off' enterKeyHint='search' />
+        <kbd className={styles.kbd} aria-hidden='true'>
+          /
+        </kbd>
+      </form>
+    </search>
   );
 }

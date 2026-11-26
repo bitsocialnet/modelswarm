@@ -7,13 +7,13 @@ import { Topbar } from './components/topbar/topbar';
 import { Footer } from './sections/footer';
 import { doc } from './data/content';
 import { demoModel } from './data/demo-model';
-import { demoEntry, formatBytes, formatCount, loadCatalogue, type CommunityFile, type Model } from './data/catalogue';
+import { catalogueSnapshot, demoEntry, formatBytes, formatCount, type CommunityFile, type Model } from './data/catalogue';
 import { groupVariants, modelFamily, starterPicks } from './data/catalogue-selection';
 import { communityHttpsLink, communityTorrentLink } from './lib/community-links';
 import styles from './catalogue.module.css';
 
 const pageSize = 30;
-const catalogue = loadCatalogue().catch(() => null);
+const catalogue = catalogueSnapshot();
 
 const SOURCE = {
   demo: 'Signed demo',
@@ -84,8 +84,11 @@ function LoadedDirectory() {
   return <ModelDirectory models={snapshot?.models ?? [demoEntry]} observedAt={snapshot?.observedAt} failed={!snapshot} />;
 }
 
+// A search started from another page arrives as ?q=.
+const initialQuery = new URLSearchParams(window.location.search).get('q') ?? '';
+
 function ModelDirectory({ models, observedAt, loading, failed }: { models: Model[]; observedAt?: string; loading?: boolean; failed?: boolean }) {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
   const [format, setFormat] = useState('');
   const [limit, setLimit] = useState('');
   const [order, setOrder] = useState('catalogue');
@@ -102,7 +105,7 @@ function ModelDirectory({ models, observedAt, loading, failed }: { models: Model
 
   return (
     <>
-      {!loading && <StarterPicks models={models} />}
+      {!loading && !initialQuery && <StarterPicks models={models} />}
       <div className={styles.directoryHeading}>
         <h2 id='browse-title'>Browse all models</h2>
         <p role='status'>{loading ? 'Loading index…' : `${formatCount(matches.length)} ${matches.length === 1 ? 'model' : 'models'}`}</p>

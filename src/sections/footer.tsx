@@ -1,5 +1,6 @@
 import { HUGGINGSOCIAL, NEW_ISSUE, REPO, doc } from '../data/content';
 import { Logo } from '../components/logo/logo';
+import { SwarmField } from '../components/swarm-field/swarm-field';
 import styles from './footer.module.css';
 
 type FooterLink = { label: string; href: string };
@@ -44,6 +45,7 @@ const COMMIT = import.meta.env.VITE_COMMIT_REF;
 export function Footer() {
   return (
     <footer className={styles.footer}>
+      <SwarmField />
       <div className={`wrap ${styles.top}`}>
         <div className={styles.brand}>
           <a className={styles.mark} href='./' aria-label='ModelSwarm home'>

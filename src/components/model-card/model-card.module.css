@@ -1,0 +1,85 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+  padding: 1.35rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  transition:
+    border-color 0.2s ease,
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--rule-strong));
+}
+
+.card[data-signed='true'] {
+  background:
+    radial-gradient(20rem 10rem at 100% 0%, var(--accent-wash), transparent),
+    var(--panel);
+}
+
+.head {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.name {
+  font-size: 1.2rem;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.name a {
+  text-decoration: none;
+}
+
+.name a:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+}
+
+.repo {
+  color: var(--faint);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.description {
+  color: var(--dim);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1.1rem;
+  margin-top: auto;
+  padding-top: 0.4rem;
+}
+
+.details {
+  color: var(--dim);
+  font-size: 0.8125rem;
+}
+
+.details:hover {
+  color: var(--text);
+}
