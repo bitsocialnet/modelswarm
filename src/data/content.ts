@@ -40,7 +40,7 @@ export const FAQ: Question[] = [
   },
   {
     q: 'What is a .bso handle?',
-    a: 'A readable name for a publisher key, from the `.bso` registry in BSIP-13. The name resolves to the key, and the key leads to the publisher profile. The registry is not on Ethereum mainnet yet, so publishers work as bare keys until it launches.',
+    a: 'A readable name for a publisher key, from the `.bso` registry in BSIP-13. The name resolves to the key, and the key leads to the publisher profile. Names are not live yet, so publishers work as bare keys until then.',
     more: { label: 'BSIP-13', href: BSIP(13) },
   },
   {

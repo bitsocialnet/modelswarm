@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { BSIP, doc } from '../data/content';
-import { checkLabel } from '../lib/bso-name';
+import { checkLabel, loadNormalizer, type Normalize } from '../lib/bso-name';
 import { SectionHead } from '../components/section-head/section-head';
 import { KeyAvatar } from '../components/key-avatar/key-avatar';
 import { ArrowRightIcon, CheckIcon, KeyIcon } from '../components/icons/icons';
@@ -10,11 +10,13 @@ import styles from './handles.module.css';
 type Kind = 'publisher' | 'agent';
 
 // A preview of the name and profile a publisher or an agent would have. It runs entirely in the page:
-// the .bso registry is not on Ethereum mainnet yet, so nothing can be reserved or looked up.
+// .bso names are not live yet, so nothing can be reserved or looked up.
 export function Handles() {
   const [input, setInput] = useState('');
   const [kind, setKind] = useState<Kind>('publisher');
-  const check = checkLabel(input);
+  const [normalize, setNormalize] = useState<Normalize | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const check = checkLabel(input, normalize);
   const name = check.state === 'ok' ? `${check.label}.bso` : 'yourname.bso';
   const inputId = useId();
   const statusId = useId();
@@ -44,7 +46,14 @@ export function Handles() {
               <input
                 id={inputId}
                 value={input}
-                onChange={(event) => setInput(event.target.value)}
+                onChange={(event) => {
+                  setInput(event.target.value);
+                  if (!normalize)
+                    loadNormalizer().then(
+                      (fn) => setNormalize(() => fn),
+                      () => setLoadFailed(true),
+                    );
+                }}
                 placeholder='yourlab'
                 autoComplete='off'
                 autoCapitalize='none'
@@ -58,16 +67,17 @@ export function Handles() {
             </div>
             <div id={statusId} className={styles.status} role='status'>
               {check.state === 'empty' && <p>Type a name to see how it would read.</p>}
+              {check.state === 'pending' && <p>{loadFailed ? 'The name checker did not load. Reload the page to try again.' : 'Checking the spelling…'}</p>}
               {check.state === 'invalid' && <p className={styles.fault}>{check.reason}</p>}
               {check.state === 'ok' && (
                 <p>
-                  <strong>{check.label}.bso</strong> · {check.length} characters · {check.price} a year at the draft price
+                  <strong>{check.label}.bso</strong> · {check.length} characters · a valid form
                 </p>
               )}
             </div>
             <p className={styles.closed}>
-              Registration has not opened: the <code>.bso</code> registry is not on Ethereum mainnet yet, so this checks the name's form, not whether it is free. Until
-              then publishers work as bare keys.
+              Registration has not opened: <code>.bso</code> names are not live yet, so this checks the name's form, not whether it is free. Until then publishers work as
+              bare keys.
             </p>
             <div className={styles.links}>
               <a className='link-arrow' href='./profile.html'>
@@ -112,7 +122,7 @@ export function Handles() {
                   <CheckIcon size={13} />
                   <span>
                     {kind === 'agent'
-                      ? 'Releases and scan results signed by the agent’s own key, like any publisher’s.'
+                      ? 'Releases signed by the agent’s own key, like any publisher’s.'
                       : 'Every release signed with the same key, kept in this profile.'}
                   </span>
                 </li>
