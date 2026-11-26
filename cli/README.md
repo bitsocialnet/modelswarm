@@ -12,7 +12,7 @@ uv pip install --python cli/.venv/bin/python -e cli
 cli/.venv/bin/modelswarm --help
 ```
 
-This installs the `modelswarm` command only in the worktree's environment. Nothing is published to PyPI or installed globally. Native wheels were tested on macOS arm64; installation on other platforms remains unverified.
+This installs the `modelswarm` command only in the worktree's environment. Nothing is published to PyPI or installed globally. Source installation was tested on macOS arm64 and Linux x86-64. Other platforms remain unverified.
 
 ## Make, verify and pull
 
@@ -61,11 +61,11 @@ cli/.venv/bin/modelswarm pull ./release.json --no-discovery --timeout 120
 
 By default libtorrent uses DHT discovery as well as manifest HTTP sources; `--peer` adds explicit endpoints and is repeatable. `--no-discovery` disables DHT, leaving explicit peers and HTTP. Tracker, LSD and PEX discovery are disabled in v0. Downloading can upload verified pieces to peers while the command runs; there is no persistent background seeder after it exits.
 
-Pulls retain partial data privately in `<cache>/.modelswarm/`. Ctrl-C/SIGTERM and the per-file timeout request a flushed checkpoint. During active progress a checkpoint is also requested every 15 seconds; `--checkpoint-interval` changes this (minimum one second). The engine pauses, waits for disk shutdown, saves, then resumes. `--rate-limit` sets bytes per second; zero means unlimited.
+Pulls retain partial data privately in `<cache>/.modelswarm/`. Ctrl-C/SIGTERM and the per-file timeout request a flushed checkpoint. During active progress a checkpoint is also requested every 15 seconds; `--checkpoint-interval` changes this (minimum one second). Periodic checkpoints flush to disk while the transfer continues. Completion, interruption and timeout pause the transfer before the final save. `--rate-limit` sets bytes per second; zero means unlimited.
 
 Rerun the same pull with the same cache to resume. Existing staged data is rechecked before network sources are enabled, so modified completed pieces can be repaired. A forced kill can lose bytes still buffered since the last checkpoint; recovery after a completed checkpoint is tested. Power-loss durability is not established. A malformed checkpoint is ignored and available file data is rechecked. A corrupt published cache blob is reported rather than silently overwritten.
 
-The native-session `--timeout` defaults to 300 seconds and includes resume rechecking and periodic checkpoint pauses. For a large partial file or slow disk, raise it to allow both the recheck and the remaining transfer; repeatedly using a budget shorter than the recheck cannot make download progress. Checkpoint shutdown after the budget expires and synchronous file verification before or after the native session can extend total command time beyond this budget.
+The native-session `--timeout` defaults to 300 seconds and includes resume rechecking and periodic checkpoint work. For a large partial file or slow disk, raise it to allow both the recheck and the remaining transfer; repeatedly using a budget shorter than the recheck cannot make download progress. Checkpoint shutdown after the budget expires and synchronous file verification before or after the native session can extend total command time beyond this budget.
 
 ### Use the verified cache
 

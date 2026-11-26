@@ -28,7 +28,7 @@ pkc_pid=$!
 export MODELSWARM_RPC="ws://127.0.0.1:18666/$(cat "$reader/pkc/rpc-key")"
 ```
 
-Paste the pull command from the release page in the same shell. It pins the exact announcement and uses the seeder's public address. The demo command leaves periodic checkpoints out of the transfer window to keep the direct peer connection open. Interruptions and timeouts still save a checkpoint. The final JSON includes `signed: true`, the release CID and the verified `snapshot` directory. To shut down the temporary reader afterward, run `kill "$pkc_pid" "$kubo_pid"` and `unset MODELSWARM_RPC IPFS_PATH`.
+Paste the pull command from the release page in the same shell. It pins the exact announcement and uses the seeder's public address. The CLI saves periodic checkpoints while the peer connection stays open. Interruptions and timeouts also save a checkpoint. On a slower connection, add `--timeout 900` and rerun the pull to resume from the saved checkpoint. The final JSON includes `signed: true`, the release CID and the verified `snapshot` directory. To shut down the temporary reader afterward, run `kill "$pkc_pid" "$kubo_pid"` and `unset MODELSWARM_RPC IPFS_PATH`.
 
 ## Operate the demo
 

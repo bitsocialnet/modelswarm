@@ -82,6 +82,6 @@ Repository lint, TypeScript, production build, advisory Knip, workflow validatio
 - Public hubs, search/indexing, hosted profiles, desktop UX and persistent seeding/ratio controls.
 - Windows/Linux installers, WAN/NAT/discovery tests, many concurrent downloads, production-scale shard counts, multi-GiB real-model CLI tests, disk-full recovery and power-loss tests. Several files are supported as independent torrents; a shared multi-file torrent is not implemented.
 - Full GGUF parsing, malware scanning, exhaustive format support and inference validation in Transformers/llama.cpp. Unknown formats fail conservatively; the snapshot/path interface is the integration surface currently tested.
-- Storage/performance tuning: staging is retained and verified cache publication can require roughly twice the payload disk space. Frequent checkpoint pauses interrupt connections; the default is 15 seconds, not the aggressive two-second experiment.
+- Storage/performance tuning: staging is retained and verified cache publication can require roughly twice the payload disk space. These experiments used pause-based checkpoints. The current CLI flushes periodic checkpoints without pausing the torrent.
 
 No commit, push, package publication or deployment was performed. The canonical checkout remains untouched; all work is in the existing download-engine worktree.

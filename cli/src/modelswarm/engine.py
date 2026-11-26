@@ -205,7 +205,8 @@ def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoi
     handle = session.add_torrent(params)
     started = time.monotonic()
     stopping = None
-    stop_deadline = None
+    checkpoint_deadline = None
+    checkpoint_flags = lt.save_resume_flags_t.flush_disk_cache | lt.save_resume_flags_t.save_info_dict
     hash_failures = 0
     ready = False
     needs_recheck = destination.exists()
@@ -240,10 +241,15 @@ def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoi
                 elif isinstance(alert, lt.url_seed_alert):
                     emit("http_source_error", path=entry["path"])
                 elif isinstance(alert, lt.torrent_paused_alert) and stopping:
-                    handle.save_resume_data(lt.save_resume_flags_t.flush_disk_cache | lt.save_resume_flags_t.save_info_dict)
-                elif isinstance(alert, lt.save_resume_data_alert) and stopping:
+                    handle.save_resume_data(checkpoint_flags)
+                elif isinstance(alert, lt.save_resume_data_alert) and checkpoint_deadline is not None:
                     _atomic_checkpoint(checkpoint, bytes(lt.write_resume_data_buf(alert.params)))
-                    emit("checkpoint_saved", path=entry["path"], verified_pieces=sum(alert.params.have_pieces), reason=stopping)
+                    emit("checkpoint_saved", path=entry["path"], verified_pieces=sum(alert.params.have_pieces),
+                         reason=stopping or "periodic")
+                    if stopping is None:
+                        checkpoint_deadline = None
+                        last_checkpoint = time.monotonic()
+                        continue
                     if stopping == "complete":
                         if cancel.is_set():
                             raise InterruptedDownload("interrupted before final verification; downloaded data retained")
@@ -252,13 +258,6 @@ def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoi
                              payload_bytes_since_resume=handle.status().total_payload_download,
                              hash_failures=hash_failures, seconds=round(now - started, 3))
                         return destination
-                    if stopping == "periodic":
-                        stopping = None
-                        last_checkpoint = time.monotonic()
-                        handle.resume()
-                        for peer in peers:
-                            handle.connect_peer(peer)
-                        continue
                     if stopping == "interrupted":
                         raise InterruptedDownload("interrupted; partial downloads retained for the next pull")
                     raise TimeoutError(f"timeout downloading {entry['path']}; partial download retained")
@@ -276,24 +275,26 @@ def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoi
                     ready = True
                     emit("file_ready", path=entry["path"], verified_pieces=status.num_pieces)
                     connect_sources()
-            if stopping in (None, "periodic") and (cancel.is_set() or now - started >= timeout):
-                already_pausing = stopping is not None
-                stopping = "interrupted" if cancel.is_set() else "timeout"
-                stop_deadline = now + 15
-                if not already_pausing:
+            # A terminal save starts after any active periodic save. Libtorrent
+            # returns the same alert for both, so keep only one request in flight.
+            if checkpoint_deadline is not None:
+                if now >= checkpoint_deadline:
+                    raise TimeoutError("checkpoint timed out; partial files remain available for recheck")
+            else:
+                if cancel.is_set():
+                    stopping = "interrupted"
+                elif now - started >= timeout:
+                    stopping = "timeout"
+                elif ready and status.is_seeding:
+                    stopping = "complete"
+                if stopping:
+                    # Shut down writes before the final save and verification.
+                    checkpoint_deadline = now + 15
                     handle.pause()
-            elif not stopping and ready and not status.is_seeding and status.num_pieces > 0 and now - last_checkpoint >= checkpoint_interval:
-                stopping = "periodic"
-                stop_deadline = now + 15
-                handle.pause()
-            if stopping and now >= stop_deadline:
-                raise TimeoutError("checkpoint shutdown timed out; partial files remain available for recheck")
-            if ready and not stopping and status.is_seeding:
-                # Hash completion can precede disk writes. Wait for native disk
-                # shutdown and a flushed checkpoint before reading final bytes.
-                stopping = "complete"
-                stop_deadline = now + 15
-                handle.pause()
+                elif ready and status.num_pieces > 0 and now - last_checkpoint >= checkpoint_interval:
+                    # Flush progress in place so the only peer stays connected.
+                    checkpoint_deadline = now + 15
+                    handle.save_resume_data(checkpoint_flags)
             if now - last_progress >= 2:
                 emit("progress", path=entry["path"], verified_pieces=status.num_pieces,
                      total_pieces=info.num_pieces(), payload_bytes_since_resume=status.total_payload_download)

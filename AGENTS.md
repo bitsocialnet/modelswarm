@@ -42,6 +42,7 @@ For an unexpected repo-specific issue, tell the contributor and continue indepen
 | `package.json` changed | Run `corepack yarn install` to synchronize `yarn.lock`; keep `yarn deps:check-pinned` passing |
 | Dependencies, moved files, or imports changed | Run advisory `yarn knip`; resolve relevant new findings |
 | AI workflow files changed | Edit shared sources, run `yarn ai-workflow:sync`, then `yarn ai-workflow:check` and `yarn ai-workflow:test` |
+| Version recommendation, bump, or release preparation | Read [versioning.md](docs/agent-playbooks/versioning.md) |
 | Open PR feedback or merge readiness | Use `review-and-merge-pr` within the user's requested scope |
 | Work needs a durable handoff/resumption, or one run is long enough to hit context compaction | Use [long-running-agent-workflow.md](docs/agent-playbooks/long-running-agent-workflow.md) |
 
