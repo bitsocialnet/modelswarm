@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState, type CSSProperties } from 'react';
 import styles from './pull-terminal.module.css';
-import { COMMAND, buildTimeline, finalState, initialState, reducer, region, type Bar, type Line, type Phase } from './timeline';
+import { COMMAND, MIN_COLUMNS, buildTimeline, finalState, initialState, reducer, region, type Bar, type Line, type Phase } from './timeline';
 
 const PHASE_LABEL: Record<Phase, string> = {
   idle: 'idle',
@@ -70,7 +70,7 @@ export function PullTerminal() {
       const style = getComputedStyle(viewport);
       const width = viewport.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
       if (!cell) return;
-      const columns = Math.max(24, Math.floor(width / cell));
+      const columns = Math.max(MIN_COLUMNS, Math.floor(width / cell));
       setSize({ columns, rows: columns >= 60 ? 34 : 40 });
     };
     measure();
@@ -185,9 +185,10 @@ export function PullTerminal() {
                 <p className={styles.row}>
                   <span className={styles.rule} style={{ width: `${box.inner}ch` }} />
                 </p>
-                {box.sources.map((source) => (
-                  <p key={source.name} className={styles.row}>
+                {box.sources.map((source, i) => (
+                  <p key={i} className={styles.row}>
                     <span data-tone={source.tone}>{source.name}</span>
+                    {source.pad}
                     {'  '}
                     {source.bar && <Meter bar={source.bar} />}
                     <Text line={[source.count]} />

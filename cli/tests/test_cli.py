@@ -25,7 +25,7 @@ import libtorrent as lt
 
 from modelswarm.cli import main, release_lock
 from modelswarm.engine import MIB, session_settings
-from modelswarm.view import PullView
+from modelswarm.view import PullView, width_of
 
 
 def gguf(path, size):
@@ -509,7 +509,7 @@ class PullViewTests(unittest.TestCase):
     def test_live_region_redraws_and_collapses_into_lasting_lines(self):
         stream = TtyStream()
         with patch.dict(os.environ, {"NO_COLOR": "1"}), patch("shutil.get_terminal_size", return_value=os.terminal_size((80, 40))):
-            view = PullView(stream)
+            view = PullView(stream, live=True)
             view.start({"name": "example/model", "version": "v1", "license": "mit"}, "ab" * 32,
                        [{"path": "model.gguf", "size": 4 * MIB}], [], {"signed": True, "publisher": "12D3KooW" + "x" * 44}, False)
             view("file_started", path="model.gguf", size=4 * MIB, total_pieces=4, piece_size=MIB, pid=1)
@@ -545,15 +545,15 @@ class PullViewTests(unittest.TestCase):
         self.assertEqual(view.drawn, 0)
 
 
-    def live_lines(self, columns, rows, sources):
+    def live_lines(self, columns, rows, sources, path="model.gguf"):
         stream = TtyStream()
         with patch.dict(os.environ, {"NO_COLOR": "1"}), patch("shutil.get_terminal_size", return_value=os.terminal_size((columns, rows))):
-            view = PullView(stream)
-            view("file_started", path="model.gguf", size=64 * MIB, total_pieces=64, piece_size=MIB, pid=1)
-            view("file_ready", path="model.gguf", verified_pieces=0, have=bytes(64))
+            view = PullView(stream, live=True)
+            view("file_started", path=path, size=64 * MIB, total_pieces=64, piece_size=MIB, pid=1)
+            view("file_ready", path=path, verified_pieces=0, have=bytes(64))
             for piece, source in enumerate(sources):
-                view("piece_verified", path="model.gguf", piece=piece, source=source)
-            view("progress", path="model.gguf", payload_bytes_since_resume=MIB)
+                view("piece_verified", path=path, piece=piece, source=source)
+            view("progress", path=path, payload_bytes_since_resume=MIB)
         return view, stream.getvalue().rsplit("\x1b[J", 1)[1].splitlines()
 
     def test_many_sources_fold_so_the_box_fits_the_terminal(self):
@@ -571,6 +571,33 @@ class PullViewTests(unittest.TestCase):
         self.assertEqual(len(lines), 9)
         self.assertTrue(lines[-1].startswith("╰"))
 
+    def test_wide_characters_keep_the_box_in_its_columns(self):
+        view, lines = self.live_lines(80, 40, ["peer 192.0.2.1:6881", "模型.example.org"], path="模型" * 20 + ".gguf")
+        box = [line for line in lines if line.startswith(("╭", "│", "╰"))]
+        self.assertEqual({width_of(line) for line in box}, {69})
+        self.assertRegex(box[0], r"^╭─ [模型]+… ─+ \S pulling ─╮$")
+        self.assertTrue(any(line.startswith("│ 模型.example.org ") for line in box))
+
+    def test_width_counts_terminal_columns(self):
+        self.assertEqual(width_of("模型.gguf"), 9)
+        # Zero-width marks with combining class 0 still take no column.
+        self.assertEqual(width_of("हिंदी"), 4)
+        self.assertEqual(width_of("สวัสดี"), 4)
+        self.assertEqual(width_of("e\u0301"), 1)
+        self.assertEqual(width_of("a\u200db\ufe0f"), 2)
+
+    def test_narrow_terminal_gets_a_status_line_instead_of_the_box(self):
+        view, lines = self.live_lines(20, 24, ["peer 192.0.2.1:6881"])
+        self.assertEqual(view.drawn, len(lines))
+        self.assertEqual(len(lines), 1)
+        self.assertLessEqual(width_of(lines[0]), 19)
+        self.assertRegex(lines[0], r"^\S 1/64 verified")
+
+    def test_source_counts_stay_visible_when_names_are_cut(self):
+        view, lines = self.live_lines(38, 40, ["peer 159.195.210.230:51413"] * 3)
+        self.assertIn("│ peer 159.195.210.230:…          3 │", lines)
+        self.assertEqual({width_of(line) for line in lines if line.startswith(("╭", "│", "╰"))}, {37})
+
     def test_view_measures_the_terminal_it_draws_on(self):
         import fcntl
         import termios
@@ -579,6 +606,9 @@ class PullViewTests(unittest.TestCase):
         with os.fdopen(secondary, "w", encoding="utf-8") as stream, patch("shutil.get_terminal_size", return_value=os.terminal_size((200, 60))):
             view = PullView(stream, color=False)
             self.assertEqual(tuple(view._terminal_size()), (50, 30))
+            # A terminal nobody sized reports 0 by 0, so the fallback size is used.
+            fcntl.ioctl(secondary, termios.TIOCSWINSZ, struct.pack("HHHH", 0, 0, 0, 0))
+            self.assertEqual(tuple(view._terminal_size()), (200, 60))
         os.close(primary)
 
     def test_terminal_stdout_gets_a_readable_error_instead_of_json(self):
