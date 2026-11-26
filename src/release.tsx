@@ -39,7 +39,7 @@ function Release() {
           <p className={styles.crumbs}>
             <a href='./catalogue.html'>Models</a>
             <span aria-hidden='true'>/</span>
-            <span>{demoModel.publisher}</span>
+            <a href='./profile.html'>{demoModel.publisher}</a>
           </p>
           <h1>{demoModel.title}</h1>
           <p className={styles.description}>{demoModel.description}</p>
@@ -156,10 +156,16 @@ function Release() {
                 </dd>
               </div>
             </dl>
-            <a className='link-arrow' href='./demo/qwen-signed-manifest.json'>
-              View release manifest
-              <ArrowRightIcon size={14} />
-            </a>
+            <div className={styles.publisherLinks}>
+              <a className='link-arrow' href='./profile.html'>
+                Publisher profile
+                <ArrowRightIcon size={14} />
+              </a>
+              <a className='link-arrow' href='./demo/qwen-signed-manifest.json'>
+                View release manifest
+                <ArrowRightIcon size={14} />
+              </a>
+            </div>
           </aside>
         </div>
       </main>

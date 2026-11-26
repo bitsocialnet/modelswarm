@@ -39,6 +39,7 @@ export default defineConfig({
       input: {
         catalogue: fileURLToPath(new URL('./catalogue.html', import.meta.url)),
         home: fileURLToPath(new URL('./index.html', import.meta.url)),
+        profile: fileURLToPath(new URL('./profile.html', import.meta.url)),
         release: fileURLToPath(new URL('./release.html', import.meta.url)),
       },
     },
