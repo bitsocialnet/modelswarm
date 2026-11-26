@@ -7,6 +7,7 @@ import time
 
 LABEL = 11
 LOG_LINES = 4
+SOURCE_ROWS = 5
 MAP_COLUMNS = 32
 # Wide enough for a full map row (a square and a gap per column) inside the borders.
 BOX_WIDTH = 2 * MAP_COLUMNS - 1 + 6
@@ -124,12 +125,12 @@ class PullView:
         self.file = FileProgress(path, size, total_pieces, piece_size)
         self._draw(force=True)
 
-    def _on_file_ready(self, verified_pieces, have=(), **_):
+    def _on_file_ready(self, verified_pieces, have=None, **_):
         file = self.file
-        for piece in have:
-            if not file.verified[piece]:
-                file.verified[piece] = 1
-                file.done += 1
+        if have is not None:
+            # One byte per piece, already verified on disk; adopted without a per-piece loop.
+            file.verified = bytearray(have)
+            file.done = file.verified.count(1)
         file.ready = True
         if verified_pieces:
             self._print([("· ", DIM), (f"resuming {file.path}: {plural(verified_pieces, 'piece')} already verified on disk", DIM)])
@@ -245,10 +246,18 @@ class PullView:
     def _spinner(self, now):
         return SPINNER[int(now * 12) % len(SPINNER)]
 
+    def _terminal_size(self):
+        # Measure the terminal this view draws on: stdout may be redirected
+        # while stderr is still a terminal.
+        try:
+            return os.get_terminal_size(self.stream.fileno())
+        except (AttributeError, OSError, ValueError):
+            return shutil.get_terminal_size((80, 24))
+
     def _region(self):
         if not self.live:
             return ""
-        columns, rows = shutil.get_terminal_size((80, 24))
+        columns, rows = self._terminal_size()
         # One column short of the edge avoids an automatic wrap, which would
         # leave more physical lines than the eraser moves back over.
         width = max(24, columns - 1)
@@ -256,6 +265,10 @@ class PullView:
         lines = [[(self._spinner(now) + " ", GREEN), (self.transient, DIM)]] if self.transient else []
         if self.file is not None:
             lines.extend(self._box(self.file, min(BOX_WIDTH, width), rows, now))
+        if len(lines) > rows - 1:
+            # The eraser cannot move above the top of the screen, so a region
+            # taller than the terminal would leave stale copies behind.
+            lines = lines[:max(0, rows - 2)] + lines[-1:]
         self.drawn = len(lines)
         self.last_draw = now
         return "".join(self._render(line, width) + "\n" for line in lines)
@@ -276,6 +289,16 @@ class PullView:
         top = [("╭─ ", DIM), *title, (" " + "─" * fill + " ", DIM), *phase, (" ─╮", DIM)]
 
         sources = list(file.sources.items())
+        # Many peers would make the box taller than the screen. Keep the
+        # busiest sources, in the order they appeared, and fold the rest.
+        room = max(1, min(SOURCE_ROWS, rows - 13))
+        rest = []
+        if len(sources) > room:
+            keep = {name for name, _ in sorted(sources, key=lambda item: -item[1])[:room - 1]}
+            rest = [item for item in sources if item[0] not in keep]
+            sources = [item for item in sources if item[0] in keep]
+        if rest:
+            sources.append((f"+{len(rest)} more", sum(count for _, count in rest)))
         # The box must fit on screen for the eraser to reach its first line.
         map_rows = max(1, min(MAP_ROWS, rows - 12 - len(sources)))
         body = [[], *self._map(file, inner, map_rows), []]
@@ -286,7 +309,8 @@ class PullView:
         bar_width = inner - name_width - 11
         for name, count in sources:
             dropped = name in file.dropped
-            row = [(name[:name_width].ljust(name_width), STRIKE if dropped else ""), ("  ", "")]
+            folded = bool(rest) and name == sources[-1][0]
+            row = [(name[:name_width].ljust(name_width), STRIKE if dropped else DIM if folded else ""), ("  ", "")]
             if bar_width >= 6:
                 row.extend(self._bar(count / file.total, bar_width, DIM if dropped else GREEN))
             row.append(("dropped".rjust(9), RED) if dropped else (str(count).rjust(9), ""))

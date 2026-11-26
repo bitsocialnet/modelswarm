@@ -367,7 +367,9 @@ def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoi
                     handle.force_recheck()
                 elif not needs_recheck or recheck_finished:
                     ready = True
-                    have = {"have": [piece for piece, done in enumerate(status.pieces) if done]} if piece_events else {}
+                    # One byte per piece rather than a list of indices, which
+                    # could hold millions of integers for a large resumed file.
+                    have = {"have": bytes(status.pieces)} if piece_events else {}
                     emit("file_ready", path=entry["path"], verified_pieces=status.num_pieces, **have)
                     connect_sources()
             # A terminal save starts after any active periodic save. Libtorrent

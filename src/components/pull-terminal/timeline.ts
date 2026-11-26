@@ -27,6 +27,7 @@ const REFETCH_SOURCE = 0;
 // view.py constants.
 const LABEL = 11;
 const LOG_LINES = 4;
+const SOURCE_ROWS = 5;
 const MAP_COLUMNS = 32;
 const MAP_ROWS = 8;
 const BOX_WIDTH = 2 * MAP_COLUMNS - 1 + 6;
@@ -283,8 +284,25 @@ export function region(state: State, columns: number, rows: number): Box | null 
   );
   const fill = width - 8 - length(title) - length(phase);
 
+  // Keep the busiest sources, in arrival order, and fold the rest into one row.
+  let shown = file.sources;
+  let rest: [string, number][] = [];
+  const room = Math.max(1, Math.min(SOURCE_ROWS, rows - 13));
+  if (shown.length > room) {
+    const keep = new Set(
+      [...shown]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, room - 1)
+        .map(([name]) => name),
+    );
+    rest = shown.filter(([name]) => !keep.has(name));
+    shown = shown.filter(([name]) => keep.has(name));
+  }
+  const folded = rest.length ? `+${rest.length} more` : null;
+  const listed: [string, number][] = folded ? [...shown, [folded, rest.reduce((sum, [, count]) => sum + count, 0)]] : shown;
+
   const mapColumns = Math.max(1, Math.min(MAP_COLUMNS, Math.floor((inner + 1) / 2)));
-  const mapRows = Math.max(1, Math.min(MAP_ROWS, rows - 12 - file.sources.length));
+  const mapRows = Math.max(1, Math.min(MAP_ROWS, rows - 12 - listed.length));
   const cells = Math.min(TOTAL, mapColumns * mapRows);
   const bad = new Set(file.bad.map((piece) => cellOf(piece, cells)));
   const fresh = new Set(file.fresh.filter(([, at]) => now - at < FRESH_MS).map(([piece]) => cellOf(piece, cells)));
@@ -302,14 +320,14 @@ export function region(state: State, columns: number, rows: number): Box | null 
   const log: Line[] = file.log.map(([piece, source]) => [{ text: '✓ ', tone: 'ok' }, { text: `${pieceLabel(piece)}  ` }, { text: source, tone: 'dim' }]);
   while (log.length < LOG_LINES) log.push([]);
 
-  const nameWidth = Math.min(28, Math.max(0, ...file.sources.map(([name]) => name.length)));
+  const nameWidth = Math.min(28, Math.max(0, ...listed.map(([name]) => name.length)));
   const barWidth = inner - nameWidth - 11;
-  const sources = file.sources.map(([name, count]): SourceRow => {
+  const sources = listed.map(([name, count]): SourceRow => {
     const dropped = file.dropped.includes(name);
     const cellsFilled = (count / TOTAL) * barWidth;
     return {
       name: name.slice(0, nameWidth).padEnd(nameWidth),
-      tone: dropped ? 'strike' : undefined,
+      tone: dropped ? 'strike' : name === folded ? 'dim' : undefined,
       bar: barWidth >= 6 ? { width: barWidth, filled: Math.floor(cellsFilled), half: cellsFilled - Math.floor(cellsFilled) >= 0.5, dropped } : null,
       count: dropped ? { text: 'dropped'.padStart(9), tone: 'fail' } : { text: String(count).padStart(9) },
     };

@@ -513,7 +513,7 @@ class PullViewTests(unittest.TestCase):
             view.start({"name": "example/model", "version": "v1", "license": "mit"}, "ab" * 32,
                        [{"path": "model.gguf", "size": 4 * MIB}], [], {"signed": True, "publisher": "12D3KooW" + "x" * 44}, False)
             view("file_started", path="model.gguf", size=4 * MIB, total_pieces=4, piece_size=MIB, pid=1)
-            view("file_ready", path="model.gguf", verified_pieces=1, have=[0])
+            view("file_ready", path="model.gguf", verified_pieces=1, have=bytes([1, 0, 0, 0]))
             view("piece_verified", path="model.gguf", piece=1, source="peer 192.0.2.10:6881")
             view("hash_failed", path="model.gguf", piece=2, source="mirror.example.org")
             view("source_banned", path="model.gguf", source="mirror.example.org")
@@ -544,6 +544,42 @@ class PullViewTests(unittest.TestCase):
         ])
         self.assertEqual(view.drawn, 0)
 
+
+    def live_lines(self, columns, rows, sources):
+        stream = TtyStream()
+        with patch.dict(os.environ, {"NO_COLOR": "1"}), patch("shutil.get_terminal_size", return_value=os.terminal_size((columns, rows))):
+            view = PullView(stream)
+            view("file_started", path="model.gguf", size=64 * MIB, total_pieces=64, piece_size=MIB, pid=1)
+            view("file_ready", path="model.gguf", verified_pieces=0, have=bytes(64))
+            for piece, source in enumerate(sources):
+                view("piece_verified", path="model.gguf", piece=piece, source=source)
+            view("progress", path="model.gguf", payload_bytes_since_resume=MIB)
+        return view, stream.getvalue().rsplit("\x1b[J", 1)[1].splitlines()
+
+    def test_many_sources_fold_so_the_box_fits_the_terminal(self):
+        sources = [f"peer 192.0.2.{n}:6881" for n in range(1, 11) for _ in range(n)]
+        view, lines = self.live_lines(80, 24, sources)
+        self.assertLessEqual(len(lines), 23)
+        self.assertEqual(view.drawn, len(lines))
+        rows = [line for line in lines if "─" in line and ("peer" in line or "more" in line)]
+        # The four busiest peers stay, in arrival order; the other six fold into one row.
+        self.assertEqual([row.split()[2] for row in rows[:4]], [f"192.0.2.{n}:6881" for n in (7, 8, 9, 10)])
+        self.assertRegex(rows[4], r"│ \+6 more +[━╸─]+ +21 │")
+
+    def test_tiny_terminal_clips_the_box_instead_of_overflowing(self):
+        view, lines = self.live_lines(80, 10, ["peer 192.0.2.1:6881"])
+        self.assertEqual(len(lines), 9)
+        self.assertTrue(lines[-1].startswith("╰"))
+
+    def test_view_measures_the_terminal_it_draws_on(self):
+        import fcntl
+        import termios
+        primary, secondary = os.openpty()
+        fcntl.ioctl(secondary, termios.TIOCSWINSZ, struct.pack("HHHH", 30, 50, 0, 0))
+        with os.fdopen(secondary, "w", encoding="utf-8") as stream, patch("shutil.get_terminal_size", return_value=os.terminal_size((200, 60))):
+            view = PullView(stream, color=False)
+            self.assertEqual(tuple(view._terminal_size()), (50, 30))
+        os.close(primary)
 
     def test_terminal_stdout_gets_a_readable_error_instead_of_json(self):
         stdout, stderr = TtyStream(), TtyStream()
