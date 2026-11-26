@@ -173,7 +173,7 @@ modelswarm pull pkc://PUBLISHER/OWNER/MODEL@VERSION#CID --rpc RPC_URL
 modelswarm serve --release pkc://PUBLISHER/OWNER/MODEL@VERSION#CID --rpc RPC_URL
 ```
 
-Local manifest commands need no Bitsocial node. Publisher commands require a compatible RPC node; `publish` posts a signed reference to already-hosted manifest bytes and does not upload weights. Profiles persist across restarts; `profile-start` recovers hosting and `profile-renew` renews delegation to the same minter. See the [restart and cross-machine evidence](cli/PERSISTENCE-EVALUATION.md), including the pinned SDK's restart workarounds. Bare-name lookup, hosted defaults, migration and key revocation remain future work.
+Local manifest commands need no Bitsocial node. Publisher commands require a compatible RPC node; `publish` posts a signed reference to already-hosted manifest bytes and does not upload weights. Profiles persist across restarts, including a killed node restarted at once; `profile-start` asks a node to host a profile again and `profile-renew` renews delegation to the same minter. See the [restart and cross-machine evidence](cli/PERSISTENCE-EVALUATION.md). Bare-name lookup, hosted defaults, migration and key revocation remain future work.
 
 ## Search and Discovery
 

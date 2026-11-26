@@ -1,6 +1,6 @@
 # Restart, renewal and cross-machine evaluation — 2026-11-13
 
-**A publisher node keeps its profile, delegation and releases across clean restarts and hard kills, the owner can renew the delegation, and a separate reader node resolves all of it over the swarm.** Two behaviours of the pinned SDK need operator attention after a restart; both are measured below. The automatic tests run on one machine over loopback in a private swarm. One manual run then put the reader on a second machine and pulled a real 491 MB model from the first. Both machines share a site and a Tailscale network, so this is cross-machine evidence, not public-internet, NAT or DHT evidence.
+**A publisher node keeps its profile, delegation and releases across clean restarts and hard kills, the owner can renew the delegation, and a separate reader node resolves all of it over the swarm.** Two behaviours of pkc-js 0.0.142 needed operator attention after a restart; both are measured below and fixed in the 0.0.163 the bridge now pins. The automatic tests run on one machine over loopback in a private swarm. One manual run then put the reader on a second machine and pulled a real 491 MB model from the first. Both machines share a site and a Tailscale network, so this is cross-machine evidence, not public-internet, NAT or DHT evidence.
 
 Commands and operator guidance are in [RELEASES.md](RELEASES.md#keep-a-profile-hosted). The earlier signed-release evidence is in [RELEASES-EVALUATION.md](RELEASES-EVALUATION.md).
 
@@ -56,7 +56,7 @@ To repeat it, copy `cli/` to the second machine, create the Python environment a
 
 The timeout in the first row is the historical result of that run. On 2026-11-14, signed `pull` gained a preflight check for explicit peers using the same native IP filter. A blocked peer now produces an error naming the peer and `--allow-local-sources` before staging. Local regression tests cover loopback, resolved localhost, IPv6 and tailnet addresses with zero upload; opting in downloads and verifies the file. The cross-machine run was not repeated for this diagnostic change.
 
-## Findings in the pinned SDK
+## Findings in pkc-js 0.0.142
 
 Both were reproduced and traced in the node's debug log. Neither loses data. The tests assert the behaviour; the durations quoted are single measurements from manual probe runs, not asserted thresholds.
 
