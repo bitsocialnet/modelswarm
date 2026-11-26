@@ -10,7 +10,7 @@
 
 ## Getting started
 
-Download and verify Qwen2.5-0.5B-Instruct in Q4_K_M GGUF format (491 MB, Apache-2.0). This quickstart uses a pinned Hugging Face mirror and requires Git, [uv](https://docs.astral.sh/uv/getting-started/installation/), and about 1 GB of free disk space. It needs no account or RPC connection.
+Download and verify Qwen2.5-0.5B-Instruct in Q4_K_M GGUF format (491 MB, Apache-2.0). This quickstart uses a pinned Hugging Face mirror and requires Git, [uv](https://docs.astral.sh/uv/getting-started/installation/), and at least 2 GB of free disk space. It needs no account or RPC connection.
 
 ```sh
 git clone https://github.com/bitsocialnet/modelswarm.git
