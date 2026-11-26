@@ -81,19 +81,64 @@
 }
 
 .screen {
+  position: relative;
   padding: 1rem 1rem 1.1rem;
 }
 
-.line {
-  margin: 0;
-  white-space: nowrap;
+/* Ten zeros measure one character cell of the page font. */
+.probe {
+  position: absolute;
+  visibility: hidden;
+  white-space: pre;
+}
+
+/* A fixed grid of columns × rows, like a terminal: long lines wrap at the last
+   column and the oldest lines scroll out of view once the rows are full. */
+.term {
+  width: calc(var(--columns) * 1ch);
+  height: calc(var(--rows) * 1.45em);
   overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.45;
+}
+
+.term p {
+  margin: 0;
+  min-height: 1.45em;
   color: var(--text);
 }
 
-.line[data-shown='false'] {
-  visibility: hidden;
+/* Lasting lines wrap at the terminal width, as a terminal does. */
+.wrap {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* The live region cuts lines one column short, as the CLI does. */
+.clip {
+  max-width: calc((var(--columns) - 1) * 1ch);
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.term [data-tone='dim'] {
+  color: var(--dim);
+}
+
+.term [data-tone='ok'] {
+  color: var(--accent);
+}
+
+.term [data-tone='fail'] {
+  color: var(--fault);
+}
+
+.term [data-tone='warn'] {
+  color: color-mix(in srgb, var(--fault) 50%, var(--accent));
+}
+
+.term [data-tone='bold'] {
+  font-weight: 600;
 }
 
 .prompt {
@@ -102,7 +147,7 @@
 
 .cursor {
   display: inline-block;
-  width: 0.6em;
+  width: 1ch;
   height: 1.1em;
   vertical-align: -0.2em;
   background: var(--accent);
@@ -115,153 +160,57 @@
   }
 }
 
-.intro {
-  margin: 0.6rem 0 0;
-}
-
-.intro > div {
-  display: grid;
-  grid-template-columns: 10ch minmax(0, 1fr);
-  gap: 1ch;
-  transition: opacity 0.2s ease;
-}
-
-.intro > div[data-shown='false'] {
-  opacity: 0;
-}
-
-.intro dt {
-  color: var(--dim);
-}
-
-.intro dd {
-  margin: 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dim {
-  color: var(--dim);
-}
-
-.good {
-  color: var(--accent);
-}
-
-.map {
-  display: grid;
-  grid-template-columns: repeat(32, minmax(0, 1fr));
-  gap: 3px;
-  margin-top: 1rem;
-}
-
-.piece {
-  aspect-ratio: 1 / 1.6;
-  border-radius: 1px;
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
-}
-
-.piece[data-state='fresh'] {
-  background: var(--accent-hot);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--accent-hot) 80%, transparent);
-}
-
-.piece[data-state='ok'] {
-  background: var(--accent);
-  box-shadow: none;
-  transition: background-color 0.4s ease;
-}
-
-.piece[data-state='bad'] {
-  background: var(--fault);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--fault) 80%, transparent);
-}
-
-.log {
-  list-style: none;
-  margin: 0.9rem 0 0;
-  padding: 0;
-  height: calc(4 * 1.65em);
-  color: var(--dim);
-}
-
-.log li {
-  white-space: pre;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.log li[data-kind='fail'],
-.log li[data-kind='drop'] {
-  color: var(--fault);
-}
-
-.sources {
-  list-style: none;
-  margin: 0.9rem 0 0;
-  padding: 0.75rem 0 0;
-  border-top: 1px dashed var(--rule-strong);
-  display: grid;
-  gap: 0.15rem;
-}
-
-.sources li {
-  display: grid;
-  grid-template-columns: 19ch minmax(0, 1fr) 7ch;
+/* One map cell per character, drawn like the CLI's ▪ ▫ · × glyphs. */
+.cell {
+  display: inline-flex;
   align-items: center;
-  gap: 1ch;
+  justify-content: center;
+  width: 1ch;
+  height: 1.45em;
+  vertical-align: top;
 }
 
-.sourceName {
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.cell::before {
+  content: '';
+  width: 0.42em;
+  height: 0.42em;
 }
 
-.meter {
-  height: 4px;
-  background: var(--rule);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.meter > span {
-  display: block;
-  height: 100%;
+.cell[data-cell='full']::before {
   background: var(--accent);
-  transition: width 0.15s linear;
 }
 
-.count {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+.cell[data-cell='part']::before {
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
-.sources li[data-dropped='true'] .sourceName {
-  color: var(--dim);
-  text-decoration: line-through;
-}
-
-.sources li[data-dropped='true'] .meter > span {
+.cell[data-cell='none']::before {
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
   background: var(--faint);
 }
 
-.sources li[data-dropped='true'] .count {
+.cell[data-cell='bad']::before {
+  content: '×';
+  width: auto;
+  height: auto;
   color: var(--fault);
 }
 
-.status {
-  margin: 0.9rem 0 0;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
+/* The █ and ░ of a source meter. */
+.block {
+  display: inline-block;
+  height: 1.1em;
+  vertical-align: -0.2em;
 }
 
-.status[data-done='true'] {
-  color: var(--accent);
+.block[data-tone='ok'] {
+  background: var(--accent);
+}
+
+.block[data-tone='dim'] {
+  background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--dim) 35%, transparent) 0 1px, transparent 1px 3px);
 }
 
 .caption {
@@ -290,14 +239,6 @@
 
   .screen {
     padding: 0.85rem 0.8rem 0.9rem;
-  }
-
-  .map {
-    gap: 2px;
-  }
-
-  .sources li {
-    grid-template-columns: 16ch minmax(0, 1fr) 7ch;
   }
 }
 
