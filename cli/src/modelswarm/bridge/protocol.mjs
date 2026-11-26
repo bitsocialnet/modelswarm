@@ -203,6 +203,19 @@ export async function verifyDiscussion({ rawComment, cid, community, parent }) {
   return { postCid: cid, releaseCid: comment.crosspost.cid, publisher, release };
 }
 
+export async function readDiscussionRecord(fetchCid, { cid, community, parent, skipInvalid = false }) {
+  try { CID.parse(cid); } catch (error) {
+    if (skipInvalid) return null;
+    throw error;
+  }
+  // A fetch failure means the feed may be incomplete, even when other posts are readable.
+  const { content: rawComment } = await fetchCid({ cid });
+  try { return await verifyDiscussion({ rawComment, cid, community, parent }); } catch (error) {
+    if (skipInvalid) return null;
+    throw error;
+  }
+}
+
 async function verifyPublication(rawComment, cid, community, { fields, required, depth }) {
   const expectedCid = cidValue(cid, 'release CID');
   if (expectedCid.code !== 0x70 || expectedCid.multihash.code !== 0x12) invalid('release CID must use DAG-PB and SHA-256');
@@ -254,34 +267,32 @@ async function verifyPublication(rawComment, cid, community, { fields, required,
   return { comment, author };
 }
 
-export async function scanDiscussionFeed(posts, readDiscussion) {
+const DEFAULT_DISCUSSION_POST_LIMIT = 32;
+
+export async function scanDiscussionFeed(posts, readDiscussion, maxPosts = DEFAULT_DISCUSSION_POST_LIMIT) {
+  const scale = Math.max(1, maxPosts / DEFAULT_DISCUSSION_POST_LIMIT);
+  const pageLimit = Math.ceil(4 * scale);
+  const candidateLimit = Math.min(Number.MAX_SAFE_INTEGER, Math.ceil(100 * scale));
   const entries = [];
   const seen = new Set();
-  const atEntryLimit = () => seen.size >= 100 || entries.length >= 32;
+  const atEntryLimit = () => seen.size >= candidateLimit || entries.length >= maxPosts;
   let page = posts?.pages?.new;
   let next = posts?.pageCids?.new;
   for (let count = 0; page || next; count++) {
-    if (count >= 4 || atEntryLimit()) return { entries, truncated: true };
+    if (count >= pageLimit || atEntryLimit()) return { entries, truncated: true };
     page ??= await posts.getPage({ cid: next });
     for (const candidate of page.comments) {
       if (seen.has(candidate.cid)) continue;
       if (atEntryLimit()) return { entries, truncated: true };
       seen.add(candidate.cid);
       if (!candidate.crosspost || candidate.removed || candidate.deleted || candidate.pendingApproval) continue;
-      let entry;
-      try {
-        entry = await readDiscussion(candidate.cid);
-      } catch {
-        continue; // This community may carry native posts from other clients.
-      }
+      const entry = await readDiscussion(candidate.cid);
+      if (entry === null) continue;
       const replies = [];
       for (const reply of (candidate.replies?.pages?.new?.comments ?? []).slice(0, 12)) {
         if (reply.removed || reply.deleted || reply.pendingApproval) continue;
-        try {
-          replies.push(await readDiscussion(reply.cid, candidate.cid));
-        } catch {
-          continue;
-        }
+        const verifiedReply = await readDiscussion(reply.cid, candidate.cid);
+        if (verifiedReply !== null) replies.push(verifiedReply);
       }
       const { name, version, manifest } = entry.release;
       entries.push({ ...entry, release: { name, version, manifest }, replies });

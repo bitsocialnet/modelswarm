@@ -5,7 +5,7 @@ import { CID } from 'multiformats/cid';
 import { of as ipfsHash } from 'typestub-ipfs-only-hash';
 import {
   RELEASE_SCHEMA, MAX_CARD_BYTES, MAX_RECORD_BYTES,
-  encodeRelease, parsePublisher, parseRelease, scanDiscussionFeed, verifyDiscussion, verifyRelease,
+  encodeRelease, parsePublisher, parseRelease, readDiscussionRecord, scanDiscussionFeed, verifyDiscussion, verifyRelease,
 } from './protocol.mjs';
 
 let pkc;
@@ -278,4 +278,56 @@ test('discussion scan caps verified releases and reports an unscanned successor'
   feed = await scanDiscussionFeed(posts, read);
   assert.equal(feed.entries.length, 32);
   assert.equal(feed.truncated, true);
+});
+
+test('an explicit discussion limit permits more pages, candidates, and releases', async () => {
+  const posts = {
+    pageCids: { new: '1' },
+    async getPage({ cid }) {
+      const comments = Array.from({ length: 27 }, (_, i) => ({
+        cid: `${cid}-${i}`, crosspost: i >= 20,
+      }));
+      return { comments, nextCid: cid === '5' ? undefined : String(Number(cid) + 1) };
+    },
+  };
+  const read = async (cid) => ({ cid, release });
+  assert.equal((await scanDiscussionFeed(posts, read)).truncated, true);
+  const expanded = await scanDiscussionFeed(posts, read, 64);
+  assert.equal(expanded.entries.length, 35);
+  assert.equal(expanded.truncated, false);
+  const limited = await scanDiscussionFeed(posts, read, 1);
+  assert.equal(limited.entries.length, 1);
+  assert.equal(limited.truncated, true);
+});
+
+test('feed reads skip invalid CIDs and records but pass RPC failures through', async () => {
+  const options = { community: signer.address, skipInvalid: true };
+  const failure = new Error('RPC fetch failed');
+  const failedFetch = async () => { throw failure; };
+  assert.equal(await readDiscussionRecord(failedFetch, { ...options, cid: 'invalid-CID' }), null);
+  const content = 'invalid publication';
+  const cid = await ipfsHash(content);
+  const fetchInvalid = async () => ({ content });
+  assert.equal(await readDiscussionRecord(fetchInvalid, { ...options, cid }), null);
+  await assert.rejects(readDiscussionRecord(failedFetch, { ...options, cid }), failure);
+  await assert.rejects(readDiscussionRecord(fetchInvalid, { ...options, skipInvalid: false, cid }), /Invalid ModelSwarm release/);
+});
+
+test('discussion scan skips invalid records but aborts on post or reply fetch failures', async () => {
+  const replies = { pages: { new: { comments: [{ cid: 'invalid-reply' }, { cid: 'valid-reply' }] } } };
+  const posts = { pages: { new: { comments: [
+    { cid: 'invalid-post', crosspost: {} }, { cid: 'valid-post', crosspost: {}, replies },
+  ] } } };
+  const failure = new Error('RPC fetch failed');
+  const read = (failingCid) => async (cid, parent) => {
+    if (cid === failingCid) throw failure;
+    if (cid.startsWith('invalid-')) return null;
+    return parent ? { cid, parent } : { cid, release };
+  };
+  const feed = await scanDiscussionFeed(posts, read());
+  assert.equal(feed.truncated, false);
+  assert.deepEqual(feed.entries, [{ cid: 'valid-post', release: { name: release.name, version: release.version, manifest: release.manifest },
+    replies: [{ cid: 'valid-reply', parent: 'valid-post' }] }]);
+  await assert.rejects(scanDiscussionFeed(posts, read('valid-post')), failure);
+  await assert.rejects(scanDiscussionFeed(posts, read('valid-reply')), failure);
 });

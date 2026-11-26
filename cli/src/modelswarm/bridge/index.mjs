@@ -3,7 +3,7 @@
 import PKC, { createAnchorIpnsRecord } from '@pkcprotocol/pkc-js';
 import { CID } from 'multiformats/cid';
 import { of as ipfsHash } from 'typestub-ipfs-only-hash';
-import { encodeRelease, parsePublisher, scanDiscussionFeed, verifyDiscussion, verifyRelease } from './protocol.mjs';
+import { encodeRelease, parsePublisher, readDiscussionRecord, scanDiscussionFeed, verifyRelease } from './protocol.mjs';
 
 class RequestError extends Error {}
 const fail = (message) => { throw new RequestError(message); };
@@ -126,15 +126,16 @@ async function publishDiscussion(community, privateKey, fields, parent) {
   return readDiscussion(comment.cid, community, parent);
 }
 
-async function readDiscussion(cid, community, parent) {
-  CID.parse(cid);
-  const { content: rawComment } = await pkc.fetchCid({ cid });
-  return verifyDiscussion({ rawComment, cid, community, parent });
+function readDiscussion(cid, community, parent, skipInvalid = false) {
+  return readDiscussionRecord((options) => pkc.fetchCid(options), { cid, community, parent, skipInvalid });
 }
 
-async function discussionFeed(community) {
+async function discussionFeed(community, maxPosts) {
+  if (maxPosts !== undefined && (!Number.isSafeInteger(maxPosts) || maxPosts < 1)) {
+    fail('maxPosts must be a positive safe integer');
+  }
   const profile = await loadProfile(community);
-  return { community, ...await scanDiscussionFeed(profile.posts, (cid, parent) => readDiscussion(cid, community, parent)) };
+  return { community, ...await scanDiscussionFeed(profile.posts, (cid, parent) => readDiscussion(cid, community, parent, true), maxPosts) };
 }
 
 async function main(request) {
@@ -163,7 +164,7 @@ async function main(request) {
     await event(hub, 'update', () => hub.start(), () => typeof hub.updatedAt === 'number');
     return { community: parsePublisher(hub.publicKey) };
   }
-  if (request.op === 'community-list') return discussionFeed(parsePublisher(request.community));
+  if (request.op === 'community-list') return discussionFeed(parsePublisher(request.community), request.maxPosts);
   if (request.op === 'community-share') {
     const community = parsePublisher(request.community);
     const original = await readRelease(request.cid, parsePublisher(request.publisher));

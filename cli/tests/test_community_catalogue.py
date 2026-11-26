@@ -1,5 +1,6 @@
 """Sync a community and reply using a separate node in a private Kubo swarm."""
 
+from http.client import IncompleteRead
 import json
 import os
 from pathlib import Path
@@ -34,11 +35,35 @@ class CommunityExportTests(unittest.TestCase):
             output = Path(directory) / "community-index.json"
             old = b'{"version":1,"entries":[{"name":"existing/model"}]}\n'
             output.write_bytes(old)
-            args = SimpleNamespace(community="hub", rpc_timeout=30, output=output, torrent_dir=Path("public/hub-torrents"))
+            args = SimpleNamespace(community="hub", rpc_timeout=30, output=output,
+                                   torrent_dir=Path("public/hub-torrents"), max_posts=None)
             with patch.object(exporter, "bridge", return_value={"truncated": True, "entries": []}):
                 with self.assertRaisesRegex(ValueError, "scan is incomplete"):
                     exporter.sync(args, "ws://127.0.0.1")
             self.assertEqual(output.read_bytes(), old)
+
+
+    def test_failing_manifest_refresh_keeps_only_matching_verified_release(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "community-index.json"
+            prior = {"name": "fixture/model", "postCid": "post", "releaseCid": "verified",
+                     "files": [{"path": "weights.gguf"}], "replies": []}
+            stale = {"name": "fixture/stale", "postCid": "stale", "releaseCid": "old"}
+            output.write_text(json.dumps({"version": 1, "community": "hub", "entries": [prior, stale]}))
+            args = SimpleNamespace(community="hub", rpc_timeout=30, output=output,
+                                   torrent_dir=Path("public/hub-torrents"), max_posts=200)
+            release = {"name": "fixture/model", "version": "v1", "manifest": {"url": "https://example.com/manifest.json"}}
+            replies = [{"text": "A verified reply"}]
+            posts = [
+                {"postCid": "post", "releaseCid": "verified", "release": release, "replies": replies},
+                {"postCid": "stale", "releaseCid": "new", "release": release, "replies": []},
+            ]
+            with patch.object(exporter, "bridge", return_value={"community": "hub", "truncated": False, "entries": posts}) as bridge:
+                with patch.object(exporter, "manifest_from_reference", side_effect=IncompleteRead(b"")):
+                    exporter.sync(args, "ws://127.0.0.1")
+            bridge.assert_called_once_with({"op": "community-list", "rpc": "ws://127.0.0.1",
+                                           "community": "hub", "maxPosts": 200}, 30)
+            self.assertEqual(json.loads(output.read_bytes())["entries"], [{**prior, "replies": replies}])
 
 
 class CommunityCatalogueTests(PersistentNode, unittest.TestCase):
@@ -61,7 +86,7 @@ class CommunityCatalogueTests(PersistentNode, unittest.TestCase):
         output = directory / "community-index.json"
         for _ in range(10):
             self.run_community(node, "sync", community, "--output", output,
-                               "--torrent-dir", "public/hub-torrents", cwd=directory)
+                               "--torrent-dir", "public/hub-torrents", "--max-posts", "64", cwd=directory)
             snapshot = json.loads(output.read_text())
             self.assertEqual(snapshot["community"], community)
             if predicate(snapshot["entries"]):

@@ -1,6 +1,7 @@
 """Publish discussion posts and export a local ModelSwarm community catalogue."""
 
 import argparse
+from http.client import HTTPException
 import json
 from pathlib import Path
 import re
@@ -69,12 +70,26 @@ def export_entry(post, manifest, torrent_dir, url_prefix):
     }
 
 
+def load_previous_entries(output, community):
+    try:
+        snapshot = json.loads(output.read_bytes())
+    except FileNotFoundError:
+        return {}
+    if not isinstance(snapshot, dict) or snapshot.get("version") != 1 or snapshot.get("community") != community:
+        return {}
+    return {(item["postCid"], item["releaseCid"]): item for item in snapshot["entries"]}
+
+
 def sync(args, rpc):
-    feed = bridge({"op": "community-list", "rpc": rpc, "community": args.community}, args.rpc_timeout)
+    request = {"op": "community-list", "rpc": rpc, "community": args.community}
+    if args.max_posts is not None:
+        request["maxPosts"] = args.max_posts
+    feed = bridge(request, args.rpc_timeout)
     if feed.get("truncated") is not False:
-        raise ValueError("Community scan is incomplete. The catalogue snapshot was not replaced.")
+        raise ValueError("Community scan is incomplete. The catalogue snapshot was not replaced. Raise --max-posts to scan a larger hub.")
     url_prefix = torrent_url_prefix(args.torrent_dir)
     entries = []
+    cached = None
     for post in feed["entries"]:
         release = post["release"]
         try:
@@ -83,8 +98,15 @@ def sync(args, rpc):
             )
             if (manifest["name"], manifest["version"]) != (release["name"], release["version"]):
                 raise ValueError("manifest name/version differs from its signed announcement")
-        except ValueError as error:
-            print(f"Skipped {release['name']} ({post['releaseCid']}): {error}", file=sys.stderr)
+        except (ValueError, OSError, HTTPException) as error:
+            if cached is None:
+                cached = load_previous_entries(args.output, feed["community"])
+            previous = cached.get((post["postCid"], post["releaseCid"]))
+            if previous is not None:
+                entries.append({**previous, "replies": post["replies"]})
+                print(f"Kept previously verified {release['name']} ({post['releaseCid']}): {error}", file=sys.stderr)
+            else:
+                print(f"Skipped {release['name']} ({post['releaseCid']}): {error}", file=sys.stderr)
             continue
         entries.append(export_entry(post, manifest, args.torrent_dir, url_prefix))
     result = {"version": 1, "community": feed["community"], "entries": entries}
@@ -127,6 +149,7 @@ def main():
     export = commands.add_parser("sync", help="export signed community releases and their latest replies")
     export.add_argument("community")
     export.add_argument("--output", type=Path, default=Path("src/data/community-index.json"))
+    export.add_argument("--max-posts", type=int, help="raise the scan limits for larger communities")
     export.add_argument("--torrent-dir", type=Path, default=Path("public/community-torrents"),
                         help="torrent subdirectory under the site's public/ (default: public/community-torrents)")
     for command in (init, share, reply):
