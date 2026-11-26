@@ -3,6 +3,7 @@
 import os
 import shutil
 import time
+import unicodedata
 
 
 LABEL = 11
@@ -11,6 +12,8 @@ SOURCE_ROWS = 5
 MAP_COLUMNS = 32
 # Wide enough for a full map row (a square and a gap per column) inside the borders.
 BOX_WIDTH = 2 * MAP_COLUMNS - 1 + 6
+# The narrowest box whose rows all fit; a narrower terminal gets one status line.
+MIN_BOX = 24
 MAP_ROWS = 8
 FRESH_SECONDS = 0.6
 REDRAW_SECONDS = 1 / 15
@@ -44,6 +47,23 @@ def plural(count, word):
 
 def short_key(value):
     return value if len(value) <= 20 else f"{value[:12]}…{value[-4:]}"
+
+
+def width_of(text):
+    """Terminal columns text takes: wide East Asian characters take two, combining marks none."""
+    if text.isascii():
+        return len(text)
+    return sum(0 if unicodedata.combining(char) else 2 if unicodedata.east_asian_width(char) in "WF" else 1 for char in text)
+
+
+def cut(text, width):
+    """The longest start of text that fits in width columns."""
+    used = 0
+    for index, char in enumerate(text):
+        used += width_of(char)
+        if used > width:
+            return text[:index]
+    return text
 
 
 def cell_of(piece, cells, total):
@@ -213,14 +233,20 @@ class PullView:
 
     @staticmethod
     def _fit(segments, width, pad=False):
-        """Cut segments to width with an ellipsis; pad with spaces when asked."""
-        out, used = [], 0
-        for text, style in segments:
-            if width is not None and used + len(text) > width:
-                out.append((text[:max(0, width - used - 1)] + "…", style))
-                return out
-            out.append((text, style))
-            used += len(text)
+        """Cut segments to width columns with an ellipsis; pad with spaces when asked."""
+        used = sum(width_of(text) for text, _ in segments)
+        if width is None or used <= width:
+            out = list(segments)
+        else:
+            out, used, room = [], 0, max(0, width - 1)
+            for text, style in segments:
+                kept = cut(text, room - used)
+                out.append((kept, style))
+                used += width_of(kept)
+                if kept != text:
+                    out.append(("…", style))
+                    used += 1
+                    break
         if pad and width is not None and used < width:
             out.append((" " * (width - used), ""))
         return out
@@ -250,9 +276,11 @@ class PullView:
         # Measure the terminal this view draws on: stdout may be redirected
         # while stderr is still a terminal.
         try:
-            return os.get_terminal_size(self.stream.fileno())
+            size = os.get_terminal_size(self.stream.fileno())
         except (AttributeError, OSError, ValueError):
-            return shutil.get_terminal_size((80, 24))
+            size = None
+        # A pseudo-terminal nobody sized reports 0 by 0.
+        return size if size and size.columns and size.lines else shutil.get_terminal_size((80, 24))
 
     def _region(self):
         if not self.live:
@@ -260,10 +288,14 @@ class PullView:
         columns, rows = self._terminal_size()
         # One column short of the edge avoids an automatic wrap, which would
         # leave more physical lines than the eraser moves back over.
-        width = max(24, columns - 1)
+        width = columns - 1
+        if width < 1:
+            return ""
         now = time.monotonic()
         lines = [[(self._spinner(now) + " ", GREEN), (self.transient, DIM)]] if self.transient else []
-        if self.file is not None:
+        if self.file is not None and width < MIN_BOX:
+            lines.append([(self._spinner(now) + " ", GREEN), *self._status(self.file)])
+        elif self.file is not None:
             lines.extend(self._box(self.file, min(BOX_WIDTH, width), rows, now))
         if len(lines) > rows - 1:
             # The eraser cannot move above the top of the screen, so a region
@@ -282,10 +314,10 @@ class PullView:
             phase = [("✗ bad piece", RED)]
         else:
             phase = [(f"{self._spinner(now)} pulling", GREEN)]
-        phase_width = sum(len(text) for text, _ in phase)
+        phase_width = sum(width_of(text) for text, _ in phase)
         # ╭─ title ───── phase ─╮
         title = self._fit([(file.path, BOLD), (f" · {size_text(file.size)}", DIM)], max(1, box - 9 - phase_width))
-        fill = box - 8 - sum(len(text) for text, _ in title) - phase_width
+        fill = box - 8 - sum(width_of(text) for text, _ in title) - phase_width
         top = [("╭─ ", DIM), *title, (" " + "─" * fill + " ", DIM), *phase, (" ─╮", DIM)]
 
         sources = list(file.sources.items())
@@ -305,12 +337,13 @@ class PullView:
         body.extend([("✓ ", GREEN), (f"{file.piece(piece)}  ", ""), (source, DIM)] for piece, source in file.log)
         body.extend([] for _ in range(LOG_LINES - len(file.log)))
         body.append([("┄" * inner, DIM)])
-        name_width = min(28, max((len(name) for name, _ in sources), default=0))
+        # Every row keeps two spaces and a nine-column count after the name.
+        name_width = min(28, inner - 11, max((width_of(name) for name, _ in sources), default=0))
         bar_width = inner - name_width - 11
         for name, count in sources:
             dropped = name in file.dropped
             folded = bool(rest) and name == sources[-1][0]
-            row = [(name[:name_width].ljust(name_width), STRIKE if dropped else DIM if folded else ""), ("  ", "")]
+            row = [*self._fit([(name, STRIKE if dropped else DIM if folded else "")], name_width, pad=True), ("  ", "")]
             if bar_width >= 6:
                 row.extend(self._bar(count / file.total, bar_width, DIM if dropped else GREEN))
             row.append(("dropped".rjust(9), RED) if dropped else (str(count).rjust(9), ""))
