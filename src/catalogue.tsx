@@ -158,7 +158,7 @@ function ModelDirectory({ models, observedAt, loading, failed }: { models: Model
               setVisible(pageSize);
             }}
           >
-            <option value='catalogue'>Catalogue order</option>
+            <option value='catalogue'>Default</option>
             <option value='seeders'>Most seeders</option>
             <option value='size'>Smallest first</option>
           </select>
@@ -281,6 +281,7 @@ function ModelRow({ model }: { model: Model }) {
             {model.community.files.map((file) => (
               <li key={file.path}>
                 <strong>{file.path}</strong> · {formatBytes(file.bytes)}
+                {file.flagged && <> · Download via CLI with explicit approval</>}
                 {file.torrent?.startsWith('./community-torrents/') && (
                   <>
                     {' '}
@@ -293,7 +294,7 @@ function ModelRow({ model }: { model: Model }) {
                 {file.https?.startsWith('https://') && (
                   <>
                     {' '}
-                    · <a href={file.https}>Download over HTTPS</a>
+                    · <a href={file.https}>HTTPS ({new URL(file.https).hostname})</a>
                   </>
                 )}
                 <p>
@@ -302,6 +303,9 @@ function ModelRow({ model }: { model: Model }) {
               </li>
             ))}
           </ul>
+          <p>
+            Community key <code>{model.community.key}</code>
+          </p>
           <p>
             Community post <code>{model.community.postCid}</code>
           </p>

@@ -16,7 +16,7 @@ Open [the model catalogue](http://127.0.0.1:8080/catalogue.html). To publish you
 
 ## Import an existing swarm
 
-The bundled preview uses public Pirate Face listings. For broader imports, the [Pirate Face magnet index](https://pirateface.co/pirateface/magnet-index) dataset card invites mirrors and identifies the index as MIT-licensed. Each exported model has its own upstream license. The importer validates public access and the license at the pinned model revision. When given the official export, it also applies the index's removals. The catalogue shows the source of imported entries, and a Pirate Face listing does not count as a ModelSwarm publisher signature.
+The bundled preview uses public Pirate Face listings. For broader imports, the [Pirate Face magnet index](https://pirateface.co/pirateface/magnet-index) dataset card invites mirrors and identifies the index as [MIT-licensed](PIRATE-FACE-INDEX-LICENSE). Each exported model has its own upstream license. The importer validates public access and the license at the pinned model revision. When given the official export, it also applies the index's removals. The catalogue shows the source of imported entries, and a Pirate Face listing does not count as a ModelSwarm publisher signature.
 
 The catalogue serves the original torrent identifiers. Imported releases offer an original tracker-assisted magnet when available and a peer-only magnet that uses DHT. Both preserve the torrent's infohashes. Neither includes an HTTP web seed. Availability depends on reachable peers. Seed counts are observations from the snapshot date. A model marked **Unknown** has no count in the snapshot.
 
@@ -32,7 +32,7 @@ If you maintain an offline copy of the official export, add `--index-cache /path
 
 ## Publish and discuss in a community
 
-Install the [CLI and optional bridge](../cli/RELEASES.md#install-the-optional-bridge). Connect to your own compatible Bitsocial node using `MODELSWARM_RPC`. See the [demo setup](../cli/demo/README.md) for an example of running Kubo and the PKC node. For discussion, start the node with `PKC_ENABLE_PUBSUB=1` and enable Kubo pubsub (`ipfs daemon --enable-pubsub-experiment`). The feed-only demo uses its existing settings. RPC credentials and signing keys stay outside the static build.
+Install the [CLI and optional bridge](../cli/RELEASES.md#install-the-optional-bridge). Connect to your own compatible Bitsocial node using `MODELSWARM_RPC`. See the [demo setup](../cli/demo/README.md) for an example of running Kubo and the PKC node. For discussion, start the node with `PKC_ENABLE_PUBSUB=1` and enable Kubo pubsub (`ipfs config Pubsub.Enabled --json true` before starting the daemon). The feed-only demo uses its existing settings. RPC credentials and signing keys stay outside the static build.
 
 Create a key and host a community. The default community allows submissions and replies without a challenge. Pick which communities you follow on each instance.
 
@@ -55,4 +55,4 @@ cli/.venv/bin/python catalogue/community.py sync COMMUNITY --output src/data/com
 corepack yarn build
 ```
 
-Sync verifies the original release, fetches the manifest by its signed digest and exports the torrent files it contains. The browser reads the resulting files and discussion without reaching the publishing node or signing anything. Run sync and rebuild to pick up new releases and replies. The exporter reads a bounded set of recent posts and direct replies. The node keeps the community available and publishers or peers keep the manifest and torrent payloads available.
+Sync verifies the original release, fetches the manifest by its signed digest and exports torrent files for downloads the CLI allows by default. Flagged files are shown with their hashes and require the CLI's explicit override. The browser reads the resulting files and discussion without reaching the publishing node or signing anything. Run sync and rebuild to pick up new releases and replies. The exporter reads a bounded set of recent posts and direct replies. The node keeps the community available and publishers or peers keep the manifest and torrent payloads available.

@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import tempfile
 
+from modelswarm.formats import is_flagged, is_flagged_path
 from modelswarm.manifest import torrent_bytes
 from modelswarm.releases import bridge, manifest_from_reference, parse_uri, read_key, rpc_url
 
@@ -27,7 +28,8 @@ def export_entry(post, manifest, torrent_dir):
     files = []
     for file in manifest["files"]:
         torrent = None
-        if file["torrent"]:
+        flagged = is_flagged(file["format"]) or is_flagged_path(file["path"])
+        if file["torrent"] and not flagged:
             filename = f"{file['torrent']['infohash_v2']}.torrent"
             atomic_write(torrent_dir / filename, torrent_bytes(file))
             torrent = f"./community-torrents/{filename}"
@@ -36,7 +38,8 @@ def export_entry(post, manifest, torrent_dir):
             "bytes": file["size"],
             "sha256": file["sha256"],
             "torrent": torrent,
-            "https": next((item["url"] for item in file["sources"] if item["url"].startswith("https://")), None),
+            "https": None if flagged else next((item["url"] for item in file["sources"] if item["url"].startswith("https://")), None),
+            "flagged": flagged,
         })
     formats = {file["format"] for file in manifest["files"]}
     weights = sorted(formats & {"gguf", "safetensors"})

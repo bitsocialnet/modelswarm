@@ -69,6 +69,10 @@ class CommunityCatalogueTests(PersistentNode, unittest.TestCase):
         self.assertNotEqual(share["postCid"], share["releaseCid"])
 
         expected = next(file for file in json.loads(manifest.read_text())["files"] if file["path"] == "weights.gguf")
+        script = next(file for file in entry["files"] if file["path"] == "custom.py")
+        self.assertTrue(script["flagged"])
+        self.assertIsNone(script["torrent"])
+        self.assertIsNone(script["https"])
         weights = next(file for file in entry["files"] if file["path"] == "weights.gguf")
         self.assertEqual(weights["sha256"], expected["sha256"])
         metainfo = reader_dir / weights["torrent"].removeprefix("./")

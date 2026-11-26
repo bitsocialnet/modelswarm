@@ -15,7 +15,7 @@ export type ImportedModel = {
   upstream?: string;
 };
 
-export type CommunityFile = { path: string; bytes: number; sha256: string; torrent: string | null; https: string | null };
+export type CommunityFile = { path: string; bytes: number; sha256: string; torrent: string | null; https: string | null; flagged: boolean };
 export type CommunityModel = Omit<ImportedModel, 'magnet' | 'trackedMagnet' | 'revision' | 'upstream'> & {
   publisher: string;
   releaseCid: string;
@@ -32,7 +32,7 @@ export type Model = Omit<ImportedModel, 'magnet' | 'trackedMagnet'> & {
   kind: 'demo' | 'import' | 'community';
   download: string | null;
   peerOnly?: string;
-  community?: CommunityModel;
+  community?: CommunityModel & { key: string };
 };
 
 const imports = import.meta.glob<{ default: IndexSnapshot<ImportedModel> }>('./pirateface-*.json');
@@ -53,9 +53,9 @@ export const demoEntry: Model = {
 export async function loadCatalogue() {
   const [importResult, communityResult] = await Promise.all([importSnapshot?.(), Promise.all(Object.values(communities).map((load) => load()))]);
   const imported = importResult?.default;
-  const communityEntries = new Map<string, CommunityModel>();
+  const communityEntries = new Map<string, CommunityModel & { key: string }>();
   for (const { default: snapshot } of communityResult) {
-    for (const entry of snapshot.entries) communityEntries.set(entry.postCid, entry);
+    for (const entry of snapshot.entries) communityEntries.set(entry.postCid, { ...entry, key: snapshot.community });
   }
   const models: Model[] = [
     demoEntry,
