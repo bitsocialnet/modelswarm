@@ -94,8 +94,11 @@ def http_source(root, *, corrupt=False, delay=0):
 
 
 @contextmanager
-def peers(manifest, source, listen="127.0.0.1"):
-    session = lt.session({**session_settings(False, 0), "listen_interfaces": f"{listen}:0"})
+def peers(manifest, source, listen="127.0.0.1", *, connections=None):
+    settings = {**session_settings(False, 0), "listen_interfaces": f"{listen}:0"}
+    if connections is not None:
+        settings["alert_mask"] |= int(lt.alert.category_t.connect_notification)
+    session = lt.session(settings)
     handles = []
     try:
         for entry in manifest["files"]:
@@ -114,6 +117,9 @@ def peers(manifest, source, listen="127.0.0.1"):
             time.sleep(0.02)
         yield f"{listen}:{session.listen_port()}", handles
     finally:
+        if connections is not None:
+            connections.extend(alert.endpoint for alert in session.pop_alerts()
+                               if isinstance(alert, lt.peer_connect_alert))
         session.pause()
         for handle in handles:
             session.remove_torrent(handle)
@@ -339,6 +345,18 @@ print(json.dumps({'snapshot':snapshot,'file':file}))
             self.assertGreater(sum(handle.status().total_payload_upload for handle in handles), 0)
             self.command("verify", self.manifest, pulled["snapshot"], "--file", "weights.gguf", "--file", "shards/part.safetensors")
 
+    def test_periodic_checkpoint_keeps_the_peer_connection_open(self):
+        gguf(self.source / "weights.gguf", 12 * MIB + 319)
+        self.make()
+        connections = []
+        with peers(json.loads(self.manifest.read_text()), self.source, connections=connections) as (peer, _):
+            pulled, logs = self.pull("--peer", peer, "--file", "weights.gguf",
+                                     "--rate-limit", str(3 * MIB), "--checkpoint-interval", "1")
+        checkpoints = [json.loads(line) for line in logs.splitlines() if line.startswith('{"event": "checkpoint_saved"')]
+        self.assertGreaterEqual(sum(event["reason"] == "periodic" for event in checkpoints), 2, logs)
+        self.assertEqual(len(connections), 1, logs)
+        self.command("verify", self.manifest, pulled["snapshot"], "--file", "weights.gguf")
+
     def test_mixed_peer_and_http_pull(self):
         gguf(self.source / "weights.gguf", 32 * MIB + 319)
         with http_source(self.source, delay=0.01) as (url, requests):
@@ -443,8 +461,7 @@ print(json.dumps({'snapshot':snapshot,'file':file}))
             resumed, logs = self.pull("--file", "weights.gguf")
             completions = [json.loads(line) for line in logs.splitlines() if line.startswith('{"event": "file_complete"')]
             checkpoints = [json.loads(line) for line in logs.splitlines() if line.startswith('{"event": "checkpoint_saved"')]
-            # Periodic pause/resume resets payload counters; completion flushes
-            # without resuming, so the recovered-byte assertion remains valid.
+            # A fresh native session reports only bytes fetched by this pull.
             self.assertEqual([event["reason"] for event in checkpoints], ["complete"])
             self.assertLess(completions[0]["payload_bytes_since_resume"], 32 * MIB + 319)
             self.command("verify", self.manifest, resumed["snapshot"], "--file", "weights.gguf")

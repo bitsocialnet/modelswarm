@@ -11,7 +11,7 @@ import styles from './release.module.css';
 
 const upstream = 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/tree/9217f5db79a29953eb74d5343926648285ec7e67';
 const command = `cli/.venv/bin/modelswarm pull '${release.release_uri}' \\
-  --peer ${release.peer} --no-discovery --timeout 900 --checkpoint-interval 900`;
+  --peer ${release.peer} --no-discovery`;
 
 function Release() {
   const [copyStatus, setCopyStatus] = useState('');
