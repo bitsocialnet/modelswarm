@@ -1,0 +1,16 @@
+{
+  "publisher": "12D3KooWLDSJmW2hUDJE5sp4y8U2tDCRMrEPDWDY1FWi6smWnwuD",
+  "release_cid": "QmcPamZL9ay3ExRPuCEjermJajQvVLji7pt99ACfYzRUG8",
+  "release_uri": "pkc://12D3KooWLDSJmW2hUDJE5sp4y8U2tDCRMrEPDWDY1FWi6smWnwuD/modelswarm/qwen2.5-0.5b-instruct-gguf@q4-k-m-v1#QmcPamZL9ay3ExRPuCEjermJajQvVLji7pt99ACfYzRUG8",
+  "peer": "159.195.210.230:51413",
+  "files": [
+    {
+      "path": "LICENSE",
+      "size": 11343
+    },
+    {
+      "path": "qwen2.5-0.5b-instruct-q4_k_m.gguf",
+      "size": 491400032
+    }
+  ]
+}

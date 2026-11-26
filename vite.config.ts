@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -34,6 +35,12 @@ export default defineConfig({
     port: 5191,
   },
   build: {
+    rolldownOptions: {
+      input: {
+        home: fileURLToPath(new URL('./index.html', import.meta.url)),
+        release: fileURLToPath(new URL('./release.html', import.meta.url)),
+      },
+    },
     outDir: 'build',
     emptyOutDir: true,
   },

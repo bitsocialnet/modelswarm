@@ -1,0 +1,12 @@
+**
+!cli/
+!cli/pyproject.toml
+!cli/src/
+!cli/src/**
+cli/src/**/node_modules
+cli/src/**/.yarn
+cli/src/**/__pycache__
+cli/src/*.egg-info
+!cli/demo/
+!cli/demo/*.mjs
+!cli/demo/*.py

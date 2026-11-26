@@ -1,4 +1,4 @@
-import { doc, REPO } from '../data/content';
+import { doc } from '../data/content';
 import { PullTerminal } from '../components/pull-terminal/pull-terminal';
 import styles from './hero.module.css';
 
@@ -16,14 +16,14 @@ export function Hero() {
           </p>
           <p className={styles.stage}>
             <span className={styles.stageMark} aria-hidden='true' />
-            ModelSwarm has an experimental CLI, signed publisher releases and a local Hugging Face endpoint. Public hosting and the full hub remain.
+            Try the experimental CLI or inspect the first signed release served by a public swarm.
           </p>
           <div className={styles.actions}>
             <a className='button button-primary' href={doc('README.md#getting-started')}>
               Try ModelSwarm
             </a>
-            <a className='button' href={REPO}>
-              Contribute on GitHub
+            <a className='button' href='./release.html'>
+              View the signed release
             </a>
           </div>
         </div>

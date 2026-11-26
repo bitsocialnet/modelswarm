@@ -1,0 +1,50 @@
+name: modelswarm-demo
+services:
+  kubo:
+    image: ipfs/kubo:v0.43.1
+    restart: unless-stopped
+    environment:
+      IPFS_PROFILE: server
+      IPFS_ANNOUNCE: ${DEMO_IPFS_ANNOUNCE:?Set the public swarm multiaddr}
+    ports:
+      - '4401:4001/tcp'
+    volumes:
+      - kubo:/data/ipfs
+      - ./kubo-init.sh:/container-init.d/010-modelswarm.sh:ro
+      - '${DEMO_FILES:?Set the demo files directory}:/demo:ro'
+    healthcheck:
+      test: ['CMD', 'ipfs', 'swarm', 'peers']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  publisher:
+    image: modelswarm-demo:local
+    build:
+      context: ../..
+      dockerfile: cli/demo/Dockerfile
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      KUBO_API: http://kubo:5001/api/v0
+      PKC_DATA_PATH: /data
+      PKC_RPC_HOST: 0.0.0.0
+    volumes:
+      - publisher:/data
+      - '${DEMO_FILES:?Set the demo files directory}:/demo:ro'
+    command: ['node', 'cli/demo/node.mjs']
+    depends_on:
+      kubo:
+        condition: service_healthy
+  seeder:
+    image: modelswarm-demo:local
+    restart: unless-stopped
+    depends_on:
+      - publisher
+    ports:
+      - '51413:51413/tcp'
+    volumes:
+      - '${DEMO_FILES:?Set the demo files directory}:/demo:ro'
+    command: ['python', 'cli/demo/seed.py', '/demo/signed-manifest.json', '/demo/model']
+volumes:
+  kubo:
+  publisher:
