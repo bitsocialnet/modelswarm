@@ -81,6 +81,8 @@ The signed CLI/profile slice is implemented; see [evidence and remaining scope](
 
 ### 5. Hubs and search
 
+- [x] A self-hostable web catalogue with a signed demo, public torrent imports that retain their original infohashes, and search by name, format and size.
+- [x] Export signed releases and replies from a followed Bitsocial community to a local static index.
 - [ ] Crosspost a release into a hub; replies and votes in the web client.
 - [ ] Hub lists in the client settings.
 - [ ] Manifest parsing in `bitsocial-indexer`, with filters for base model, format, quantization, license and size.

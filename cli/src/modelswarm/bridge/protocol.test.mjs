@@ -5,7 +5,7 @@ import { CID } from 'multiformats/cid';
 import { of as ipfsHash } from 'typestub-ipfs-only-hash';
 import {
   RELEASE_SCHEMA, MAX_CARD_BYTES, MAX_RECORD_BYTES,
-  encodeRelease, parsePublisher, parseRelease, verifyRelease,
+  encodeRelease, parsePublisher, parseRelease, verifyDiscussion, verifyRelease,
 } from './protocol.mjs';
 
 let pkc;
@@ -43,6 +43,36 @@ async function fixture(options = {}) {
   assert.ok(publication.raw.pubsubMessageToPublish, 'SDK must sign the supplied community key locally');
   return { ...structuredClone(publication.raw.pubsubMessageToPublish), depth: 0 };
 }
+
+async function discussion({ depth, ...options }) {
+  const publication = await pkc.createComment({ signer: other, communityPublicKey: other.address, ...options });
+  const result = await withCid({ ...structuredClone(publication.raw.pubsubMessageToPublish), depth });
+  return { ...result, community: other.address };
+}
+
+test('a signed native crosspost cannot substitute its unsigned embedded release', async () => {
+  const comment = await fixture();
+  const { cid } = await withCid(comment);
+  const valid = await discussion({ depth: 0, crosspost: { cid, comment } });
+  const verified = await verifyDiscussion(valid);
+  assert.equal(verified.publisher, signer.address);
+  assert.equal(verified.releaseCid, cid);
+  assert.equal(verified.postCid, valid.cid);
+
+  const modified = { ...comment, content: encodeRelease({ ...release, version: 'imposter' }) };
+  const modifiedCid = (await withCid(modified)).cid;
+  const invalid = await discussion({ depth: 0, crosspost: { cid: modifiedCid, comment: modified } });
+  await assert.rejects(verifyDiscussion(invalid), /signature verification failed/);
+});
+
+test('signed discussion replies are bound to the original thread and signer', async () => {
+  const parent = await ipfsHash('the crosspost');
+  const reply = await discussion({ depth: 1, parentCid: parent, postCid: parent, content: 'From the reader' });
+  const verified = await verifyDiscussion({ ...reply, parent });
+  assert.equal(verified.author, other.address);
+  assert.equal(verified.text, 'From the reader');
+  await assert.rejects(verifyDiscussion({ ...reply, parent: await ipfsHash('different thread') }), /different thread/);
+});
 
 test('native PKC signed release verifies from exact bytes without trusting runtime labels', async () => {
   const args = await withCid(await fixture());

@@ -1,12 +1,23 @@
-import { StrictMode } from 'react';
+import { StrictMode, Suspense, use, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/oxanium/index.css';
 import '@fontsource-variable/red-hat-mono/index.css';
 import './index.css';
 import { Topbar } from './components/topbar/topbar';
-import { demoModel } from './data/demo-model';
 import { Footer } from './sections/footer';
-import styles from './release.module.css';
+import { doc } from './data/content';
+import { demoModel } from './data/demo-model';
+import { demoEntry, formatBytes, formatCount, loadCatalogue, type Model } from './data/catalogue';
+import styles from './catalogue.module.css';
+
+const pageSize = 30;
+const catalogue = loadCatalogue().catch(() => null);
+
+const SOURCE = {
+  demo: 'Signed demo',
+  import: 'Pirate Face index',
+  community: 'Signed release',
+};
 
 function Catalogue() {
   return (
@@ -15,29 +26,295 @@ function Catalogue() {
         Skip to content
       </a>
       <Topbar catalogue />
-      <main className={`wrap ${styles.main}`} id='main'>
-        <header className={styles.intro}>
-          <h1>Models</h1>
-          <p>Browse signed releases of open-weight models.</p>
-        </header>
-        <article className={styles.catalogueEntry}>
+      <main id='main'>
+        <header className={`wrap ${styles.intro}`}>
           <div>
-            <h2>
-              <a href={demoModel.page}>{demoModel.title}</a>
-            </h2>
-            <p>{demoModel.description}</p>
-            <p className={styles.catalogueMeta}>
-              {demoModel.format} · {demoModel.quantization} · {demoModel.size} · {demoModel.license}
-            </p>
-            <p className={styles.catalogueMeta}>Signed by the {demoModel.publisher}</p>
+            <h1>Open-weight models</h1>
+            <p>Find model weights and download from existing BitTorrent swarms. Run your own catalogue and choose the communities you follow.</p>
           </div>
-          <a className='button' href={demoModel.page}>
-            View release
+          <a href='#self-host' className={styles.introLink}>
+            Run your own catalogue
           </a>
-        </article>
+        </header>
+        <section className={`wrap ${styles.browse}`} aria-labelledby='browse-title'>
+          <Suspense fallback={<ModelDirectory models={[demoEntry]} loading />}>
+            <LoadedDirectory />
+          </Suspense>
+        </section>
+        <section className={`wrap ${styles.explain}`} id='self-host' aria-labelledby='self-host-title'>
+          <h2 id='self-host-title'>Your catalogue. The same swarms.</h2>
+          <div className={styles.explainGrid}>
+            <div>
+              <h3>Keep seeding</h3>
+              <p>
+                Imported magnets retain their original infohashes. If your torrent client already has the files, leave it seeding. Anyone opening the same magnet can join
+                that swarm.
+              </p>
+            </div>
+            <div>
+              <h3>Run your own instance</h3>
+              <p>Host the static site and build your own index from public torrent snapshots and the Bitsocial communities you choose.</p>
+            </div>
+            <div>
+              <h3>Publish and discuss</h3>
+              <p>
+                Publishers sign releases from their own Bitsocial profiles. Communities can share those releases, set their own rules and discuss them using their own
+                nodes.
+              </p>
+            </div>
+          </div>
+          <div className={styles.explainLinks}>
+            <a className='button' href={doc('catalogue/README.md')}>
+              Self-hosting guide
+            </a>
+            <a href='./#how'>How ModelSwarm works</a>
+          </div>
+        </section>
       </main>
       <Footer />
     </>
+  );
+}
+
+function LoadedDirectory() {
+  const snapshot = use(catalogue);
+  return <ModelDirectory models={snapshot?.models ?? [demoEntry]} observedAt={snapshot?.observedAt} failed={!snapshot} />;
+}
+
+function ModelDirectory({ models, observedAt, loading, failed }: { models: Model[]; observedAt?: string; loading?: boolean; failed?: boolean }) {
+  const [query, setQuery] = useState('');
+  const [format, setFormat] = useState('');
+  const [limit, setLimit] = useState('');
+  const [order, setOrder] = useState('catalogue');
+  const [visible, setVisible] = useState(pageSize);
+  const words = query.trim().toLowerCase().split(/\s+/);
+  const matches = models.filter((model) => {
+    const haystack = `${model.name} ${model.format} ${model.license} ${model.community?.publisher ?? ''}`.toLowerCase();
+    return (!format || model.format === format) && (!limit || (model.bytes !== null && model.bytes <= Number(limit))) && words.every((word) => haystack.includes(word));
+  });
+  if (order === 'seeders') matches.sort((a, b) => (b.seeders ?? -1) - (a.seeders ?? -1));
+  if (order === 'size') matches.sort((a, b) => (a.bytes ?? Infinity) - (b.bytes ?? Infinity));
+  const formats = Array.from(new Set(models.map((model) => model.format))).sort();
+
+  return (
+    <>
+      <div className={styles.directoryHeading}>
+        <h2 id='browse-title'>Catalogue</h2>
+        <p role='status'>{loading ? 'Loading index…' : `${formatCount(matches.length)} ${matches.length === 1 ? 'model' : 'models'}`}</p>
+      </div>
+      <search className={styles.filters} aria-label='Model catalogue'>
+        <label className={styles.search}>
+          <span>Search models</span>
+          <input
+            type='search'
+            value={query}
+            placeholder='Search by model, publisher or license'
+            disabled={loading}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setVisible(pageSize);
+            }}
+          />
+        </label>
+        <label>
+          <span>Format</span>
+          <select
+            value={format}
+            disabled={loading}
+            onChange={(event) => {
+              setFormat(event.target.value);
+              setVisible(pageSize);
+            }}
+          >
+            <option value=''>All formats</option>
+            {formats.map((value) => (
+              <option key={value}>{value}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Download size</span>
+          <select
+            value={limit}
+            disabled={loading}
+            onChange={(event) => {
+              setLimit(event.target.value);
+              setVisible(pageSize);
+            }}
+          >
+            <option value=''>Any size</option>
+            <option value='1000000000'>Up to 1 GB</option>
+            <option value='10000000000'>Up to 10 GB</option>
+            <option value='50000000000'>Up to 50 GB</option>
+          </select>
+        </label>
+        <label>
+          <span>Sort by</span>
+          <select
+            value={order}
+            disabled={loading}
+            onChange={(event) => {
+              setOrder(event.target.value);
+              setVisible(pageSize);
+            }}
+          >
+            <option value='catalogue'>Catalogue order</option>
+            <option value='seeders'>Most seeders</option>
+            <option value='size'>Smallest first</option>
+          </select>
+        </label>
+      </search>
+      {failed && (
+        <p className={styles.note} role='status'>
+          The index could not load. Reload to try again.
+        </p>
+      )}
+      <p className={styles.note}>
+        Seeder counts reflect the last observation{observedAt ? ` (${observedAt.slice(0, 10)})` : ''}. Open magnets or torrent files in your BitTorrent client.
+      </p>
+      {matches.length ? (
+        <>
+          <div className={styles.columnHeads} aria-hidden='true'>
+            <span>Model / source</span>
+            <span>Format</span>
+            <span>Size</span>
+            <span>Seeders</span>
+            <span>Download</span>
+          </div>
+          <ul className={styles.results} aria-label='Models'>
+            {matches.slice(0, visible).map((model) => (
+              <ModelRow key={model.id} model={model} />
+            ))}
+          </ul>
+          {visible < matches.length && (
+            <button className={`${styles.more} button`} type='button' onClick={() => setVisible((count) => count + pageSize)}>
+              Show more models
+            </button>
+          )}
+        </>
+      ) : (
+        <p className={styles.empty}>No models match. Try a shorter search or change the filters.</p>
+      )}
+    </>
+  );
+}
+
+function ModelRow({ model }: { model: Model }) {
+  const discussion = useRef<HTMLDetailsElement>(null);
+  return (
+    <li className={styles.row}>
+      <div className={styles.rowGrid}>
+        <div className={styles.modelName}>
+          <h3>{model.kind === 'demo' ? <a href={demoModel.page}>{model.name}</a> : model.name}</h3>
+          <p>
+            <span className={model.kind === 'import' ? undefined : styles.verified}>{SOURCE[model.kind]}</span>
+            {' · '}
+            {model.license}
+          </p>
+        </div>
+        <p className={styles.metric}>
+          <span>Format</span>
+          {model.format}
+        </p>
+        <p className={styles.metric}>
+          <span>Size</span>
+          {formatBytes(model.bytes)}
+        </p>
+        <p className={`${styles.metric} ${styles.seeders}`}>
+          <span>Seeders</span>
+          {model.seeders === null ? 'Unknown' : formatCount(model.seeders)}
+        </p>
+        <div className={styles.download}>
+          {model.community && (
+            <a
+              className='button'
+              href={`#${model.id}`}
+              onClick={() => {
+                if (discussion.current) discussion.current.open = true;
+              }}
+            >
+              View files
+            </a>
+          )}
+          {model.download && (
+            <a className='button' href={model.download} download={model.kind === 'demo' ? true : undefined}>
+              {model.kind === 'demo' ? 'Download torrent' : 'Open magnet'}
+            </a>
+          )}
+        </div>
+      </div>
+      {model.kind === 'import' && (
+        <details className={styles.details}>
+          <summary>Release details</summary>
+          <p>Magnet indexed by Pirate Face. Check publisher provenance and terms at the original source.</p>
+          {model.peerOnly && (
+            <p>
+              <a href={model.peerOnly}>Open peer-only magnet</a> · Uses DHT without Pirate Face’s tracker
+            </p>
+          )}
+          {model.revision && (
+            <p>
+              Source revision <code>{model.revision}</code>
+            </p>
+          )}
+          <p>
+            <a href={`https://pirateface.co/${model.name.split('/').map(encodeURIComponent).join('/')}`}>Pirate Face listing</a>
+            {model.upstream?.startsWith('https://') && (
+              <>
+                {' '}
+                · <a href={model.upstream}>Original source</a>
+              </>
+            )}
+          </p>
+        </details>
+      )}
+      {model.community && (
+        <details className={styles.details} id={model.id} ref={discussion}>
+          <summary>Files and discussion ({model.community.replies.length})</summary>
+          <p>
+            Version {model.community.version} · Signed by <code>{model.community.publisher}</code>
+          </p>
+          <p>
+            Release CID <code>{model.community.releaseCid}</code>
+          </p>
+          <ul>
+            {model.community.files.map((file) => (
+              <li key={file.path}>
+                <strong>{file.path}</strong> · {formatBytes(file.bytes)}
+                {file.torrent?.startsWith('./community-torrents/') && (
+                  <>
+                    {' '}
+                    ·{' '}
+                    <a href={file.torrent} download>
+                      Download torrent
+                    </a>
+                  </>
+                )}
+                {file.https?.startsWith('https://') && (
+                  <>
+                    {' '}
+                    · <a href={file.https}>Download over HTTPS</a>
+                  </>
+                )}
+                <p>
+                  SHA-256 <code>{file.sha256}</code>
+                </p>
+              </li>
+            ))}
+          </ul>
+          <p>
+            Community post <code>{model.community.postCid}</code>
+          </p>
+          {model.community.replies.map((reply) => (
+            <blockquote key={reply.cid}>
+              <p>{reply.text}</p>
+              <footer>{reply.author}</footer>
+            </blockquote>
+          ))}
+          <a href={doc('catalogue/README.md#publish-and-discuss-in-a-community')}>Reply from your node</a>
+        </details>
+      )}
+    </li>
   );
 }
 

@@ -2,13 +2,21 @@
 
 # ModelSwarm
 
-**ModelSwarm is an idea for a hub of open-weight AI models that nobody owns.** The name means models distributed by a swarm of peers, as in a BitTorrent swarm, so no company has to host them. Publishers sign their releases from their own Bitsocial profile, and every piece of every file is checked against the signed release as it downloads. No company decides which models are listed, which stay available or what can be said about them.
+**Find, download and seed open-weight AI models from a catalogue you can run yourself.** The name comes from BitTorrent swarms, where peers share the model files. ModelSwarm can list existing torrents by their original infohash, so people using different catalogues can still download from and seed to each other.
 
-> **Status: experimental CLI.** The landing page, [download-engine prototype](prototypes/download-engine/README.md), and [manifest/CLI milestone](cli/README.md) exist. `make`, `verify` and `pull` work with unsigned local manifests, v2 peers/HTTP, format checks, checkpoint recovery and verified cache snapshots. The [local Hugging Face endpoint](cli/ENDPOINT.md) serves these manifests and verified public upstream fallback, tested with the SDK. The [signed release prototype](cli/RELEASES.md) adds local keys, publisher profile setup, publishing, profile/CID pulls and endpoint registration, tested with a real PKC node. The [web catalogue](https://modelswarm.org/catalogue.html) lists the signed Qwen demo with BitTorrent v2 and HTTPS downloads. Hosted defaults, broader network testing, search and desktop client remain; [roadmap.md](roadmap.md) tracks the remaining work. It fits [Phase 5 of the Bitsocial master plan](https://bitsocial.net/#master-plan-phase-5), the long tail of Bitsocial clients. Most of it needs only what Bitsocial and BitTorrent already ship, so the first milestones are not blocked by earlier phases.
+The catalogue can grow through Bitsocial. Publishers sign releases from their own profiles. Communities choose what to feature and host the discussion, and each catalogue operator chooses which communities to follow. The website, index and Bitsocial node can all run on your own infrastructure.
+
+> **Status.** The [web catalogue](https://modelswarm.org/catalogue.html) has the signed Qwen demo and an attributed preview of public Pirate Face torrents. The [self-hosting guide](catalogue/README.md) covers local snapshots and community releases. The [experimental CLI](cli/README.md) verifies signed releases piece by piece and has a [local Hugging Face endpoint](cli/ENDPOINT.md) tested with the SDK. See the [roadmap](roadmap.md) for remaining work.
 
 > **Credit.** ModelSwarm builds on [HuggingSocial](https://github.com/Rinse12/huggingsocial) ([huggingsocial.co](https://huggingsocial.co/)), the original design by Bitsocial developer [Rinse12](https://github.com/Rinse12). Most of the architecture comes from it: Bitsocial for releases and discussion, BitTorrent and HTTP mirrors for the weights, signed manifests checked on the reader's machine, hubs, indexers, the command line and the local Hugging Face endpoint. ModelSwarm changes where releases live, how downloads are verified, how formats that can run code are handled and how models that are only on Hugging Face are covered; see [Prior Art](#prior-art).
 
 ## Getting started
+
+1. Open the [model catalogue](https://modelswarm.org/catalogue.html) and search for a model. Choose **Open magnet** or **Download torrent** and use your BitTorrent client. The [signed Qwen demo](https://modelswarm.org/release.html) also has a direct HTTPS download.
+2. Already seeding an imported torrent? Keep it running in your existing client. The matching infohash puts ModelSwarm users in the same swarm.
+3. To browse from your own domain or localhost, [build a local catalogue](catalogue/README.md) from a saved export and the Bitsocial communities you choose.
+
+### Verify the demo from the CLI
 
 Download and verify Qwen2.5-0.5B-Instruct in Q4_K_M GGUF format (491 MB, Apache-2.0). This quickstart uses a pinned Hugging Face mirror and requires Git, [uv](https://docs.astral.sh/uv/getting-started/installation/), and at least 2 GB of free disk space. It needs no account or RPC connection.
 
@@ -68,7 +76,7 @@ ModelSwarm has no such party, because its list and its discussion are [Bitsocial
 
 A project that only moves files cannot add these two without first building a peer-to-peer social network. Bitsocial is that network. [Radicle](https://radicle.xyz/), which is peer-to-peer Git, is the nearest: it has no central list either, and has announced but not shipped support for model weights.
 
-The dependency runs both ways. ModelSwarm has an experimental CLI and one public demo release. These two properties are worth only as much as the publishers and communities that are on Bitsocial. ModelSwarm grows with Bitsocial, not ahead of it.
+An independent catalogue can start with existing public swarms. For ongoing discovery and discussion it can read the communities its operator follows. Each hub can moderate its own listings, while the underlying signed releases remain independently addressable by CID.
 
 ## Checked While It Downloads
 
@@ -78,7 +86,7 @@ ModelSwarm releases carry what [BitTorrent v2](https://www.bittorrent.org/beps/b
 
 - every piece is verified when it arrives, and a bad one is thrown away and fetched again from another source;
 - the check is the same whether the piece came from a torrent peer or an HTTP mirror, so Hugging Face or any other mirror can serve the bytes without being trusted;
-- the same file always has the same root, in any torrent and any release, so identical files share seeders.
+- the same file always has the same root, in any torrent and any release, so clients can recognise identical files across releases. Standard BitTorrent clients share seeders when the torrent infohash matches.
 
 See [how-it-could-work.md](how-it-could-work.md#verification).
 

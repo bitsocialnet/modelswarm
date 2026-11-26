@@ -8,3 +8,7 @@ build/
 .env*
 .playwright-cli/
 /.cursor/
+/src/data/pirateface-index.json
+/src/data/community-*.json
+/public/community-torrents/
+/catalogue/__pycache__/

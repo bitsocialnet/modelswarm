@@ -121,36 +121,8 @@
   margin-bottom: 0.85rem;
 }
 
-.downloadHelp,
-.catalogueMeta {
+.downloadHelp {
   font-size: 0.8125rem;
-}
-
-.catalogueEntry {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.15rem 2rem;
-  margin-top: 2.5rem;
-  padding: 1.5rem 0;
-  border-block: 1px solid var(--rule);
-}
-
-.catalogueEntry > div {
-  flex: 1 1 28rem;
-  min-width: 0;
-}
-
-.catalogueEntry h2 {
-  font-size: clamp(1.5rem, 5vw, 2.05rem);
-  margin-bottom: 0.35rem;
-  overflow-wrap: anywhere;
-}
-
-.catalogueMeta {
-  margin-top: 0.45rem;
-  color: var(--dim);
 }
 
 @media (max-width: 40rem) {

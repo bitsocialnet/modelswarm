@@ -3,7 +3,7 @@ import { Logo } from '../logo/logo';
 import styles from './topbar.module.css';
 
 const LINKS = [
-  { href: './#how', label: 'How it works' },
+  { href: './#how', label: 'How it works', primary: true },
   { href: './#compare', label: 'Compared' },
   { href: './#roadmap', label: 'Roadmap' },
 ];
@@ -21,7 +21,7 @@ export function Topbar({ catalogue = false }: { catalogue?: boolean }) {
             Models
           </a>
           {LINKS.map((link) => (
-            <a key={link.href} className={styles.link} href={link.href}>
+            <a key={link.href} className={link.primary ? styles.about : styles.link} href={link.href}>
               {link.label}
             </a>
           ))}

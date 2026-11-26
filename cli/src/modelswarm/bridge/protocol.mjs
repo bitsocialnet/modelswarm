@@ -21,6 +21,7 @@ const PUBLICATION_FIELDS = new Set([
   'link', 'linkWidth', 'linkHeight', 'linkHtmlTagName', 'quotedCids', 'gallery',
 ]);
 const RUNTIME_AUTHOR_FIELDS = new Set(['address', 'publicKey', 'shortAddress', 'community', 'nameResolved']);
+const DISCUSSION_FIELDS = new Set([...PUBLICATION_FIELDS, 'crosspost', 'parentCid', 'postCid']);
 
 function invalid(message) {
   throw new Error(`Invalid ModelSwarm release: ${message}`);
@@ -173,6 +174,36 @@ function base64(value, length, label) {
  */
 export async function verifyRelease({ rawComment, cid, publisher }) {
   parsePublisher(publisher);
+  const { comment, author } = await verifyPublication(rawComment, cid, publisher, {
+    fields: PUBLICATION_FIELDS, required: REQUIRED_SIGNED, depth: 0,
+  });
+  if (author !== publisher) invalid('signature identity does not match publisher');
+  const release = parseRelease(comment.content);
+  return { cid, publisher: author, release, comment };
+}
+
+export async function verifyDiscussion({ rawComment, cid, community, parent }) {
+  const required = ['communityPublicKey', 'timestamp', 'protocolVersion',
+    ...(parent ? ['parentCid', 'postCid', 'content'] : ['crosspost'])];
+  const { author, comment } = await verifyPublication(rawComment, cid, community, {
+    fields: DISCUSSION_FIELDS, required, depth: parent ? 1 : 0,
+  });
+  if (parent) {
+    if (comment.parentCid !== parent || comment.postCid !== parent) invalid('reply belongs to a different thread');
+    string(comment.content, 'reply text');
+    if (!comment.content.trim() || Buffer.byteLength(comment.content) > 4096) invalid('reply must contain up to 4 KiB of text');
+    return { cid, author, text: comment.content, timestamp: comment.timestamp };
+  }
+  exactKeys(comment.crosspost, ['cid', 'comment'], 'crosspost');
+  const original = comment.crosspost.comment;
+  object(original, 'crossposted release');
+  const { release, publisher } = await verifyRelease({
+    rawComment: JSON.stringify(original), cid: comment.crosspost.cid, publisher: original.communityPublicKey,
+  });
+  return { postCid: cid, releaseCid: comment.crosspost.cid, publisher, release };
+}
+
+async function verifyPublication(rawComment, cid, community, { fields, required, depth }) {
   const expectedCid = cidValue(cid, 'release CID');
   if (expectedCid.code !== 0x70 || expectedCid.multihash.code !== 0x12) invalid('release CID must use DAG-PB and SHA-256');
   if (typeof rawComment !== 'string' && !Buffer.isBuffer(rawComment)) invalid('rawComment must contain exact UTF-8 bytes');
@@ -186,10 +217,10 @@ export async function verifyRelease({ rawComment, cid, publisher }) {
   const comment = parseJson(text, 'comment');
   object(comment, 'comment');
   for (const key of Object.keys(comment)) {
-    if (key !== 'signature' && !PUBLICATION_FIELDS.has(key) && !COMMUNITY_FIELDS.has(key)) invalid(`unsupported comment field ${key}`);
+    if (key !== 'signature' && !fields.has(key) && !COMMUNITY_FIELDS.has(key)) invalid(`unsupported comment field ${key}`);
   }
-  if (comment.depth !== 0) invalid('release must be a top-level post with depth 0');
-  if (comment.communityPublicKey !== publisher) invalid('signed communityPublicKey does not match publisher');
+  if (comment.depth !== depth) invalid(`publication must have depth ${depth}`);
+  if (comment.communityPublicKey !== community) invalid('signed communityPublicKey does not match publisher or community');
   if (!Number.isSafeInteger(comment.timestamp) || comment.timestamp < 0) invalid('timestamp must be a nonnegative integer');
   if (typeof comment.protocolVersion !== 'string' || !/^\d+\.\d+\.\d+$/.test(comment.protocolVersion)) invalid('invalid PKC protocolVersion');
   for (const field of ['title', 'communityName', 'link', 'linkHtmlTagName']) {
@@ -207,20 +238,18 @@ export async function verifyRelease({ rawComment, cid, publisher }) {
   if (!Array.isArray(signed) || signed.some((name) => typeof name !== 'string') || new Set(signed).size !== signed.length) {
     invalid('signedPropertyNames must contain unique field names');
   }
-  if (REQUIRED_SIGNED.some((key) => !signed.includes(key))) invalid('signature does not cover all required release fields');
+  if (required.some((key) => !signed.includes(key))) invalid('signature does not cover all required release fields');
   for (const key of signed) {
-    if (!PUBLICATION_FIELDS.has(key) || !Object.hasOwn(comment, key) || comment[key] === null) invalid(`invalid signed property ${key}`);
+    if (!fields.has(key) || !Object.hasOwn(comment, key) || comment[key] === null) invalid(`invalid signed property ${key}`);
   }
   for (const key of Object.keys(comment)) {
-    if (PUBLICATION_FIELDS.has(key) && !signed.includes(key)) invalid(`unsigned publication field ${key}`);
+    if (fields.has(key) && !signed.includes(key)) invalid(`unsigned publication field ${key}`);
   }
-  const derivedPublisher = peerIdFromPublicKey(publicKeyFromRaw(publicKey)).toString();
-  if (derivedPublisher !== publisher) invalid('signature identity does not match publisher');
+  const author = peerIdFromPublicKey(publicKeyFromRaw(publicKey)).toString();
   const signedObject = Object.fromEntries(signed.map((key) => [key, comment[key]]));
   const key = createPublicKey({ key: Buffer.concat([ED25519_SPKI_PREFIX, publicKey]), format: 'der', type: 'spki' });
   // PKC signs the CBOR-encoded listed properties. Native Ed25519 verification is
   // intentionally fail-closed for noncanonical signatures accepted by ZIP215.
   if (!verify(null, encode(signedObject), key, signature)) invalid('Ed25519 signature verification failed');
-  const release = parseRelease(comment.content);
-  return { cid, publisher: derivedPublisher, release, comment };
+  return { comment, author };
 }

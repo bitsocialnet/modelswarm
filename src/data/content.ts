@@ -115,10 +115,14 @@ export const STEPS: Step[] = [
   },
   {
     title: 'Publishing and reading releases',
-    body: 'The public demo has a signed publisher profile, peer-only downloads and a release page. Hosted onboarding and a catalogue remain.',
+    body: 'The public demo has a signed publisher profile, peer-only downloads and a release page. Hosted onboarding remains.',
     estimate: 'CLI prototype complete',
   },
-  { title: 'Hubs and search', body: 'Curated boards with discussion, and search across several indexers.', estimate: '2–3 weeks' },
+  {
+    title: 'Hubs and search',
+    body: 'The self-hosted catalogue searches imported magnets and community releases. Browser posting and live search across several indexers are planned.',
+    estimate: '2–3 weeks',
+  },
   { title: 'Desktop client', body: 'One app with a node, a torrent engine and the local endpoint.', estimate: '3–4 weeks' },
 ];
 

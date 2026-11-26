@@ -3,7 +3,7 @@
 import PKC, { createAnchorIpnsRecord } from '@pkcprotocol/pkc-js';
 import { CID } from 'multiformats/cid';
 import { of as ipfsHash } from 'typestub-ipfs-only-hash';
-import { encodeRelease, parsePublisher, verifyRelease } from './protocol.mjs';
+import { encodeRelease, parsePublisher, verifyDiscussion, verifyRelease } from './protocol.mjs';
 
 class RequestError extends Error {}
 const fail = (message) => { throw new RequestError(message); };
@@ -110,6 +110,65 @@ async function discover(publisher,name,version) {
   matches.sort((a,b)=>a.cid.localeCompare(b.cid));
   return matches[0];
 }
+
+async function publishDiscussion(community, privateKey, fields, parent) {
+  // The publisher's release is embedded as a native PKC crosspost and must
+  // still fit the native publication limit once wrapped in the new signature.
+  if (fields.crosspost && Buffer.byteLength(JSON.stringify(fields)) > 37000) fail('Release is too large to crosspost');
+  const author = await signer(privateKey);
+  const comment = await pkc.createComment({ signer: author, communityPublicKey: community, ...fields });
+  resources.push(comment);
+  comment.once('challenge', () => {
+    comment.emit('error', new RequestError('The community requires an unsupported publishing challenge'));
+  });
+  const verification = await event(comment, 'challengeverification', () => comment.publish());
+  if (!verification?.challengeSuccess || !comment.cid) fail('The community rejected publication');
+  return readDiscussion(comment.cid, community, parent);
+}
+
+async function readDiscussion(cid, community, parent) {
+  CID.parse(cid);
+  const { content: rawComment } = await pkc.fetchCid({ cid });
+  return verifyDiscussion({ rawComment, cid, community, parent });
+}
+
+async function discussionFeed(community) {
+  const profile = await loadProfile(community);
+  const entries = [];
+  const seen = new Set();
+  let page = profile.posts?.pages?.new;
+  let next = profile.posts?.pageCids?.new;
+  for (let count = 0; (page || next) && count < 4 && seen.size < 100 && entries.length < 32; count++) {
+    page ??= await profile.posts.getPage({ cid: next });
+    for (const candidate of page.comments) {
+      if (seen.size >= 100 || entries.length >= 32) break;
+      if (seen.has(candidate.cid)) continue;
+      seen.add(candidate.cid);
+      if (!candidate.crosspost || candidate.removed || candidate.deleted || candidate.pendingApproval) continue;
+      let entry;
+      try {
+        entry = await readDiscussion(candidate.cid, community);
+      } catch {
+        continue; // This community may carry native posts from other clients.
+      }
+      const replies = [];
+      for (const reply of (candidate.replies?.pages?.new?.comments ?? []).slice(0, 12)) {
+        if (reply.removed || reply.deleted || reply.pendingApproval) continue;
+        try {
+          replies.push(await readDiscussion(reply.cid, community, candidate.cid));
+        } catch {
+          continue;
+        }
+      }
+      const { name, version, manifest } = entry.release;
+      entries.push({ ...entry, release: { name, version, manifest }, replies });
+    }
+    next = page.nextCid;
+    page = undefined;
+  }
+  return { community, entries };
+}
+
 async function main(request) {
   const timeout=request.timeout ?? 120;
   if(!Number.isFinite(timeout)||timeout<=0||timeout>3600) fail('PKC timeout must be finite and between 0 and 3600 seconds');
@@ -126,6 +185,31 @@ async function main(request) {
     return {publisher:key.address};
   }
   await client(rpcUrl(request.rpc));
+  if (request.op === 'community-init') {
+    const owner = await signer(request.privateKey);
+    const hub = await pkc.createCommunity({
+      title: request.title, roles: { [owner.address]: { role: 'owner' } },
+      settings: { challenges: [], pages: { posts: [{ name: 'new', preloaded: true }], replies: [{ name: 'new', preloaded: true }] } },
+    });
+    hub.on('error', () => {});
+    await event(hub, 'update', () => hub.start(), () => typeof hub.updatedAt === 'number');
+    return { community: parsePublisher(hub.publicKey) };
+  }
+  if (request.op === 'community-list') return discussionFeed(parsePublisher(request.community));
+  if (request.op === 'community-share') {
+    const community = parsePublisher(request.community);
+    const original = await readRelease(request.cid, parsePublisher(request.publisher));
+    if (original.release.name !== request.name || original.release.version !== request.version) fail('Pinned release does not match the requested model and version');
+    return publishDiscussion(community, request.privateKey, { crosspost: { cid: original.cid, comment: original.comment } });
+  }
+  if (request.op === 'community-reply') {
+    const community = parsePublisher(request.community);
+    if (typeof request.text !== 'string' || !request.text.isWellFormed() || !request.text.trim() || Buffer.byteLength(request.text) > 4096) {
+      fail('Reply must contain up to 4 KiB of text');
+    }
+    const { postCid } = await readDiscussion(request.cid, community);
+    return publishDiscussion(community, request.privateKey, { parentCid: postCid, postCid, content: request.text }, postCid);
+  }
   if(request.op==='profile-init') {
     const owner=await signer(request.privateKey);
     // Creation deliberately has no signer: only the public owner identity
