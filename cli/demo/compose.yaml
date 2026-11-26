@@ -42,6 +42,7 @@ services:
       - publisher
     ports:
       - '51413:51413/tcp'
+      - '51413:51413/udp'
     volumes:
       - '${DEMO_FILES:?Set the demo files directory}:/demo:ro'
     command: ['python', 'cli/demo/seed.py', '/demo/signed-manifest.json', '/demo/model']

@@ -16,14 +16,14 @@ export function Hero() {
           </p>
           <p className={styles.stage}>
             <span className={styles.stageMark} aria-hidden='true' />
-            Try the experimental CLI or inspect the first signed release served by a public swarm.
+            Browse the model catalogue or try the experimental CLI.
           </p>
           <div className={styles.actions}>
-            <a className='button button-primary' href={doc('README.md#getting-started')}>
-              Try ModelSwarm
+            <a className='button button-primary' href='./catalogue.html'>
+              Browse models
             </a>
-            <a className='button' href='./release.html'>
-              View the signed release
+            <a className='button' href={doc('README.md#getting-started')}>
+              Try the CLI
             </a>
           </div>
         </div>

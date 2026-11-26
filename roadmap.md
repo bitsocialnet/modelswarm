@@ -74,6 +74,7 @@ After this milestone the tool is useful to one person with no network of publish
 - [x] `pull pkc://…` and `serve --release` resolve explicit publisher/version or CID-pinned releases, verify signatures and bind the manifest before downloading.
 - [ ] Mirror records v0: publish one when seeding a Hugging Face model, and check records on completed downloads.
 - [x] A [public demo publisher and release](https://modelswarm.org/release.html) serving Qwen2.5-0.5B-Instruct GGUF with the Apache-2.0 license. A separate reader verified the signed release and downloaded both files from a public BitTorrent peer.
+- [x] A [web catalogue](https://modelswarm.org/catalogue.html) with the signed Qwen entry, a BitTorrent v2 download discovered by DHT, and a pinned HTTPS fallback.
 - [ ] Web client, read-only: publisher pages, release pages with the model card, file list, format flags and sources. On the stack of 5chan and WeTube.
 
 The signed CLI/profile slice is implemented; see [evidence and remaining scope](cli/RELEASES-EVALUATION.md). It uses explicit bare publisher keys rather than unproven human-readable names. Automated tests use a private PKC/Kubo network. The demo also has a public reader check and a [reproduction guide](cli/demo/README.md). Mirror records, name proofs and the general read-only web client remain. The original 3–4 week estimate covered this broader milestone.

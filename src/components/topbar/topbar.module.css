@@ -34,11 +34,14 @@
   font-size: 0.8125rem;
 }
 
+.models,
 .link {
   color: var(--dim);
   text-decoration: none;
 }
 
+.models:hover,
+.models[aria-current='page'],
 .link:hover {
   color: var(--text);
 }
@@ -63,6 +66,10 @@
 }
 
 @media (max-width: 44rem) {
+  .nav {
+    gap: 1rem;
+  }
+
   .link {
     display: none;
   }
