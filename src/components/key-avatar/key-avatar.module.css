@@ -1,0 +1,18 @@
+.avatar {
+  flex: none;
+  display: block;
+}
+
+.ground {
+  fill: var(--bg);
+  stroke: var(--rule-strong);
+  stroke-width: 1;
+}
+
+.on {
+  fill: var(--accent);
+}
+
+.off {
+  fill: var(--rule);
+}

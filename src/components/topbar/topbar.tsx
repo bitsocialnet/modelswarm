@@ -7,7 +7,7 @@ import styles from './topbar.module.css';
 
 const LINKS = [
   { href: './#how', label: 'How it works', primary: true },
-  { href: './#compare', label: 'Compared' },
+  { href: './#handles', label: 'Handles' },
   { href: './#faq', label: 'FAQ' },
 ];
 

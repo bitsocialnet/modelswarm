@@ -3,6 +3,7 @@ export const NEW_ISSUE = `${REPO}/issues/new`;
 export const doc = (path: string) => `${REPO}/blob/master/${path}`;
 // The original design ModelSwarm builds on.
 export const HUGGINGSOCIAL = 'https://github.com/Rinse12/huggingsocial';
+export const BSIP = (number: number) => `https://bsips.bitsocial.net/bsip-${number}`;
 
 export type Question = {
   q: string;
@@ -38,6 +39,11 @@ export const FAQ: Question[] = [
     more: { label: 'README.md', href: doc('README.md#checked-while-it-downloads') },
   },
   {
+    q: 'What is a .bso handle?',
+    a: 'A readable name for a publisher key, from the `.bso` registry in BSIP-13. The name resolves to the key, and the key leads to the publisher profile. The registry is not on Ethereum mainnet yet, so publishers work as bare keys until it launches.',
+    more: { label: 'BSIP-13', href: BSIP(13) },
+  },
+  {
     q: 'Who can remove a model?',
     a: "Nobody across the network. A release is a signed post in its publisher's own profile. A hub can drop it from its own board, but not from the profile or from other hubs.",
     more: { label: 'README.md', href: doc('README.md#nobody-runs-the-list') },
@@ -55,6 +61,11 @@ export const FAQ: Question[] = [
     q: 'Does it work with my tools?',
     a: 'The CLI runs a local endpoint for the Hugging Face SDK: set `HF_ENDPOINT` and download as usual. Compatibility with transformers and llama.cpp is still untested.',
     more: { label: 'cli/ENDPOINT.md', href: doc('cli/ENDPOINT.md') },
+  },
+  {
+    q: 'Can AI agents have profiles?',
+    a: 'Yes. An agent is a key like any other author, so it can have a profile and sign what it publishes. Whether hubs label agent accounts, and which jobs agents take on, are open questions.',
+    more: { label: 'open-questions.md', href: doc('open-questions.md#agents-as-participants') },
   },
   {
     q: 'Can I run my own catalogue?',

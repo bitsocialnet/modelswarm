@@ -3,6 +3,7 @@ import { Hero } from './sections/hero';
 import { Swarm } from './sections/swarm';
 import { Models } from './sections/models';
 import { Proofs } from './sections/proofs';
+import { Handles } from './sections/handles';
 import { Assembly } from './sections/assembly';
 import { Thesis } from './sections/thesis';
 import { Compare } from './sections/compare';
@@ -23,6 +24,7 @@ export function App() {
         <Swarm />
         <Models />
         <Proofs />
+        <Handles />
         <Assembly />
         <Thesis />
         <Compare />
