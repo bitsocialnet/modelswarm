@@ -1,85 +1,109 @@
 .main {
-  max-width: 57rem;
-  padding-top: clamp(3rem, 8vw, 6rem);
+  padding-top: 2rem;
   padding-bottom: clamp(4rem, 8vw, 7rem);
 }
 
-.intro > p,
-.section > p,
-.metadata dt,
-.identifiers dt {
+/* The model's console: what it is, the facts that decide a download, and the download. */
+.intro {
+  padding: 2.75rem 3rem 2.5rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(50rem 24rem at 90% -20%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%),
+    var(--console);
+}
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  color: var(--faint);
+  font-size: 0.8125rem;
+}
+
+.crumbs a {
   color: var(--dim);
 }
 
 .intro h1 {
-  font-size: clamp(2.2rem, 7vw, 4.35rem);
+  margin-top: 1rem;
+  font-size: clamp(2.2rem, 6vw, 3.8rem);
   line-height: 1.05;
-  margin: 0.5rem 0 1.25rem;
   overflow-wrap: anywhere;
   text-wrap: initial;
 }
 
-.intro p,
-.section > p {
+.description {
   max-width: var(--measure);
-}
-
-.intro > a {
-  display: inline-block;
-  margin-top: 0.6rem;
-}
-
-.metadata {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.2rem 3rem;
-  margin-top: 2rem;
-  padding: 1.2rem 0;
-  border-block: 1px solid var(--rule);
-}
-
-.metadata dd {
-  margin-top: 0.25rem;
-}
-
-.section {
-  margin-top: 2.75rem;
-}
-
-.section > h2 {
-  font-size: 1.65rem;
-  margin-bottom: 0.45rem;
-}
-
-.section pre {
-  padding: 1rem 1.25rem;
-  background: var(--panel);
-  border: 1px solid var(--rule-strong);
-  border-radius: 3px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.copy {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
+  margin-top: 1rem;
   color: var(--dim);
 }
 
-.copy button {
-  background: var(--panel);
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 1.4rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+}
+
+.downloadHelp {
+  margin-top: 1rem;
+  color: var(--dim);
+  font-size: 0.8125rem;
+}
+
+.downloadHelp a {
   color: var(--text);
-  font-family: inherit;
-  cursor: pointer;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 22rem);
+  gap: 3rem;
+  align-items: start;
+  margin-top: 3rem;
+}
+
+.primary {
+  display: grid;
+  gap: 3rem;
+  min-width: 0;
+}
+
+.section {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.section > h2,
+.publisher h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 650;
+}
+
+.section > p {
+  max-width: var(--measure);
+  color: var(--dim);
 }
 
 .files {
+  margin: 0;
   padding: 0;
   list-style: none;
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--rule-strong);
 }
 
 .files li {
@@ -87,46 +111,129 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.15rem 1rem;
-  padding: 0.6rem 0;
+  padding: 0.8rem 0.1rem;
   border-bottom: 1px solid var(--rule);
   overflow-wrap: anywhere;
 }
 
-.files li span:last-child {
+.fileName {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.fileName svg {
+  flex: none;
   color: var(--dim);
 }
 
-.identifiers {
-  margin-top: 1rem;
-}
-
-.identifiers > div + div {
-  margin-top: 0.65rem;
-}
-
-.identifiers dd {
-  overflow-wrap: anywhere;
-}
-
-.intro .back {
-  margin-top: 0;
+.files li > span:last-child {
   color: var(--dim);
+  font-variant-numeric: tabular-nums;
 }
 
-.actions {
+.terminal {
+  border: 1px solid var(--rule-strong);
+  border-radius: 10px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.termBar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 1.55rem;
-  margin-bottom: 0.85rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 0.6rem 0.45rem 1rem;
+  border-bottom: 1px solid var(--rule);
+  color: var(--faint);
+  font-size: 0.75rem;
 }
 
-.downloadHelp {
+.termBar button {
+  background: var(--panel);
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.terminal pre {
+  margin: 0;
+  padding: 1rem 1.25rem 1.1rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+}
+
+.terminal code {
+  color: var(--text);
+}
+
+.copyStatus:empty {
+  display: none;
+}
+
+.publisher {
+  display: grid;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.publisher > p {
+  color: var(--dim);
   font-size: 0.8125rem;
 }
 
+.publisher h2 svg {
+  color: var(--accent);
+}
+
+.identifiers {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+}
+
+.identifiers dt {
+  color: var(--faint);
+  font-size: 0.75rem;
+}
+
+.identifiers dd {
+  margin: 0.15rem 0 0;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 62rem) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 40rem) {
-  .actions :global(.button) {
+  .main {
+    padding-top: 1rem;
+  }
+
+  .intro {
+    padding: 1.75rem 1.1rem;
+  }
+
+  .actions > :global(.button) {
     flex: 1 1 100%;
   }
+}
+
+.publisherLinks {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
 }

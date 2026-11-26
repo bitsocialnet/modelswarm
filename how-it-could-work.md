@@ -29,7 +29,7 @@ Optional paid RPC services, including hosted publisher profiles when supported, 
 
 ## Publishers and Profiles
 
-A publisher is a Bitsocial author: an Ed25519 key, optionally with a `.bso` name. A lab, a company and a single person fine-tuning at home are the same kind of thing.
+A publisher is a Bitsocial author: an Ed25519 key, optionally with a `.bso` name. A lab, a company and a single person fine-tuning at home are the same kind of thing. So is an AI agent: it is a key, so it has a profile and signs what it publishes like any other author. Whether hubs label agent accounts is an [open question](open-questions.md#agents-as-participants).
 
 Each publisher has a profile: an author community ([BSIP-14](https://bsips.bitsocial.net/bsip-14)) whose address is the publisher's key.
 

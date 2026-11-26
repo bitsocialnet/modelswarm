@@ -1,16 +1,26 @@
 .join {
-  background: var(--panel);
+  padding: 2rem 0 6rem;
 }
 
-.grid {
+/* A contained band, the counterpart of the hero console at the other end of the page. */
+.panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 3rem 4rem;
   align-items: start;
+  padding: 3.5rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--console);
+}
+
+.side {
+  min-width: 0;
 }
 
 .questions {
   list-style: none;
+  margin: 0;
   padding: 0;
   border-top: 1px solid var(--rule-strong);
 }
@@ -20,23 +30,32 @@
 }
 
 .questions a {
-  display: grid;
-  grid-template-columns: 2ch minmax(0, 1fr);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 1rem;
-  padding: 1.1rem 0;
+  padding: 1.05rem 0.1rem;
   font-size: 0.9375rem;
   font-weight: 500;
   text-decoration: none;
   transition: color 0.15s ease;
 }
 
+.arrow {
+  flex: none;
+  color: var(--faint);
+  transition:
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    color 0.15s ease;
+}
+
 .questions a:hover {
   color: var(--accent);
 }
 
-.mark {
+.questions a:hover .arrow {
   color: var(--accent);
-  font-weight: 700;
+  transform: translateX(3px);
 }
 
 .actions {
@@ -47,12 +66,21 @@
 }
 
 @media (max-width: 62rem) {
-  .grid {
+  .panel {
     grid-template-columns: minmax(0, 1fr);
+    padding: 2.5rem 2rem;
   }
 }
 
 @media (max-width: 40rem) {
+  .join {
+    padding-bottom: 3.5rem;
+  }
+
+  .panel {
+    padding: 2rem 1.1rem;
+  }
+
   .actions :global(.button) {
     flex: 1 1 100%;
   }

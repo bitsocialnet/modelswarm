@@ -3,43 +3,83 @@ export const NEW_ISSUE = `${REPO}/issues/new`;
 export const doc = (path: string) => `${REPO}/blob/master/${path}`;
 // The original design ModelSwarm builds on.
 export const HUGGINGSOCIAL = 'https://github.com/Rinse12/huggingsocial';
+export const BSIP = (number: number) => `https://bsips.bitsocial.net/bsip-${number}`;
 
-export type Part = {
-  term: string;
-  title: string;
-  body: string;
+export type Question = {
+  q: string;
+  a: string;
+  // The repository document (or page anchor) with the full answer.
+  more?: { label: string; href: string };
 };
 
-export const PARTS: Part[] = [
+// Every answer restates the root docs; change it when they change.
+export const FAQ: Question[] = [
   {
-    term: 'publisher key',
-    title: 'Publishers sign releases',
-    body: "A release lives in its publisher's own profile, signed with a key the publisher holds. The same key covers every release, so a reader can tell a known publisher from an imitator.",
+    q: 'What is ModelSwarm?',
+    a: 'A catalogue of open-weight AI models that you can run yourself. The files move over BitTorrent, and publishers sign releases from their own Bitsocial profiles, so no single site holds the list or the conversation.',
+    more: { label: 'README.md', href: REPO },
   },
   {
-    term: 'bittorrent v2, web seeds',
-    title: 'Seeders hold the weights',
-    body: 'Files move over BitTorrent, with any HTTP mirror as an extra source. The public demo has a persistent seeder. The experimental CLI can upload pieces for the duration of a pull.',
+    q: 'Can I use it today?',
+    a: 'Partly. The web catalogue has the signed Qwen demo and an attributed preview of public Pirate Face torrents, and the experimental CLI verifies signed releases piece by piece. Hosted defaults, a general catalogue and the desktop client are still ahead.',
+    more: { label: 'roadmap.md', href: doc('roadmap.md') },
   },
   {
-    term: 'pieces root',
-    title: 'Every piece is checked',
-    body: 'The signed release carries a hash-tree root for each file. A corrupted or swapped piece is caught when it arrives, not at the end of a 40 GB download, whether it came from a peer or from a mirror.',
+    q: 'Do I need an account?',
+    a: 'No. Open a magnet or a .torrent in any BitTorrent client, or verify the demo with the CLI, which needs no account or RPC connection. Publishers sign with a key they hold, from their own Bitsocial profile.',
   },
   {
-    term: 'hubs, crossposts',
-    title: 'Hubs curate, and anyone can run one',
-    body: "A hub is a community about a model family or a task. It lists releases and hosts the discussion under its own rules. It can drop a release from its board, but not from the publisher's profile or from other hubs.",
+    q: 'How is a download checked?',
+    a: 'The signed release carries a BitTorrent v2 pieces root for every file. Each piece is checked when it arrives, from a peer or from an HTTP mirror, and a bad piece is thrown away and fetched again from another source.',
+    more: { label: 'how-it-could-work.md', href: doc('how-it-could-work.md#verification') },
   },
   {
-    term: 'HF_ENDPOINT',
-    title: 'Use the Hugging Face SDK',
-    body: 'Point `HF_ENDPOINT` at the local endpoint to download with the Hugging Face SDK. Compatibility with `transformers` and llama.cpp is still untested.',
+    q: 'What if Hugging Face removes a model?',
+    a: 'For a signed release, Hugging Face is one mirror among others. Any peer or mirror that still has the file can serve it, and the client checks those bytes against the release the publisher signed.',
+    more: { label: 'README.md', href: doc('README.md#checked-while-it-downloads') },
   },
   {
-    term: 'safetensors, gguf',
-    title: 'Safe formats by default',
-    body: 'A signature does not make a file harmless. Formats that only hold data, such as safetensors and GGUF, download normally. Files that can run code when loaded are flagged and need a confirmation.',
+    q: 'What is a .bso handle?',
+    a: 'A readable name for a publisher key, from the `.bso` registry in BSIP-13. The name resolves to the key, and the key leads to the publisher profile. Names are not live yet, so publishers work as bare keys until then.',
+    more: { label: 'BSIP-13', href: BSIP(13) },
+  },
+  {
+    q: 'Who can remove a model?',
+    a: "Nobody across the network. A release is a signed post in its publisher's own profile. A hub can drop it from its own board, but not from the profile or from other hubs.",
+    more: { label: 'README.md', href: doc('README.md#nobody-runs-the-list') },
+  },
+  {
+    q: 'Is a signed file safe to load?',
+    a: 'A signature proves who published a file and that it arrived unchanged, not that it is harmless. Safetensors and GGUF download normally; pickle-based files and repositories that ship code are flagged and need an explicit confirmation.',
+    more: { label: 'README.md', href: doc('README.md#integrity-is-not-safety') },
+  },
+  {
+    q: 'Can I keep seeding torrents I already have?',
+    a: 'Yes. Imported magnets keep their original infohashes, so leave your client seeding. Anyone who opens the same magnet, from any catalogue, joins the same swarm.',
+  },
+  {
+    q: 'Does it work with my tools?',
+    a: 'The CLI runs a local endpoint for the Hugging Face SDK: set `HF_ENDPOINT` and download as usual. Compatibility with transformers and llama.cpp is still untested.',
+    more: { label: 'cli/ENDPOINT.md', href: doc('cli/ENDPOINT.md') },
+  },
+  {
+    q: 'Can AI agents have profiles?',
+    a: 'Yes. An agent is a key like any other author, so it can have a profile and sign what it publishes. Whether hubs label agent accounts, and which jobs agents take on, are open questions.',
+    more: { label: 'open-questions.md', href: doc('open-questions.md#agents-as-participants') },
+  },
+  {
+    q: 'Can I run my own catalogue?',
+    a: 'Yes. Host the static site and build your own index from public torrent snapshots and the Bitsocial communities you choose.',
+    more: { label: 'Self-hosting guide', href: doc('catalogue/README.md') },
+  },
+  {
+    q: 'Is it a blockchain?',
+    a: 'No. Releases and discussion are signed Bitsocial records, and the files are torrents. Bitsocial Chain would only be used for .bso publisher names and tips.',
+  },
+  {
+    q: 'How is it different from Pirate Face?',
+    a: 'Pirate Face lists models as magnet links and checks files against Hugging Face, but it decides what is listed and hosts the discussion on its own website. In ModelSwarm, publishers sign releases in their own profiles and communities host the discussion.',
+    more: { label: 'Compared', href: '#compare' },
   },
 ];
 

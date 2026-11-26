@@ -93,3 +93,18 @@ export function formatBytes(bytes: number | null) {
 export function formatCount(n: number) {
   return countNumber.format(n);
 }
+
+// One load per page, shared by every component that shows catalogue entries.
+let snapshot: Promise<Awaited<ReturnType<typeof loadCatalogue>> | null> | undefined;
+export const catalogueSnapshot = () => (snapshot ??= loadCatalogue().catch(() => null));
+
+// Imported torrents with the most seeders at the last observation.
+export function mostSeeded(models: Model[], count: number) {
+  return models
+    .filter((model) => model.kind === 'import' && model.seeders !== null && model.download)
+    .sort((a, b) => (b.seeders ?? 0) - (a.seeders ?? 0))
+    .slice(0, count);
+}
+
+// A catalogue search for one model, used to link a model name to its row.
+export const catalogueSearch = (query: string) => `./catalogue.html?q=${encodeURIComponent(query)}`;

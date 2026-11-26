@@ -14,14 +14,14 @@ export function SectionHead({ source, id, children, lede }: SectionHeadProps) {
   const file = source.split('#')[0];
   return (
     <header className={styles.head}>
+      <h2 id={id} className={styles.title}>
+        {children}
+      </h2>
       <a className={styles.source} href={doc(source)}>
         <FileGlyph />
         <span>{file}</span>
         <span className={styles.visuallyHidden}> (full text on GitHub)</span>
       </a>
-      <h2 id={id} className={styles.title}>
-        {children}
-      </h2>
       {lede && <p className={styles.lede}>{lede}</p>}
     </header>
   );

@@ -1,0 +1,249 @@
+/* Two lanes, what is signed above and the bytes below, both running into the reader's client. */
+.diagram {
+  --link-gap: 2.25rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(13rem, 17rem);
+  column-gap: 3rem;
+  margin-top: 3.5rem;
+}
+
+.lane {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+  color: var(--dim);
+  font-size: 0.75rem;
+}
+
+.lane::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+}
+
+.lane[data-lane='bytes'] {
+  margin-top: 2.25rem;
+}
+
+.row {
+  grid-column: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--link-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.node {
+  position: relative;
+  min-width: 0;
+  padding: 1.1rem 1.2rem 1.2rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.node h3,
+.client h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.node h3 svg {
+  color: var(--dim);
+}
+
+.value {
+  margin-top: 0.4rem;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node > p:last-child {
+  margin-top: 0.6rem;
+  color: var(--dim);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+/* The link to the next node: a dashed line that moves the way data does. */
+.node::after {
+  content: '';
+  position: absolute;
+  top: 1.65rem;
+  left: 100%;
+  width: var(--link-gap);
+  height: 1px;
+  background: linear-gradient(to right, var(--rule-strong) 50%, transparent 0) 0 0 / 8px 1px repeat-x;
+}
+
+.row[data-lane='bytes'] .node::after {
+  background-image: linear-gradient(to right, var(--accent) 50%, transparent 0);
+}
+
+/* The last node in each lane reaches across the column gap into the client. */
+.node:last-child::after {
+  width: 3rem;
+}
+
+.client {
+  grid-column: 2;
+  grid-row: 1 / span 4;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.8rem;
+  padding: 1.5rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, var(--rule-strong));
+  border-radius: var(--radius);
+  background:
+    radial-gradient(18rem 14rem at 50% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent),
+    var(--panel);
+  box-shadow: 0 24px 60px -30px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.client > p:not(.verified) {
+  color: var(--dim);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.verified {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 5px;
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.verified svg {
+  flex: none;
+}
+
+.run {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
+  margin-top: 0.75rem;
+}
+
+.run i {
+  aspect-ratio: 1;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .node::after {
+    animation: flow 1.2s linear infinite;
+  }
+
+  @keyframes flow {
+    to {
+      background-position-x: 8px;
+    }
+  }
+
+  /* Each piece lands in turn; the faulty one shows red first, then arrives again verified. */
+  .run i {
+    animation: land 6s cubic-bezier(0.16, 1, 0.3, 1) infinite both;
+    animation-delay: calc(var(--i) * 0.22s);
+  }
+
+  .run i[data-fault] {
+    animation-name: land-fault;
+  }
+
+  @keyframes land {
+    0%,
+    4% {
+      background: var(--rule-strong);
+    }
+    10%,
+    100% {
+      background: var(--accent);
+    }
+  }
+
+  @keyframes land-fault {
+    0%,
+    4% {
+      background: var(--rule-strong);
+    }
+    10%,
+    30% {
+      background: var(--fault);
+    }
+    34% {
+      background: var(--rule-strong);
+    }
+    44%,
+    100% {
+      background: var(--accent);
+    }
+  }
+}
+
+@media (max-width: 62rem) {
+  .diagram {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+
+  .node::after,
+  .node:last-child::after {
+    top: 100%;
+    left: 1.6rem;
+    width: 1px;
+    height: 1.5rem;
+    background: linear-gradient(to bottom, var(--rule-strong) 50%, transparent 0) 0 0 / 1px 8px repeat-y;
+  }
+
+  .row[data-lane='bytes'] .node::after {
+    background-image: linear-gradient(to bottom, var(--accent) 50%, transparent 0);
+  }
+
+  /* Only the bytes lane leads straight into the client below it. */
+  .row[data-lane='signed'] .node:last-child::after {
+    display: none;
+  }
+
+  .client {
+    grid-column: 1;
+    grid-row: auto;
+    margin-top: 1.5rem;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .node::after {
+      animation-name: flow-down;
+    }
+
+    @keyframes flow-down {
+      to {
+        background-position-y: 8px;
+      }
+    }
+  }
+}

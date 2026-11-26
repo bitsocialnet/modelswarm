@@ -5,15 +5,17 @@ import '@fontsource-variable/red-hat-mono/index.css';
 import './index.css';
 import { Topbar } from './components/topbar/topbar';
 import { Footer } from './sections/footer';
+import { ModelCard } from './components/model-card/model-card';
+import { ArrowRightIcon, DownloadIcon, SeedIcon } from './components/icons/icons';
 import { doc } from './data/content';
 import { demoModel } from './data/demo-model';
-import { demoEntry, formatBytes, formatCount, loadCatalogue, type CommunityFile, type Model } from './data/catalogue';
+import { catalogueSnapshot, demoEntry, formatBytes, formatCount, type CommunityFile, type Model } from './data/catalogue';
 import { groupVariants, modelFamily, starterPicks } from './data/catalogue-selection';
 import { communityHttpsLink, communityTorrentLink } from './lib/community-links';
 import styles from './catalogue.module.css';
 
 const pageSize = 30;
-const catalogue = loadCatalogue().catch(() => null);
+const catalogue = catalogueSnapshot();
 
 const SOURCE = {
   demo: 'Signed demo',
@@ -29,16 +31,24 @@ function Catalogue() {
       </a>
       <Topbar catalogue />
       <main id='main'>
-        <header className={`wrap ${styles.intro}`}>
-          <div>
-            <h1>Open-weight models</h1>
-            <p>Find weights for running AI locally and download them from BitTorrent swarms.</p>
-          </div>
-          <div className={styles.introLinks}>
-            <a href='#model-search'>Search models</a>
-            <a href='#self-host'>Run your own catalogue</a>
-          </div>
-        </header>
+        <div className={`wrap ${styles.introWrap}`}>
+          <header className={styles.intro}>
+            <div>
+              <h1>Open-weight models</h1>
+              <p>Find weights for running AI locally and download them from BitTorrent swarms.</p>
+            </div>
+            <div className={styles.introLinks}>
+              <a className='link-arrow' href='#model-search'>
+                Search models
+                <ArrowRightIcon size={14} />
+              </a>
+              <a className='link-arrow' href='#self-host'>
+                Run your own catalogue
+                <ArrowRightIcon size={14} />
+              </a>
+            </div>
+          </header>
+        </div>
         <section className={`wrap ${styles.browse}`} aria-labelledby='browse-title'>
           <Suspense fallback={<ModelDirectory models={[demoEntry]} loading />}>
             <LoadedDirectory />
@@ -84,8 +94,11 @@ function LoadedDirectory() {
   return <ModelDirectory models={snapshot?.models ?? [demoEntry]} observedAt={snapshot?.observedAt} failed={!snapshot} />;
 }
 
+// A search started from another page arrives as ?q=.
+const initialQuery = new URLSearchParams(window.location.search).get('q') ?? '';
+
 function ModelDirectory({ models, observedAt, loading, failed }: { models: Model[]; observedAt?: string; loading?: boolean; failed?: boolean }) {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
   const [format, setFormat] = useState('');
   const [limit, setLimit] = useState('');
   const [order, setOrder] = useState('catalogue');
@@ -102,7 +115,7 @@ function ModelDirectory({ models, observedAt, loading, failed }: { models: Model
 
   return (
     <>
-      {!loading && <StarterPicks models={models} />}
+      {!loading && !initialQuery && <StarterPicks models={models} />}
       <div className={styles.directoryHeading}>
         <h2 id='browse-title'>Browse all models</h2>
         <p role='status'>{loading ? 'Loading index…' : `${formatCount(matches.length)} ${matches.length === 1 ? 'model' : 'models'}`}</p>
@@ -227,26 +240,11 @@ function StarterPicks({ models }: { models: Model[] }) {
   return (
     <section className={styles.starters} aria-labelledby='starter-title'>
       <h2 id='starter-title'>Start with a small model</h2>
-      <ul>
+      <div className={styles.starterGrid}>
         {picks.map(({ pick, model }) => (
-          <li key={model.id}>
-            <div>
-              <h3>{model.kind === 'demo' ? <a href={demoModel.page}>{pick.name}</a> : pick.name}</h3>
-              <p>{pick.description}</p>
-              <p className={styles.pickMeta}>
-                {pick.format} · {formatBytes(model.bytes)} · {SOURCE[model.kind]}
-                {model.kind === 'demo' && (
-                  <>
-                    {' '}
-                    · <a href={demoModel.https}>HTTPS download</a>
-                  </>
-                )}
-              </p>
-            </div>
-            <TorrentAction model={model} />
-          </li>
+          <ModelCard key={model.id} model={model} name={pick.name} description={pick.description} format={pick.format} />
         ))}
-      </ul>
+      </div>
     </section>
   );
 }
@@ -257,6 +255,7 @@ function TorrentAction({ model }: { model: Model }) {
   return (
     <div className={styles.torrentAction}>
       <a className='button' href={model.download} download={isFile || undefined}>
+        <DownloadIcon size={14} />
         {isFile ? 'Download .torrent' : 'Open in torrent client'}
       </a>
       {isFile && <span>Open the file in a BitTorrent v2 client.</span>}
@@ -287,6 +286,7 @@ function ModelRow({ model }: { model: Model }) {
         </p>
         <p className={`${styles.metric} ${styles.seeders}`}>
           <span>Seeders</span>
+          {model.seeders !== null && <SeedIcon size={13} />}
           {model.seeders === null ? 'Unknown' : formatCount(model.seeders)}
         </p>
         <div className={styles.download}>

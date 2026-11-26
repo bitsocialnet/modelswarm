@@ -1,0 +1,139 @@
+.strip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1.5rem;
+  min-height: 3.6rem;
+  padding: 0.55rem 1.75rem;
+  border-top: 1px solid var(--rule-strong);
+  background: color-mix(in srgb, var(--bg) 45%, transparent);
+  font-size: 0.8125rem;
+}
+
+.label {
+  display: grid;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.label h2 {
+  font-family: var(--font);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.label p {
+  color: var(--faint);
+  font-size: 0.6875rem;
+}
+
+.loading {
+  color: var(--faint);
+}
+
+.all {
+  font-size: 0.8125rem;
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+.all:hover {
+  color: var(--text);
+}
+
+/* Fades the belt out at both ends so entries drift in and out rather than being cut. */
+.track {
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent);
+}
+
+.track:focus-visible {
+  outline-offset: -2px;
+}
+
+.belt {
+  display: flex;
+  width: max-content;
+}
+
+.list {
+  display: flex;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.35rem 1.4rem 0.35rem 0;
+  margin-right: 1.4rem;
+  border-right: 1px solid var(--rule);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.name {
+  color: var(--text);
+}
+
+.list a:hover .name {
+  color: var(--accent);
+}
+
+.count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.size {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .belt {
+    animation: drift 70s linear infinite;
+  }
+
+  .track:hover .belt,
+  .track:focus-within .belt {
+    animation-play-state: paused;
+  }
+
+  @keyframes drift {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+}
+
+/* Without motion the belt is a plain sideways list; the copy that closes the loop is not needed. */
+@media (prefers-reduced-motion: reduce) {
+  .track {
+    overflow-x: auto;
+  }
+
+  .list[aria-hidden] {
+    display: none;
+  }
+}
+
+@media (max-width: 40rem) {
+  .strip {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.4rem 1rem;
+    padding: 0.8rem 1rem;
+  }
+
+  .track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

@@ -23,6 +23,7 @@
     "ai-workflow:test": "node --test --test-concurrency=1 scripts/__tests__/*.node-test.ts"
   },
   "dependencies": {
+    "@adraffy/ens-normalize": "1.11.1",
     "@fontsource-variable/oxanium": "5.3.0",
     "@fontsource-variable/red-hat-mono": "5.3.0",
     "react": "19.3.1",
