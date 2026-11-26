@@ -1,10 +1,20 @@
+.introWrap {
+  padding-top: 2rem;
+  padding-bottom: clamp(2rem, 4vw, 3rem);
+}
+
+/* The same console frame as the home page hero. */
 .intro {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 1.5rem 2.5rem;
-  padding-top: clamp(2.25rem, 4vw, 3.6rem);
-  padding-bottom: clamp(1.75rem, 3vw, 2.65rem);
+  padding: 2.75rem 3rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(50rem 24rem at 90% -20%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%),
+    var(--console);
 }
 
 .intro h1 {
@@ -23,9 +33,13 @@
 .introLinks {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem 1.1rem;
+  gap: 0.45rem 1.5rem;
   margin-bottom: 0.2rem;
-  font-size: 0.875rem;
+  color: var(--dim);
+}
+
+.introLinks a:hover {
+  color: var(--text);
 }
 
 .browse {
@@ -119,6 +133,22 @@
 .row {
   padding: 0.85rem 0.95rem;
   border-bottom: 1px solid var(--rule);
+  transition: background-color 0.15s ease;
+}
+
+.row:hover {
+  background: color-mix(in srgb, var(--panel) 60%, transparent);
+}
+
+.seeders {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--accent);
+}
+
+.seeders svg {
+  flex: none;
 }
 
 .modelName h3 {
@@ -169,6 +199,10 @@
   width: fit-content;
   cursor: pointer;
   color: var(--text);
+}
+
+.details summary::marker {
+  color: var(--faint);
 }
 
 .details p,
@@ -243,6 +277,7 @@
   .intro {
     align-items: flex-start;
     flex-direction: column;
+    padding: 2rem 1.5rem;
   }
   .filters {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -302,44 +337,22 @@
 
 .starters h2 {
   font-size: clamp(1.55rem, 3vw, 2.1rem);
-  margin-bottom: 0.65rem;
+  margin-bottom: 1.25rem;
 }
 
-.starters ul {
-  list-style: none;
-  padding: 0;
-  border-block: 1px solid var(--rule-strong);
-  background: var(--panel);
+.starterGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
 }
 
-.starters li {
-  padding: 0.85rem 1rem;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.55rem 1.5rem;
+@media (max-width: 62rem) {
+  .starterGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
-.starters li + li {
-  border-top: 1px solid var(--rule-strong);
-}
-
-.starters h3 {
-  font-size: 1.19rem;
-  text-wrap: initial;
-}
-
-.starters p {
-  font-size: 0.8125rem;
-  color: var(--dim);
-}
-
-.starters .pickMeta {
-  font-size: 0.75rem;
-}
-
-.starters .torrentAction {
+.torrentAction {
   min-width: min(18rem, 100%);
 }
 
