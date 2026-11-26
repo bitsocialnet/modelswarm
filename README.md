@@ -8,6 +8,25 @@
 
 > **Credit.** ModelSwarm builds on [HuggingSocial](https://github.com/Rinse12/huggingsocial) ([huggingsocial.co](https://huggingsocial.co/)), the original design by Bitsocial developer [Rinse12](https://github.com/Rinse12). Most of the architecture comes from it: Bitsocial for releases and discussion, BitTorrent and HTTP mirrors for the weights, signed manifests checked on the reader's machine, hubs, indexers, the command line and the local Hugging Face endpoint. ModelSwarm changes where releases live, how downloads are verified, how formats that can run code are handled and how models that are only on Hugging Face are covered; see [Prior Art](#prior-art).
 
+## Getting started
+
+Download and verify Qwen2.5-0.5B-Instruct in Q4_K_M GGUF format (491 MB, Apache-2.0). This quickstart uses a pinned Hugging Face mirror and requires Git, [uv](https://docs.astral.sh/uv/getting-started/installation/), and at least 2 GB of free disk space. It needs no account or RPC connection.
+
+```sh
+git clone https://github.com/bitsocialnet/modelswarm.git
+cd modelswarm
+uv venv --python 3.11 cli/.venv
+uv pip install --python cli/.venv/bin/python -e cli
+
+cli/.venv/bin/modelswarm pull public/demo/qwen-q4-k-m.json \
+  --manifest-sha256 3f68e711527da88dd2fac91b32b5bb22218f69590c46d3dfef41b17bd3ee8ac1 \
+  --no-discovery --timeout 900
+```
+
+The final JSON result prints the verified `snapshot` directory. The GGUF file and its license are inside that directory. The CLI checks each piece and the full file hash before placing the files there. Rerun the same pull to resume an interrupted download.
+
+Source installation has been verified on Apple Silicon macOS. See the [CLI guide](cli/README.md) for cache controls and [signed releases](cli/RELEASES.md) for publisher verification. [Upstream Qwen model card](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/tree/9217f5db79a29953eb74d5343926648285ec7e67).
+
 ## The Thesis
 
 Hugging Face hosts over 3 million models, by Nvidia's count. On 2 September 2026 Nvidia [agreed to buy it for $12.9 billion](https://techcrunch.com/2026/09/03/nvidia-confirms-it-will-buy-hugging-face-for-12-9-billion/), a deal the US Department of Justice has since [asked questions about](https://www.reuters.com/world/us-doj-is-inquiring-about-nvidias-purchase-hugging-face-sources-say-2026-10-28/). Whoever owns it, one company holds the files, the list of what exists and the place where each model is discussed.

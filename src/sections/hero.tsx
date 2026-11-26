@@ -1,4 +1,4 @@
-import { NEW_ISSUE, REPO } from '../data/content';
+import { doc, REPO } from '../data/content';
 import { PullTerminal } from '../components/pull-terminal/pull-terminal';
 import styles from './hero.module.css';
 
@@ -19,11 +19,11 @@ export function Hero() {
             ModelSwarm has an experimental CLI, signed publisher releases and a local Hugging Face endpoint. Public hosting and the full hub remain.
           </p>
           <div className={styles.actions}>
-            <a className='button button-primary' href={REPO}>
-              Contribute on GitHub
+            <a className='button button-primary' href={doc('README.md#getting-started')}>
+              Try ModelSwarm
             </a>
-            <a className='button' href={NEW_ISSUE}>
-              Open an issue
+            <a className='button' href={REPO}>
+              Contribute on GitHub
             </a>
           </div>
         </div>
