@@ -49,11 +49,18 @@ def short_key(value):
     return value if len(value) <= 20 else f"{value[:12]}…{value[-4:]}"
 
 
+# Nonspacing and enclosing marks and format characters (joiners, variation
+# selectors) draw no column of their own. Many have combining class 0, so
+# unicodedata.combining() alone misses them.
+ZERO_WIDTH = ("Mn", "Me", "Cf")
+
+
 def width_of(text):
-    """Terminal columns text takes: wide East Asian characters take two, combining marks none."""
+    """Terminal columns text takes: wide East Asian characters take two, zero-width marks none."""
     if text.isascii():
         return len(text)
-    return sum(0 if unicodedata.combining(char) else 2 if unicodedata.east_asian_width(char) in "WF" else 1 for char in text)
+    return sum(0 if unicodedata.category(char) in ZERO_WIDTH else 2 if unicodedata.east_asian_width(char) in "WF" else 1
+               for char in text)
 
 
 def cut(text, width):

@@ -578,6 +578,14 @@ class PullViewTests(unittest.TestCase):
         self.assertRegex(box[0], r"^╭─ [模型]+… ─+ \S pulling ─╮$")
         self.assertTrue(any(line.startswith("│ 模型.example.org ") for line in box))
 
+    def test_width_counts_terminal_columns(self):
+        self.assertEqual(width_of("模型.gguf"), 9)
+        # Zero-width marks with combining class 0 still take no column.
+        self.assertEqual(width_of("हिंदी"), 4)
+        self.assertEqual(width_of("สวัสดี"), 4)
+        self.assertEqual(width_of("e\u0301"), 1)
+        self.assertEqual(width_of("a\u200db\ufe0f"), 2)
+
     def test_narrow_terminal_gets_a_status_line_instead_of_the_box(self):
         view, lines = self.live_lines(20, 24, ["peer 192.0.2.1:6881"])
         self.assertEqual(view.drawn, len(lines))
