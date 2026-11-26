@@ -11,19 +11,19 @@ export function Hero() {
             The hub of <span className={styles.nowrap}>open-weight</span> AI models that nobody owns
           </h1>
           <p className={styles.lede}>
-            Models served by a swarm of peers, as in a BitTorrent swarm: people who seed a model share the work of hosting it. Every piece is checked against the
-            publisher's signed release while it downloads.
+            ModelSwarm takes its name from the BitTorrent swarms of peers that share open-weight models. Run your own catalogue, follow communities, and find releases
+            signed by their Bitsocial publishers.
           </p>
           <p className={styles.stage}>
             <span className={styles.stageMark} aria-hidden='true' />
-            Try the experimental CLI or inspect the first signed release served by a public swarm.
+            Already seeding an imported model? Keep seeding from the same client.
           </p>
           <div className={styles.actions}>
-            <a className='button button-primary' href={doc('README.md#getting-started')}>
-              Try ModelSwarm
+            <a className='button button-primary' href='./catalogue.html'>
+              Browse models
             </a>
-            <a className='button' href='./release.html'>
-              View the signed release
+            <a className='button' href={doc('catalogue/README.md')}>
+              Self-host ModelSwarm
             </a>
           </div>
         </div>

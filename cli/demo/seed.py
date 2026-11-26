@@ -25,7 +25,8 @@ def main():
         check_file(entry, args.directory / entry["path"])
 
     session = lt.session({
-        **session_settings(False, 0),
+        **session_settings(True, 0),
+        "dht_announce_interval": 120,
         "listen_interfaces": f"0.0.0.0:{args.port}",
         "upload_rate_limit": 8 * 1024 * 1024,
         "connections_limit": 32,
@@ -41,7 +42,7 @@ def main():
         params.ti = lt.torrent_info(base64.b64decode(entry["torrent"]["metadata"]))
         params.save_path = str((args.directory / entry["path"]).parent)
         params.flags &= ~(lt.torrent_flags.paused | lt.torrent_flags.auto_managed)
-        params.flags |= lt.torrent_flags.disable_dht | lt.torrent_flags.disable_lsd | lt.torrent_flags.disable_pex
+        params.flags |= lt.torrent_flags.disable_lsd | lt.torrent_flags.disable_pex
         handles.append(session.add_torrent(params))
 
     def stop(_signal, _frame):
@@ -57,6 +58,9 @@ def main():
                     raise RuntimeError(status.errc.message())
             state = (all(status.is_seeding for status in statuses),
                      sum(status.total_payload_upload for status in statuses))
+            if state[0] and (previous is None or not previous[0]):
+                for handle in handles:
+                    handle.force_dht_announce()
             if state != previous:
                 print(json.dumps({"seeding": state[0], "payload_uploaded": state[1]}), flush=True)
                 previous = state

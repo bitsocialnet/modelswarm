@@ -15,8 +15,8 @@ export function Thesis() {
             decides what is listed and runs the place where each model is discussed. It can remove a model, and others can make it do so.
           </p>
           <p>
-            Torrents already keep files alive without a host. What they lack is a way to know who published a file, and a list of models that does not live on one
-            website. ModelSwarm adds both with <a href='https://bitsocial.net'>Bitsocial</a>, a peer-to-peer social protocol.
+            Anyone can join the same swarm from a different catalogue by using the same infohash. ModelSwarm uses <a href='https://bitsocial.net'>Bitsocial</a> so that
+            communities can also publish and discuss releases across independently run instances.
           </p>
         </div>
       </div>

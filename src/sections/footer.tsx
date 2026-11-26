@@ -9,6 +9,7 @@ const GROUPS: { name: string; links: FooterLink[] }[] = [
   {
     name: 'docs/',
     links: [
+      { label: 'Self-hosting guide', href: doc('catalogue/README.md') },
       { label: 'README.md', href: REPO },
       { label: 'how-it-could-work.md', href: doc('how-it-could-work.md') },
       { label: 'open-questions.md', href: doc('open-questions.md') },
@@ -72,9 +73,7 @@ export function Footer() {
       </div>
       <div className={`wrap ${styles.bottom}`}>
         <p>
-          Free software under <a href={doc('LICENSE')}>GPL-3.0-or-later</a>. The project operates a seeder for the public demo. The planned client would use Forge RPC by
-          default, but users could switch providers or self-host. ModelSwarm stays decentralized. Revenue from optional RPC metadata hosting is speculative; publisher
-          willingness to pay is unvalidated.
+          Free software under <a href={doc('LICENSE')}>GPL-3.0-or-later</a>. Run the catalogue and your own Bitsocial node, or connect to a compatible RPC provider.
         </p>
         {COMMIT && (
           <a className={styles.build} href={`${REPO}/commit/${COMMIT}`}>

@@ -37,6 +37,7 @@ export default defineConfig({
   build: {
     rolldownOptions: {
       input: {
+        catalogue: fileURLToPath(new URL('./catalogue.html', import.meta.url)),
         home: fileURLToPath(new URL('./index.html', import.meta.url)),
         release: fileURLToPath(new URL('./release.html', import.meta.url)),
       },

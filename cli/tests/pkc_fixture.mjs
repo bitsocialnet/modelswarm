@@ -179,7 +179,8 @@ async function main() {
         allowPrivateKeyExport: false, exportFileMaxAgeMs: 0,
         pkcOptions: {
             dataPath: path.join(dataDir, "pkc"), kuboRpcClientsOptions: [kuboApi],
-            pubsubKuboRpcClientsOptions: [], httpRoutersOptions: [], ipfsGatewayUrls: [],
+            pubsubKuboRpcClientsOptions: process.env.MODELSWARM_TEST_PUBSUB === "1" ? [kuboApi] : [],
+            httpRoutersOptions: [], ipfsGatewayUrls: [],
             nameResolvers: [], resolveAuthorNames: false,
             publishInterval: 500, updateInterval: 250, validatePages: true,
         },

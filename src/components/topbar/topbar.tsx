@@ -3,12 +3,12 @@ import { Logo } from '../logo/logo';
 import styles from './topbar.module.css';
 
 const LINKS = [
-  { href: '#how', label: 'How it works' },
-  { href: '#compare', label: 'Compared' },
-  { href: '#roadmap', label: 'Roadmap' },
+  { href: './#how', label: 'How it works', primary: true },
+  { href: './#compare', label: 'Compared' },
+  { href: './#roadmap', label: 'Roadmap' },
 ];
 
-export function Topbar() {
+export function Topbar({ catalogue = false }: { catalogue?: boolean }) {
   return (
     <header className={styles.topbar}>
       <div className={`wrap ${styles.inner}`}>
@@ -17,8 +17,11 @@ export function Topbar() {
           <span>ModelSwarm</span>
         </a>
         <nav className={styles.nav} aria-label='Main'>
+          <a className={styles.models} href='./catalogue.html' aria-current={catalogue ? 'page' : undefined}>
+            Models
+          </a>
           {LINKS.map((link) => (
-            <a key={link.href} className={styles.link} href={link.href}>
+            <a key={link.href} className={link.primary ? styles.about : styles.link} href={link.href}>
               {link.label}
             </a>
           ))}

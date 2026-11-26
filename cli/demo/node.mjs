@@ -32,7 +32,7 @@ const rpc = await RPC.PKCWsServer({
   pkcOptions: {
     dataPath: join(data, 'pkc'),
     kuboRpcClientsOptions: [kubo],
-    pubsubKuboRpcClientsOptions: [],
+    pubsubKuboRpcClientsOptions: process.env.PKC_ENABLE_PUBSUB === '1' ? [kubo] : [],
     httpRoutersOptions: [],
     ipfsGatewayUrls: [],
     nameResolvers: [],
