@@ -95,15 +95,16 @@
 /* A fixed grid of columns × rows, like a terminal: long lines wrap at the last
    column and the oldest lines scroll out of view once the rows are full. */
 .term {
+  --line: 1.3em;
   width: calc(var(--columns) * 1ch);
-  height: calc(var(--rows) * 1.45em);
+  height: calc(var(--rows) * var(--line));
   overflow: hidden;
-  line-height: 1.45;
+  line-height: 1.3;
 }
 
 .term p {
   margin: 0;
-  min-height: 1.45em;
+  min-height: var(--line);
   color: var(--text);
 }
 
@@ -113,7 +114,7 @@
   word-break: break-all;
 }
 
-/* The live region cuts lines one column short, as the CLI does. */
+/* The transient line is cut one column short, as the CLI does. */
 .clip {
   max-width: calc((var(--columns) - 1) * 1ch);
   white-space: pre;
@@ -141,6 +142,37 @@
   font-weight: 600;
 }
 
+.term [data-tone='strike'] {
+  color: var(--dim);
+  text-decoration: line-through;
+}
+
+.glyph {
+  display: inline-block;
+  width: 1ch;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* The braille spinner the CLI advances on each redraw. */
+.spin::before {
+  content: '⠋';
+  animation: spin 0.84s steps(1) infinite;
+}
+
+@keyframes spin {
+  0% { content: '⠋'; }
+  10% { content: '⠙'; }
+  20% { content: '⠹'; }
+  30% { content: '⠸'; }
+  40% { content: '⠼'; }
+  50% { content: '⠴'; }
+  60% { content: '⠦'; }
+  70% { content: '⠧'; }
+  80% { content: '⠇'; }
+  90% { content: '⠏'; }
+}
+
 .prompt {
   color: var(--accent);
 }
@@ -160,57 +192,108 @@
   }
 }
 
-/* One map cell per character, drawn like the CLI's ▪ ▫ · × glyphs. */
+/* The live box: ╭─ title ── phase ─╮ … ╰──╯, its border drawn through the
+   middle of the first and last character cells. */
+.box {
+  position: relative;
+}
+
+.box::before {
+  content: '';
+  position: absolute;
+  inset: calc(var(--line) / 2) 0.5ch;
+  border: 1px solid var(--faint);
+  border-radius: 0.6ch;
+  pointer-events: none;
+}
+
+.top {
+  display: flex;
+  white-space: pre;
+}
+
+.top > span {
+  flex: none;
+}
+
+.edge {
+  width: 2ch;
+}
+
+/* Title and phase sit on the border line, as text does in a terminal. */
+.mask {
+  position: relative;
+  background: var(--panel);
+}
+
+.row {
+  padding-left: 2ch;
+  white-space: pre;
+  overflow: hidden;
+}
+
+/* One map cell per square glyph, with a column of space between squares. */
 .cell {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1ch;
-  height: 1.45em;
+  height: var(--line);
   vertical-align: top;
+}
+
+.cell + .cell {
+  margin-left: 1ch;
 }
 
 .cell::before {
   content: '';
-  width: 0.42em;
-  height: 0.42em;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 1px;
 }
 
-.cell[data-cell='full']::before {
-  background: var(--accent);
+.cell[data-cell='none']::before {
+  background: color-mix(in srgb, var(--dim) 28%, transparent);
 }
 
 .cell[data-cell='part']::before {
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
-.cell[data-cell='none']::before {
-  width: 2px;
-  height: 2px;
-  border-radius: 50%;
-  background: var(--faint);
-}
-
-.cell[data-cell='bad']::before {
-  content: '×';
-  width: auto;
-  height: auto;
-  color: var(--fault);
-}
-
-/* The █ and ░ of a source meter. */
-.block {
-  display: inline-block;
-  height: 1.1em;
-  vertical-align: -0.2em;
-}
-
-.block[data-tone='ok'] {
+.cell[data-cell='full']::before {
   background: var(--accent);
 }
 
-.block[data-tone='dim'] {
-  background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--dim) 35%, transparent) 0 1px, transparent 1px 3px);
+.cell[data-cell='fresh']::before {
+  background: var(--accent-hot);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent-hot) 80%, transparent);
+}
+
+.cell[data-cell='bad']::before {
+  background: var(--fault);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--fault) 80%, transparent);
+}
+
+.rule {
+  display: inline-block;
+  vertical-align: middle;
+  border-top: 1px dashed var(--rule-strong);
+}
+
+.meter {
+  display: inline-block;
+  height: var(--line);
+  vertical-align: top;
+  background:
+    linear-gradient(var(--accent), var(--accent)) no-repeat left center / var(--heavy) 3px,
+    linear-gradient(var(--faint), var(--faint)) no-repeat right center / calc(100% - var(--track)) 1px;
+}
+
+.meter[data-dropped='true'] {
+  background:
+    linear-gradient(var(--faint), var(--faint)) no-repeat left center / var(--heavy) 3px,
+    linear-gradient(var(--faint), var(--faint)) no-repeat right center / calc(100% - var(--track)) 1px;
 }
 
 .caption {

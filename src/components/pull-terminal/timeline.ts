@@ -9,6 +9,7 @@ const RELEASE = 'example/example-0.5b-instruct';
 const VERSION = 'v1';
 const FILE = 'example-0.5b-instruct.Q4_K_M.gguf';
 const SIZE = 267_911_168; // 255.5 MiB, so 256 pieces of 1 MiB
+const PIECE_SIZE = 1_048_576;
 const DIGEST = '9c41e0a5d2f7c3b1e8a4d6f2b0c9e7a5d3f1b8c6e4a2d0f9b7c5e3a1d8f6b4c2';
 const SNAPSHOT = `/home/you/.cache/modelswarm/hub/models--example--example-0.5b-instruct/snapshots/${DIGEST.slice(0, 40)}`;
 const SECONDS = 7.4;
@@ -24,26 +25,31 @@ const BAD_SOURCE = 2;
 const REFETCH_SOURCE = 0;
 
 // view.py constants.
-const LABEL = 10;
+const LABEL = 11;
 const LOG_LINES = 4;
-const MAP_COLUMNS = 64;
+const MAP_COLUMNS = 32;
 const MAP_ROWS = 8;
-const METER = 12;
+const BOX_WIDTH = 2 * MAP_COLUMNS - 1 + 6;
+const FRESH_MS = 600;
 
-type Tone = 'dim' | 'ok' | 'fail' | 'warn' | 'bold';
-type Segment = { text: string; tone?: Tone };
+type Tone = 'dim' | 'ok' | 'fail' | 'warn' | 'bold' | 'strike';
+// `spin` stands for the braille spinner, which the CLI advances on every redraw.
+type Segment = { text: string; tone?: Tone; spin?: boolean };
 export type Line = Segment[];
 export type Phase = 'idle' | 'resolving' | 'pulling' | 'fault' | 'done';
-type Cell = 'none' | 'part' | 'full' | 'bad';
+export type Cell = 'none' | 'part' | 'full' | 'fresh' | 'bad';
+export type Bar = { width: number; filled: number; half: boolean; dropped: boolean };
+export type SourceRow = { name: string; tone?: Tone; bar: Bar | null; count: Segment };
 
 type FileProgress = {
   verified: boolean[];
   done: number;
   bad: number[];
   failed: number[];
+  fresh: [number, number][];
   sources: [string, number][];
   dropped: string[];
-  log: Line[];
+  log: [number, string][];
   ready: boolean;
   rate: number | null;
 };
@@ -64,7 +70,7 @@ type Action =
   | { type: 'header' }
   | { type: 'start' }
   | { type: 'ready' }
-  | { type: 'verify'; piece: number; source: number }
+  | { type: 'verify'; piece: number; source: number; at: number }
   | { type: 'fail'; piece: number; source: number }
   | { type: 'drop'; source: number }
   | { type: 'rate'; bytes: number }
@@ -72,6 +78,13 @@ type Action =
   | { type: 'finish' };
 
 export const initialState = (): State => ({ typed: 0, phase: 'idle', transient: null, lasting: [], file: null, prompt: false });
+
+// Python's round() and format() round halves to even; the meters and times must match it.
+const roundHalfEven = (value: number) => {
+  const floor = Math.floor(value);
+  if (value - floor !== 0.5) return Math.round(value);
+  return floor % 2 === 0 ? floor : floor + 1;
+};
 
 const sizeText = (size: number) => {
   for (const [unit, scale] of [
@@ -84,23 +97,24 @@ const sizeText = (size: number) => {
   return `${size} B`;
 };
 
-// Python's round() rounds halves to even; the meters must match it.
-const roundHalfEven = (value: number) => {
-  const floor = Math.floor(value);
-  const rest = value - floor;
-  if (rest !== 0.5) return Math.round(value);
-  return floor % 2 === 0 ? floor : floor + 1;
+const durationText = (seconds: number) => {
+  if (seconds < 1) return '<1 s';
+  if (seconds < 60) return `${roundHalfEven(seconds)} s`;
+  if (seconds < 3600) return `${roundHalfEven(seconds / 60)} min`;
+  return `${Math.floor(seconds / 3600)} h ${roundHalfEven((seconds % 3600) / 60)} min`;
 };
 
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 const pieceLabel = (piece: number) => `#${String(piece).padStart(Math.max(3, String(TOTAL - 1).length), '0')}`;
 const shortKey = (value: string) => (value.length <= 20 ? value : `${value.slice(0, 12)}…${value.slice(-4)}`);
 const labelled = (label: string, ...segments: Line): Line => [{ text: label.padEnd(LABEL), tone: 'dim' }, ...segments];
+const cellOf = (piece: number, cells: number) => Math.floor(((piece + 1) * cells - 1) / TOTAL);
 
 const HEADER: Line[] = [
-  labelled('release', { text: `${RELEASE} ${VERSION}`, tone: 'bold' }, { text: '  apache-2.0', tone: 'dim' }),
-  labelled('publisher', { text: shortKey(PUBLISHER) }, { text: '  signature valid', tone: 'ok' }),
-  labelled('manifest', { text: DIGEST.slice(0, 12) }, { text: '  matches the signed release', tone: 'ok' }),
-  labelled('files', { text: `1 selected, ${sizeText(SIZE)}` }),
+  labelled('release', { text: `${RELEASE} ${VERSION}`, tone: 'bold' }, { text: ' · apache-2.0', tone: 'dim' }),
+  labelled('publisher', { text: shortKey(PUBLISHER) }, { text: ' ✓ signature valid', tone: 'ok' }),
+  labelled('manifest', { text: DIGEST.slice(0, 12) }, { text: ' ✓ matches the signed release', tone: 'ok' }),
+  labelled('files', { text: `1 selected · ${sizeText(SIZE)}` }),
   [],
 ];
 
@@ -109,6 +123,7 @@ const newFile = (): FileProgress => ({
   done: 0,
   bad: [],
   failed: [],
+  fresh: [],
   sources: [],
   dropped: [],
   log: [],
@@ -142,17 +157,19 @@ export function reducer(state: State, action: Action): State {
         const known = sources.some(([source]) => source === name);
         sources = known ? sources.map(([source, count]) => [source, source === name ? count + 1 : count]) : [...sources, [name, 1]];
       }
-      const line: Line = [{ text: 'ok    ', tone: 'ok' }, { text: `${pieceLabel(action.piece)}  ` }, { text: name, tone: 'dim' }];
-      const next = { ...file, verified, done, sources, bad: file.bad.filter((piece) => piece !== action.piece) };
+      const bad = file.bad.filter((piece) => piece !== action.piece);
+      const fresh: [number, number][] = [...file.fresh.filter(([, at]) => action.at - at < FRESH_MS), [action.piece, action.at]];
+      const next = { ...file, verified, done, sources, bad, fresh };
+      const phase = bad.length ? 'fault' : 'pulling';
       if (file.failed.includes(action.piece)) {
         return {
           ...state,
-          phase: 'pulling',
-          lasting: [...state.lasting, [...line, { text: '  fetched again', tone: 'ok' }]],
+          phase,
+          lasting: [...state.lasting, [{ text: '✓ ', tone: 'ok' }, { text: `piece ${pieceLabel(action.piece)} fetched again from ` }, { text: name, tone: 'bold' }]],
           file: { ...next, failed: file.failed.filter((piece) => piece !== action.piece) },
         };
       }
-      return { ...state, phase: 'pulling', file: { ...next, log: [...file.log, line].slice(-LOG_LINES) } };
+      return { ...state, phase, file: { ...next, log: [...file.log, [action.piece, name] as [number, string]].slice(-LOG_LINES) } };
     }
     case 'fail':
       if (!file) return state;
@@ -162,10 +179,10 @@ export function reducer(state: State, action: Action): State {
         lasting: [
           ...state.lasting,
           [
-            { text: 'fail  ', tone: 'fail' },
-            { text: `${pieceLabel(action.piece)}  ` },
-            { text: SOURCES[action.source] },
-            { text: '  hash mismatch, piece discarded', tone: 'fail' },
+            { text: '✗ ', tone: 'fail' },
+            { text: `piece ${pieceLabel(action.piece)} from ` },
+            { text: SOURCES[action.source], tone: 'bold' },
+            { text: ' failed its hash check and was discarded', tone: 'fail' },
           ],
         ],
         file: { ...file, bad: [...file.bad, action.piece], failed: [...file.failed, action.piece] },
@@ -176,7 +193,7 @@ export function reducer(state: State, action: Action): State {
       const sources: [string, number][] = file.sources.some(([source]) => source === name) ? file.sources : [...file.sources, [name, 0]];
       return {
         ...state,
-        lasting: [...state.lasting, [{ text: 'drop  ', tone: 'warn' }, { text: name }, { text: '  sent a bad piece; no more requests', tone: 'dim' }]],
+        lasting: [...state.lasting, [{ text: '! ', tone: 'warn' }, { text: 'dropped ' }, { text: name, tone: 'bold' }, { text: ' for sending a bad piece', tone: 'dim' }]],
         file: { ...file, sources, dropped: [...file.dropped, name] },
       };
     }
@@ -184,57 +201,134 @@ export function reducer(state: State, action: Action): State {
       return file ? { ...state, file: { ...file, rate: action.bytes } } : state;
     case 'complete': {
       if (!file) return state;
-      const counted = file.sources.filter(([, count]) => count > 0);
-      const named = counted.length ? `  ${counted.map(([name, count]) => (counted.length === 1 ? name : `${name} ${count}`)).join(', ')}` : '';
-      const summary: Line = [
-        { text: 'ok    ', tone: 'ok' },
-        { text: FILE, tone: 'bold' },
-        { text: `  ${sizeText(SIZE)}  ${TOTAL} pieces in ${SECONDS.toFixed(1)} s`, tone: 'dim' },
-        { text: named, tone: 'dim' },
+      const lines: Line[] = [
+        [
+          { text: '✓ ', tone: 'ok' },
+          { text: FILE, tone: 'bold' },
+          { text: `  ${sizeText(SIZE)} · ${plural(TOTAL, 'piece')} · ${SECONDS.toFixed(1)} s`, tone: 'dim' },
+        ],
       ];
-      return { ...state, file: null, lasting: [...state.lasting, summary] };
+      const counted = file.sources.filter(([, count]) => count > 0);
+      if (counted.length) {
+        const named = counted.map(([name, count]) => (counted.length === 1 ? name : `${name} (${count})`)).join(', ');
+        lines.push([{ text: '  from ', tone: 'dim' }, { text: named, tone: 'dim' }]);
+      }
+      return { ...state, file: null, lasting: [...state.lasting, ...lines] };
     }
     case 'finish':
       return {
         ...state,
         phase: 'done',
         prompt: true,
-        lasting: [...state.lasting, [], labelled('verified', { text: '1 file' }), labelled('snapshot', { text: SNAPSHOT })],
+        lasting: [
+          ...state.lasting,
+          [],
+          labelled('verified', { text: '✓ ', tone: 'ok' }, { text: plural(1, 'file'), tone: 'bold' }),
+          labelled('snapshot', { text: SNAPSHOT }),
+        ],
       };
   }
 }
 
-/** The live region view.py redraws in place, for a terminal of the given size. */
-export function region(state: State, columns: number, rows: number): { title: Line; map: Cell[][]; log: Line[]; sources: Line[]; status: Line } | null {
+export type Box = {
+  width: number;
+  inner: number;
+  title: Line;
+  fill: number;
+  phase: Line;
+  map: Cell[][];
+  log: Line[];
+  sources: SourceRow[];
+  status: Line;
+};
+
+const fit = (segments: Line, width: number): Line => {
+  const out: Line = [];
+  let used = 0;
+  for (const segment of segments) {
+    if (used + segment.text.length > width) {
+      out.push({ ...segment, text: `${segment.text.slice(0, Math.max(0, width - used - 1))}…` });
+      return out;
+    }
+    out.push(segment);
+    used += segment.text.length;
+  }
+  return out;
+};
+
+const length = (line: Line) => line.reduce((sum, segment) => sum + segment.text.length, 0);
+
+/** The live box view.py redraws in place, for a terminal of the given size. */
+export function region(state: State, columns: number, rows: number): Box | null {
   const file = state.file;
   if (!file) return null;
-  const width = Math.max(20, columns - 1);
-  const mapColumns = Math.min(MAP_COLUMNS, width);
-  const cells = Math.min(TOTAL, mapColumns * Math.max(1, Math.min(MAP_ROWS, rows - 12)));
+  const width = Math.min(BOX_WIDTH, Math.max(24, columns - 1));
+  const inner = width - 4;
+  const now = file.fresh.length ? file.fresh[file.fresh.length - 1][1] : 0;
+
+  const phase: Line = !file.ready
+    ? [{ text: '· checking', tone: 'dim' }]
+    : file.bad.length
+      ? [{ text: '✗ bad piece', tone: 'fail' }]
+      : [
+          { text: '⠋', tone: 'ok', spin: true },
+          { text: ' pulling', tone: 'ok' },
+        ];
+  const title = fit(
+    [
+      { text: FILE, tone: 'bold' },
+      { text: ` · ${sizeText(SIZE)}`, tone: 'dim' },
+    ],
+    Math.max(1, width - 9 - length(phase)),
+  );
+  const fill = width - 8 - length(title) - length(phase);
+
+  const mapColumns = Math.max(1, Math.min(MAP_COLUMNS, Math.floor((inner + 1) / 2)));
+  const mapRows = Math.max(1, Math.min(MAP_ROWS, rows - 12 - file.sources.length));
+  const cells = Math.min(TOTAL, mapColumns * mapRows);
+  const bad = new Set(file.bad.map((piece) => cellOf(piece, cells)));
+  const fresh = new Set(file.fresh.filter(([, at]) => now - at < FRESH_MS).map(([piece]) => cellOf(piece, cells)));
   const map: Cell[][] = [];
   for (let cell = 0; cell < cells; cell++) {
     const start = Math.floor((cell * TOTAL) / cells);
     const end = Math.floor(((cell + 1) * TOTAL) / cells);
     let done = 0;
     for (let piece = start; piece < end; piece++) if (file.verified[piece]) done++;
-    const state: Cell = file.bad.some((piece) => start <= piece && piece < end) ? 'bad' : done === end - start ? 'full' : done ? 'part' : 'none';
+    const value: Cell = bad.has(cell) ? 'bad' : fresh.has(cell) ? 'fresh' : done === end - start ? 'full' : done ? 'part' : 'none';
     if (cell % mapColumns === 0) map.push([]);
-    map[map.length - 1].push(state);
+    map[map.length - 1].push(value);
   }
-  const nameWidth = Math.min(32, Math.max(0, ...file.sources.map(([name]) => name.length)));
-  const sources = file.sources.map(([name, count]): Line => {
-    const filled = Math.min(METER, roundHalfEven((METER * count) / TOTAL));
-    return [
-      { text: `${name.slice(0, nameWidth).padEnd(nameWidth)}  ` },
-      { text: '█'.repeat(filled), tone: 'ok' },
-      { text: '░'.repeat(METER - filled), tone: 'dim' },
-      file.dropped.includes(name) ? { text: '  dropped', tone: 'fail' } : { text: `  ${count}` },
-    ];
+
+  const log: Line[] = file.log.map(([piece, source]) => [{ text: '✓ ', tone: 'ok' }, { text: `${pieceLabel(piece)}  ` }, { text: source, tone: 'dim' }]);
+  while (log.length < LOG_LINES) log.push([]);
+
+  const nameWidth = Math.min(28, Math.max(0, ...file.sources.map(([name]) => name.length)));
+  const barWidth = inner - nameWidth - 11;
+  const sources = file.sources.map(([name, count]): SourceRow => {
+    const dropped = file.dropped.includes(name);
+    const cellsFilled = (count / TOTAL) * barWidth;
+    return {
+      name: name.slice(0, nameWidth).padEnd(nameWidth),
+      tone: dropped ? 'strike' : undefined,
+      bar: barWidth >= 6 ? { width: barWidth, filled: Math.floor(cellsFilled), half: cellsFilled - Math.floor(cellsFilled) >= 0.5, dropped } : null,
+      count: dropped ? { text: 'dropped'.padStart(9), tone: 'fail' } : { text: String(count).padStart(9) },
+    };
   });
+
   const status: Line = !file.ready
-    ? [{ text: 'checking staged data', tone: 'dim' }]
-    : [{ text: `${file.done}/${TOTAL} verified` }, ...(file.rate === null ? [] : [{ text: `  ${sizeText(file.rate)}/s`, tone: 'dim' as const }])];
-  return { title: [{ text: FILE, tone: 'bold' }, { text: `  ${sizeText(SIZE)}  ${TOTAL} pieces`, tone: 'dim' }], map, log: file.log, sources, status };
+    ? [{ text: 'checking data already on disk', tone: 'dim' }]
+    : [
+        { text: `${file.done}/${TOTAL}`, tone: 'bold' },
+        { text: ' verified' },
+        ...(file.rate === null
+          ? []
+          : [
+              { text: ` · ${sizeText(file.rate)}/s`, tone: 'dim' as const },
+              ...(file.done < TOTAL ? [{ text: ` · ${durationText(((TOTAL - file.done) * PIECE_SIZE) / file.rate)} left`, tone: 'dim' as const }] : []),
+            ]),
+      ];
+
+  return { width, inner, title, fill, phase, map, log, sources, status };
 }
 
 // Small seeded generator so every visit shows the same sequence.
@@ -285,13 +379,13 @@ export function buildTimeline(): Event[] {
       clock += 1700;
     }
     if (step === REFETCH_AT) {
-      events.push({ at: clock, action: { type: 'verify', piece: BAD_PIECE, source: REFETCH_SOURCE } });
+      events.push({ at: clock, action: { type: 'verify', piece: BAD_PIECE, source: REFETCH_SOURCE, at: clock } });
       clock += 1000;
     }
     if (step % 30 === 29) {
       events.push({ at: clock, action: { type: 'rate', bytes: 31e6 + Math.floor(random() * 11e6) } });
     }
-    events.push({ at: clock, action: { type: 'verify', piece, source: pick(step > BAD_AT) } });
+    events.push({ at: clock, action: { type: 'verify', piece, source: pick(step > BAD_AT), at: clock } });
     clock += 18 + Math.floor(random() * 10);
   });
 

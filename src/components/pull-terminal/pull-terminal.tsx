@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState, type CSSProperties } from 'react';
 import styles from './pull-terminal.module.css';
-import { COMMAND, buildTimeline, finalState, initialState, reducer, region, type Line, type Phase } from './timeline';
+import { COMMAND, buildTimeline, finalState, initialState, reducer, region, type Bar, type Line, type Phase } from './timeline';
 
 const PHASE_LABEL: Record<Phase, string> = {
   idle: 'idle',
@@ -15,28 +15,46 @@ const TIMELINE = buildTimeline();
 
 const prefersReducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// Block glyphs are drawn as boxes one cell wide each: the page font has none,
-// and a fallback font's glyph widths would break the character grid.
-const BLOCKS = /^[█░]+$/;
+// The page font has no symbols, box drawing or braille. Each such glyph gets a
+// cell exactly one column wide, so a fallback font cannot shift the grid.
+const SYMBOLS = /([─-⣿])/;
 
 function Text({ line }: { line: Line }) {
   return line.map((segment, i) =>
-    BLOCKS.test(segment.text) ? (
-      <span key={i} className={styles.block} data-tone={segment.tone} style={{ width: `${segment.text.length}ch` }} />
+    segment.spin ? (
+      <span key={i} className={`${styles.glyph} ${styles.spin}`} data-tone={segment.tone} />
     ) : (
       <span key={i} data-tone={segment.tone}>
-        {segment.text}
+        {segment.text.split(SYMBOLS).map((part, j) =>
+          SYMBOLS.test(part) ? (
+            <span key={j} className={styles.glyph}>
+              {part}
+            </span>
+          ) : (
+            part
+          ),
+        )}
       </span>
     ),
   );
+}
+
+// ━━━╸──── : a heavy line for the verified share, a thin track after it.
+function Meter({ bar }: { bar: Bar }) {
+  const style = {
+    width: `${bar.width}ch`,
+    '--heavy': `${bar.filled + (bar.half ? 0.5 : 0)}ch`,
+    '--track': `${bar.filled + (bar.half ? 1 : 0)}ch`,
+  } as CSSProperties;
+  return <span className={styles.meter} data-dropped={bar.dropped} style={style} />;
 }
 
 export function PullTerminal() {
   const [reduced] = useState(prefersReducedMotion);
   const [run, setRun] = useState(0);
   const [visible, setVisible] = useState(false);
-  // A terminal's size decides its map width and where long lines wrap, as in the CLI.
-  const [size, setSize] = useState({ columns: 72, rows: 24 });
+  // A terminal's size decides its box width, map and where long lines wrap, as in the CLI.
+  const [size, setSize] = useState({ columns: 70, rows: 34 });
   const windowRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const probeRef = useRef<HTMLSpanElement>(null);
@@ -53,7 +71,7 @@ export function PullTerminal() {
       const width = viewport.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
       if (!cell) return;
       const columns = Math.max(24, Math.floor(width / cell));
-      setSize({ columns, rows: columns >= 60 ? 24 : 30 });
+      setSize({ columns, rows: columns >= 60 ? 34 : 40 });
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -98,7 +116,7 @@ export function PullTerminal() {
   };
 
   const typing = state.typed < COMMAND.length;
-  const live = region(state, size.columns, size.rows);
+  const box = region(state, size.columns, size.rows);
 
   return (
     <figure className={styles.figure}>
@@ -114,18 +132,20 @@ export function PullTerminal() {
           <span ref={probeRef} className={styles.probe}>
             0000000000
           </span>
-          <div
-            ref={termRef}
-            className={styles.term}
-            style={{ '--columns': size.columns, '--rows': size.rows } as CSSProperties}
-          >
+          <div ref={termRef} className={styles.term} style={{ '--columns': size.columns, '--rows': size.rows } as CSSProperties}>
             <p className={styles.wrap}>
               <span className={styles.prompt}>$</span> {COMMAND.slice(0, state.typed)}
               {typing && <span className={styles.cursor} />}
             </p>
             {state.transient && (
-              <p className={styles.clip} data-tone='dim'>
-                {state.transient}
+              <p className={styles.clip}>
+                <Text
+                  line={[
+                    { text: '⠋', tone: 'ok', spin: true },
+                    { text: ' ', tone: 'ok' },
+                    { text: state.transient, tone: 'dim' },
+                  ]}
+                />
               </p>
             )}
             {state.lasting.map((line, i) => (
@@ -133,32 +153,52 @@ export function PullTerminal() {
                 <Text line={line} />
               </p>
             ))}
-            {live && (
-              <>
-                <p className={styles.clip}>
-                  <Text line={live.title} />
+            {box && (
+              <div className={styles.box} style={{ width: `${box.width}ch` }}>
+                <p className={styles.top}>
+                  <span className={styles.edge} />
+                  <span className={styles.mask}>
+                    {' '}
+                    <Text line={box.title} />{' '}
+                  </span>
+                  <span style={{ width: `${box.fill}ch` }} />
+                  <span className={styles.mask}>
+                    {' '}
+                    <Text line={box.phase} />{' '}
+                  </span>
+                  <span className={styles.edge} />
                 </p>
-                {live.map.map((row, i) => (
-                  <p key={i} className={styles.clip}>
+                <p className={styles.row} />
+                {box.map.map((row, i) => (
+                  <p key={i} className={styles.row}>
                     {row.map((cell, j) => (
                       <span key={j} className={styles.cell} data-cell={cell} />
                     ))}
                   </p>
                 ))}
-                {live.log.map((line, i) => (
-                  <p key={i} className={styles.clip}>
+                <p className={styles.row} />
+                {box.log.map((line, i) => (
+                  <p key={i} className={styles.row}>
                     <Text line={line} />
                   </p>
                 ))}
-                {live.sources.map((line, i) => (
-                  <p key={i} className={styles.clip}>
-                    <Text line={line} />
-                  </p>
-                ))}
-                <p className={styles.clip}>
-                  <Text line={live.status} />
+                <p className={styles.row}>
+                  <span className={styles.rule} style={{ width: `${box.inner}ch` }} />
                 </p>
-              </>
+                {box.sources.map((source) => (
+                  <p key={source.name} className={styles.row}>
+                    <span data-tone={source.tone}>{source.name}</span>
+                    {'  '}
+                    {source.bar && <Meter bar={source.bar} />}
+                    <Text line={[source.count]} />
+                  </p>
+                ))}
+                <p className={styles.row} />
+                <p className={styles.row}>
+                  <Text line={box.status} />
+                </p>
+                <p className={styles.row} />
+              </div>
             )}
             {state.prompt && (
               <p className={styles.wrap}>
