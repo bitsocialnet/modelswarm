@@ -31,7 +31,7 @@ cli/.venv/bin/modelswarm pull public/demo/qwen-q4-k-m.json \
   --no-discovery --timeout 900
 ```
 
-The final JSON result prints the verified `snapshot` directory. The GGUF file and its license are inside that directory. The CLI checks each piece and the full file hash before placing the files there. Rerun the same pull to resume an interrupted download.
+On a terminal the CLI draws each piece as it is verified and ends with the verified `snapshot` directory; with stdout redirected it prints a JSON result containing `snapshot` instead. The GGUF file and its license are inside that directory. The CLI checks each piece and the full file hash before placing the files there. Rerun the same pull to resume an interrupted download.
 
 Source installation has been verified on Apple Silicon macOS. See the [CLI guide](cli/README.md) for cache controls and [signed releases](cli/RELEASES.md) for publisher verification. [Upstream Qwen model card](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/tree/9217f5db79a29953eb74d5343926648285ec7e67).
 

@@ -540,5 +540,15 @@ class PullViewTests(unittest.TestCase):
         self.assertEqual(view.drawn, 0)
 
 
+    def test_terminal_stdout_gets_a_readable_error_instead_of_json(self):
+        stdout, stderr = TtyStream(), TtyStream()
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            self.assertEqual(main(["pull", "/nonexistent/release.json", "--progress", "human"]), 1)
+            self.assertEqual(main(["pull", "/nonexistent/release.json", "--progress", "json"]), 1)
+        readable, data = stdout.getvalue().splitlines()
+        self.assertRegex(readable, r"^error     \S")
+        self.assertEqual(json.loads(data)["ok"], False)
+
+
 if __name__ == "__main__":
     unittest.main()

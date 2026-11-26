@@ -173,9 +173,14 @@ def release_lock(directory, digest):
         os.close(descriptor)
 
 
+def human_progress(args):
+    progress = getattr(args, "progress", "json")
+    return progress == "human" or (progress == "auto" and sys.stderr.isatty())
+
+
 def pull(args):
     view = None
-    if args.progress == "human" or (args.progress == "auto" and sys.stderr.isatty()):
+    if human_progress(args):
         from .view import PullView
         view = PullView(sys.stderr)
     provenance = {}
@@ -356,16 +361,24 @@ def serve(args):
     return run_server(args)
 
 
+def report_error(error, readable):
+    print(f"{'error':<10}{error}" if readable else json.dumps({"ok": False, "error": str(error)}), flush=True)
+
+
 def main(argv=None):
     args = parser().parse_args(argv)
+    # The pull view already shows the outcome, so a terminal gets no JSON copy;
+    # redirected stdout still receives the JSON result.
+    readable = human_progress(args) and sys.stdout.isatty()
     try:
         result = args.function(args)
         result["ok"] = not result.get("errors")
-        print(json.dumps(result, sort_keys=True), flush=True)
+        if not readable:
+            print(json.dumps(result, sort_keys=True), flush=True)
         return 0 if result["ok"] else 1
     except InterruptedDownload as error:
-        print(json.dumps({"ok": False, "error": str(error)}), flush=True)
+        report_error(error, readable)
         return 130
     except (OSError, ValueError, RuntimeError, TimeoutError) as error:
-        print(json.dumps({"ok": False, "error": str(error)}), flush=True)
+        report_error(error, readable)
         return 1
