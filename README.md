@@ -12,7 +12,7 @@ The catalogue can grow through Bitsocial. Publishers sign releases from their ow
 
 ## Getting started
 
-1. Open the [model catalogue](https://modelswarm.org/catalogue.html) and search for a model. Choose **Open magnet** or **Download torrent** and use your BitTorrent client. The [signed Qwen demo](https://modelswarm.org/release.html) also has a direct HTTPS download.
+1. Open the [model catalogue](https://modelswarm.org/catalogue.html) and search for a model. Choose **Open in torrent client** or **Download .torrent**, then open the file in a BitTorrent client. The [signed Qwen demo](https://modelswarm.org/release.html) also has a direct HTTPS download.
 2. Already seeding an imported torrent? Keep it running in your existing client. The matching infohash puts ModelSwarm users in the same swarm.
 3. To browse from your own domain or localhost, [build a local catalogue](catalogue/README.md) from a saved export and the Bitsocial communities you choose.
 

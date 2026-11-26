@@ -1,10 +1,15 @@
 import hashlib
+import io
 import json
 import tempfile
 import unittest
+from email.message import Message
 from pathlib import Path
+from unittest.mock import patch
+from urllib.request import BaseHandler, build_opener
+from urllib.response import addinfourl
 
-from import_pirateface import catalogue_entry, index_records
+from import_pirateface import MetadataRedirectHandler, catalogue_entry, get_json, index_records
 
 
 NAME = "owner/model"
@@ -22,7 +27,54 @@ SOURCE = {
 }
 
 
+class RedirectTransport(BaseHandler):
+    handler_order = 100
+
+    def __init__(self, destination):
+        self.destination = destination
+        self.requested = []
+
+    def open(self, request):
+        self.requested.append(request.full_url)
+        headers = Message()
+        if len(self.requested) == 1:
+            headers["Location"] = self.destination
+            response = addinfourl(io.BytesIO(), headers, request.full_url, 302)
+            response.msg = "Found"
+        else:
+            response = addinfourl(io.BytesIO(b'{"ok":true}'), headers, request.full_url, 200)
+            response.msg = "OK"
+        return response
+
+    http_open = open
+    https_open = open
+
+
 class ImportTests(unittest.TestCase):
+    def test_follows_same_origin_redirect(self):
+        source = "https://pirateface.co/api/torrents"
+        destination = "https://pirateface.co:443/api/listing"
+        transport = RedirectTransport(destination)
+        with patch("import_pirateface.METADATA_OPENER", build_opener(MetadataRedirectHandler(), transport)):
+            self.assertEqual(get_json(source), {"ok": True})
+        self.assertEqual(transport.requested, [source, destination])
+
+    def test_rejects_origin_changes_before_sending_a_second_request(self):
+        source = "https://pirateface.co/api/torrents"
+        for destination in (
+            "https://other.example/api/listing",
+            "http://pirateface.co/api/listing",
+            "https://pirateface.co:8443/api/listing",
+            "https://pirateface.co:0/api/listing",
+        ):
+            with self.subTest(destination=destination):
+                transport = RedirectTransport(destination)
+                opener = build_opener(MetadataRedirectHandler(), transport)
+                with patch("import_pirateface.METADATA_OPENER", opener):
+                    with self.assertRaisesRegex(ValueError, "redirected away from its source"):
+                        get_json(source)
+                self.assertEqual(transport.requested, [source])
+
     def test_keeps_swarm_identity_and_drops_network_hints(self):
         listing = {**LISTING, "magnet": INDEX_MAGNET + "&tr=http://private.invalid&x.pe=10.0.0.1:7000"}
         result = catalogue_entry(listing, SOURCE)

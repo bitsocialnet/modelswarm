@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import parse_qs, quote, urlencode, urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 REPO = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,95}/[A-Za-z0-9][A-Za-z0-9_.-]{0,95}")
@@ -111,12 +111,30 @@ def index_records(cache):
     return state["build"], records
 
 
+def origin(url):
+    parts = urlsplit(url)
+    if parts.username is not None or parts.password is not None:
+        raise ValueError("Metadata URL must not contain credentials")
+    port = parts.port
+    if port is None:
+        port = 443 if parts.scheme == "https" else 80
+    return parts.scheme, parts.hostname, port
+
+
+class MetadataRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if origin(req.full_url) != origin(newurl):
+            raise ValueError("Metadata request redirected away from its source")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+METADATA_OPENER = build_opener(MetadataRedirectHandler())
+
+
 def get_json(url):
     request = Request(url, headers={"Accept": "application/json", "User-Agent": "ModelSwarm catalogue import"})
     try:
-        with urlopen(request, timeout=25) as response:
-            if urlsplit(response.geturl()).netloc != urlsplit(url).netloc:
-                raise ValueError("Metadata request redirected away from its source")
+        with METADATA_OPENER.open(request, timeout=25) as response:
             data = response.read(MAX_JSON + 1)
     except HTTPError as error:
         if error.code in (401, 403, 404, 410):

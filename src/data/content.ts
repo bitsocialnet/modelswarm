@@ -115,12 +115,12 @@ export const STEPS: Step[] = [
   },
   {
     title: 'Publishing and reading releases',
-    body: 'The public demo has a signed publisher profile, peer-only downloads and a release page. Hosted onboarding remains.',
+    body: 'The signed Qwen demo has a public BitTorrent seeder and pinned HTTPS fallback. Hosted onboarding and general publisher pages remain.',
     estimate: 'CLI prototype complete',
   },
   {
     title: 'Hubs and search',
-    body: 'The self-hosted catalogue searches imported magnets and community releases. Browser posting and live search across several indexers are planned.',
+    body: 'The self-hosted catalogue searches imported torrents and signed community snapshots. Post crossposts and replies from the CLI. Browser posting and live search across indexers remain.',
     estimate: '2–3 weeks',
   },
   { title: 'Desktop client', body: 'One app with a node, a torrent engine and the local endpoint.', estimate: '3–4 weeks' },

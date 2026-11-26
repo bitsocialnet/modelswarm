@@ -2,7 +2,7 @@
 
 What is built, what is next, what each step waits on, and where each decision is written down. Update this file in the same change that finishes or reshapes an item.
 
-Durations are rough estimates of focused work, not dates. Last reviewed 2026-11-13.
+Durations are rough estimates of focused work, not dates. Last reviewed 2026-11-26.
 
 ## Built
 
@@ -14,7 +14,7 @@ Durations are rough estimates of focused work, not dates. Last reviewed 2026-11-
 - [x] [Local Hugging Face endpoint prototype](cli/ENDPOINT.md): `serve`/`HF_ENDPOINT`, registered manifests, verified public upstream fallback and real SDK end-to-end downloads (2026-11-13).
 - [x] [Signed publisher release prototype](cli/RELEASES.md): local keys, delegated profile setup, signed publication, profile/version/CID pulls and endpoint registration through a private real PKC node (2026-11-13).
 
-The experimental CLI, SDK endpoint and signed publishing are implemented. Public operation, catalogue and desktop client remain. The prototypes do not complete the measurements milestone.
+The experimental CLI, SDK endpoint and signed publishing are implemented. The public signed Qwen demo has a BitTorrent seeder. The static web catalogue adds a public torrent preview and can index selected Bitsocial communities. Hosted onboarding, live search across indexers and the desktop client remain. The prototypes do not complete the measurements milestone.
 
 ## What Blocks What
 
@@ -74,21 +74,21 @@ After this milestone the tool is useful to one person with no network of publish
 - [x] `pull pkc://…` and `serve --release` resolve explicit publisher/version or CID-pinned releases, verify signatures and bind the manifest before downloading.
 - [ ] Mirror records v0: publish one when seeding a Hugging Face model, and check records on completed downloads.
 - [x] A [public demo publisher and release](https://modelswarm.org/release.html) serving Qwen2.5-0.5B-Instruct GGUF with the Apache-2.0 license. A separate reader verified the signed release and downloaded both files from a public BitTorrent peer.
-- [x] A [web catalogue](https://modelswarm.org/catalogue.html) with the signed Qwen entry, a BitTorrent v2 download discovered by DHT, and a pinned HTTPS fallback.
-- [ ] Web client, read-only: publisher pages, release pages with the model card, file list, format flags and sources. On the stack of 5chan and WeTube.
+- [x] A signed Qwen release page with publisher key, file hashes, a BitTorrent v2 download discovered by DHT, and a pinned HTTPS fallback.
+- [ ] Dedicated publisher pages and general release pages with model cards. The catalogue already renders signed community releases, file details and discussion snapshots.
 
-The signed CLI/profile slice is implemented; see [evidence and remaining scope](cli/RELEASES-EVALUATION.md). It uses explicit bare publisher keys rather than unproven human-readable names. Automated tests use a private PKC/Kubo network. The demo also has a public reader check and a [reproduction guide](cli/demo/README.md). Mirror records, name proofs and the general read-only web client remain. The original 3–4 week estimate covered this broader milestone.
+The signed CLI/profile slice is implemented; see [evidence and remaining scope](cli/RELEASES-EVALUATION.md). It uses explicit bare publisher keys rather than unproven human-readable names. Automated tests use a private PKC/Kubo network. The demo also has a public reader check and a [reproduction guide](cli/demo/README.md). Mirror records, name proofs and dedicated publisher and release pages remain. The original 3–4 week estimate covered this broader milestone.
 
 ### 5. Hubs and search
 
-- [x] A self-hostable web catalogue with a signed demo, public torrent imports that retain their original infohashes, and search by name, format and size.
-- [x] Export signed releases and replies from a followed Bitsocial community to a local static index.
-- [ ] Crosspost a release into a hub; replies and votes in the web client.
-- [ ] Hub lists in the client settings.
+- [x] A [self-hostable catalogue](catalogue/README.md) with a signed demo, starter picks, grouped variants, and search by name, format and size. The bundled 104-model preview retains the original public torrent infohashes.
+- [x] Crosspost a signed release and reply using the community CLI. An operator can export signed releases and replies from selected Bitsocial communities and rebuild a static catalogue.
+- [ ] Post replies and votes from the browser.
+- [ ] Manage followed hubs in the browser.
 - [ ] Manifest parsing in `bitsocial-indexer`, with filters for base model, format, quantization, license and size.
 - [ ] Search in the client across several indexers.
 
-Estimate: 2 to 3 weeks. Blocked by: milestone 4.
+The static catalogue and CLI discussion path are implemented. The original 2–3 week estimate covered the broader milestone.
 
 ### 6. Desktop client
 

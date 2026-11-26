@@ -20,8 +20,10 @@
   color: var(--dim);
 }
 
-.introLink {
-  flex: none;
+.introLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1.1rem;
   margin-bottom: 0.2rem;
   font-size: 0.875rem;
 }
@@ -291,5 +293,97 @@
   .filters input,
   .filters select {
     font-size: 1rem;
+  }
+}
+
+.starters {
+  margin-bottom: clamp(2.4rem, 5vw, 4rem);
+}
+
+.starters h2 {
+  font-size: clamp(1.55rem, 3vw, 2.1rem);
+  margin-bottom: 0.65rem;
+}
+
+.starters ul {
+  list-style: none;
+  padding: 0;
+  border-block: 1px solid var(--rule-strong);
+  background: var(--panel);
+}
+
+.starters li {
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.55rem 1.5rem;
+}
+
+.starters li + li {
+  border-top: 1px solid var(--rule-strong);
+}
+
+.starters h3 {
+  font-size: 1.19rem;
+  text-wrap: initial;
+}
+
+.starters p {
+  font-size: 0.8125rem;
+  color: var(--dim);
+}
+
+.starters .pickMeta {
+  font-size: 0.75rem;
+}
+
+.starters .torrentAction {
+  min-width: min(18rem, 100%);
+}
+
+.torrentAction {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+}
+
+.torrentAction > span {
+  font-size: 0.75rem;
+  color: var(--dim);
+}
+
+.download .torrentAction {
+  align-items: flex-end;
+}
+
+.variantGroup {
+  border-bottom: 1px solid var(--rule);
+}
+
+.variantGroup summary {
+  padding: 0.7rem 0.95rem;
+  cursor: pointer;
+}
+
+.variantGroup summary span {
+  color: var(--dim);
+  font-size: 0.8125rem;
+  margin-inline-start: 0.6rem;
+}
+
+.variantGroup ul {
+  padding-inline-start: 0.85rem;
+}
+
+.variantGroup .row:last-child {
+  border-bottom: none;
+}
+
+@media (max-width: 44rem) {
+  .download .torrentAction {
+    align-items: flex-start;
   }
 }

@@ -7,7 +7,9 @@ import { Topbar } from './components/topbar/topbar';
 import { Footer } from './sections/footer';
 import { doc } from './data/content';
 import { demoModel } from './data/demo-model';
-import { demoEntry, formatBytes, formatCount, loadCatalogue, type Model } from './data/catalogue';
+import { demoEntry, formatBytes, formatCount, loadCatalogue, type CommunityFile, type Model } from './data/catalogue';
+import { groupVariants, modelFamily, starterPicks } from './data/catalogue-selection';
+import { communityHttpsLink } from './lib/community-https';
 import styles from './catalogue.module.css';
 
 const pageSize = 30;
@@ -30,11 +32,12 @@ function Catalogue() {
         <header className={`wrap ${styles.intro}`}>
           <div>
             <h1>Open-weight models</h1>
-            <p>Find model weights and download from existing BitTorrent swarms. Run your own catalogue and choose the communities you follow.</p>
+            <p>Find weights for running AI locally and download them from BitTorrent swarms.</p>
           </div>
-          <a href='#self-host' className={styles.introLink}>
-            Run your own catalogue
-          </a>
+          <div className={styles.introLinks}>
+            <a href='#model-search'>Search models</a>
+            <a href='#self-host'>Run your own catalogue</a>
+          </div>
         </header>
         <section className={`wrap ${styles.browse}`} aria-labelledby='browse-title'>
           <Suspense fallback={<ModelDirectory models={[demoEntry]} loading />}>
@@ -89,23 +92,26 @@ function ModelDirectory({ models, observedAt, loading, failed }: { models: Model
   const [visible, setVisible] = useState(pageSize);
   const words = query.trim().toLowerCase().split(/\s+/);
   const matches = models.filter((model) => {
-    const haystack = `${model.name} ${model.format} ${model.license} ${model.community?.publisher ?? ''}`.toLowerCase();
+    const haystack = `${model.name} ${modelFamily(model.id) ?? ''} ${model.format} ${model.license} ${model.community?.publisher ?? ''}`.toLowerCase();
     return (!format || model.format === format) && (!limit || (model.bytes !== null && model.bytes <= Number(limit))) && words.every((word) => haystack.includes(word));
   });
   if (order === 'seeders') matches.sort((a, b) => (b.seeders ?? -1) - (a.seeders ?? -1));
   if (order === 'size') matches.sort((a, b) => (a.bytes ?? Infinity) - (b.bytes ?? Infinity));
   const formats = Array.from(new Set(models.map((model) => model.format))).sort();
+  const groups = Array.from(groupVariants(matches));
 
   return (
     <>
+      {!loading && <StarterPicks models={models} />}
       <div className={styles.directoryHeading}>
-        <h2 id='browse-title'>Catalogue</h2>
+        <h2 id='browse-title'>Browse all models</h2>
         <p role='status'>{loading ? 'Loading index…' : `${formatCount(matches.length)} ${matches.length === 1 ? 'model' : 'models'}`}</p>
       </div>
       <search className={styles.filters} aria-label='Model catalogue'>
         <label className={styles.search}>
           <span>Search models</span>
           <input
+            id='model-search'
             type='search'
             value={query}
             placeholder='Search by model, publisher or license'
@@ -169,9 +175,7 @@ function ModelDirectory({ models, observedAt, loading, failed }: { models: Model
           The index could not load. Reload to try again.
         </p>
       )}
-      <p className={styles.note}>
-        Seeder counts reflect the last observation{observedAt ? ` (${observedAt.slice(0, 10)})` : ''}. Open magnets or torrent files in your BitTorrent client.
-      </p>
+      <p className={styles.note}>Seeder counts reflect the last observation{observedAt ? ` (${observedAt.slice(0, 10)})` : ''}.</p>
       {matches.length ? (
         <>
           <div className={styles.columnHeads} aria-hidden='true'>
@@ -182,11 +186,26 @@ function ModelDirectory({ models, observedAt, loading, failed }: { models: Model
             <span>Download</span>
           </div>
           <ul className={styles.results} aria-label='Models'>
-            {matches.slice(0, visible).map((model) => (
-              <ModelRow key={model.id} model={model} />
-            ))}
+            {groups.slice(0, visible).map(({ name, models }) =>
+              name && models.length > 1 ? (
+                <li key={name} className={styles.variantGroup}>
+                  <details>
+                    <summary>
+                      <strong>{name}</strong> <span>{models.length} GGUF variants</span>
+                    </summary>
+                    <ul className={styles.results} aria-label={`${name} variants`}>
+                      {models.map((model) => (
+                        <ModelRow key={model.id} model={model} />
+                      ))}
+                    </ul>
+                  </details>
+                </li>
+              ) : (
+                <ModelRow key={models[0].id} model={models[0]} />
+              ),
+            )}
           </ul>
-          {visible < matches.length && (
+          {visible < groups.length && (
             <button className={`${styles.more} button`} type='button' onClick={() => setVisible((count) => count + pageSize)}>
               Show more models
             </button>
@@ -196,6 +215,52 @@ function ModelDirectory({ models, observedAt, loading, failed }: { models: Model
         <p className={styles.empty}>No models match. Try a shorter search or change the filters.</p>
       )}
     </>
+  );
+}
+
+function StarterPicks({ models }: { models: Model[] }) {
+  const picks = starterPicks.flatMap((pick) => {
+    const model = models.find(({ id }) => id === pick.id);
+    return model?.download ? [{ pick, model }] : [];
+  });
+
+  return (
+    <section className={styles.starters} aria-labelledby='starter-title'>
+      <h2 id='starter-title'>Start with a small model</h2>
+      <ul>
+        {picks.map(({ pick, model }) => (
+          <li key={model.id}>
+            <div>
+              <h3>{model.kind === 'demo' ? <a href={demoModel.page}>{pick.name}</a> : pick.name}</h3>
+              <p>{pick.description}</p>
+              <p className={styles.pickMeta}>
+                {pick.format} · {formatBytes(model.bytes)} · {SOURCE[model.kind]}
+                {model.kind === 'demo' && (
+                  <>
+                    {' '}
+                    · <a href={demoModel.https}>HTTPS download</a>
+                  </>
+                )}
+              </p>
+            </div>
+            <TorrentAction model={model} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function TorrentAction({ model }: { model: Model }) {
+  if (!model.download) return null;
+  const isFile = model.kind === 'demo';
+  return (
+    <div className={styles.torrentAction}>
+      <a className='button' href={model.download} download={isFile || undefined}>
+        {isFile ? 'Download .torrent' : 'Open in torrent client'}
+      </a>
+      {isFile && <span>Open the file in a BitTorrent v2 client.</span>}
+    </div>
   );
 }
 
@@ -236,11 +301,7 @@ function ModelRow({ model }: { model: Model }) {
               View files
             </a>
           )}
-          {model.download && (
-            <a className='button' href={model.download} download={model.kind === 'demo' ? true : undefined}>
-              {model.kind === 'demo' ? 'Download torrent' : 'Open magnet'}
-            </a>
-          )}
+          <TorrentAction model={model} />
         </div>
       </div>
       {model.kind === 'import' && (
@@ -279,28 +340,7 @@ function ModelRow({ model }: { model: Model }) {
           </p>
           <ul>
             {model.community.files.map((file) => (
-              <li key={file.path}>
-                <strong>{file.path}</strong> · {formatBytes(file.bytes)}
-                {file.flagged && <> · Download via CLI with explicit approval</>}
-                {file.torrent?.startsWith('./community-torrents/') && (
-                  <>
-                    {' '}
-                    ·{' '}
-                    <a href={file.torrent} download>
-                      Download torrent
-                    </a>
-                  </>
-                )}
-                {file.https?.startsWith('https://') && (
-                  <>
-                    {' '}
-                    · <a href={file.https}>HTTPS ({new URL(file.https).hostname})</a>
-                  </>
-                )}
-                <p>
-                  SHA-256 <code>{file.sha256}</code>
-                </p>
-              </li>
+              <CommunityFileRow key={file.path} file={file} />
             ))}
           </ul>
           <p>
@@ -318,6 +358,35 @@ function ModelRow({ model }: { model: Model }) {
           <a href={doc('catalogue/README.md#publish-and-discuss-in-a-community')}>Reply from your node</a>
         </details>
       )}
+    </li>
+  );
+}
+
+function CommunityFileRow({ file }: { file: CommunityFile }) {
+  const https = file.flagged ? null : communityHttpsLink(file.https);
+  return (
+    <li>
+      <strong>{file.path}</strong> · {formatBytes(file.bytes)}
+      {file.flagged && <> · Download via CLI with explicit approval</>}
+      {!file.flagged && file.torrent?.startsWith('./community-torrents/') && (
+        <>
+          {' '}
+          ·{' '}
+          <a href={file.torrent} download>
+            Download .torrent
+          </a>{' '}
+          (open in a BitTorrent v2 client)
+        </>
+      )}
+      {https && (
+        <>
+          {' '}
+          · <a href={https.href}>HTTPS ({https.hostname})</a>
+        </>
+      )}
+      <p>
+        SHA-256 <code>{file.sha256}</code>
+      </p>
     </li>
   );
 }

@@ -11,8 +11,8 @@ export function Hero() {
             The hub of <span className={styles.nowrap}>open-weight</span> AI models that nobody owns
           </h1>
           <p className={styles.lede}>
-            Find open-weight models already shared by BitTorrent swarms. Run your own catalogue and choose which communities to follow. Publishers sign releases from
-            their own Bitsocial profiles.
+            ModelSwarm takes its name from the BitTorrent swarms of peers that share open-weight models. Run your own catalogue, follow communities, and find releases
+            signed by their Bitsocial publishers.
           </p>
           <p className={styles.stage}>
             <span className={styles.stageMark} aria-hidden='true' />
