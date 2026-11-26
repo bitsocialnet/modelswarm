@@ -21,7 +21,7 @@ SHA256 = re.compile(r"[0-9a-f]{64}", re.IGNORECASE)
 BTMH = re.compile(r"1220[0-9a-f]{64}", re.IGNORECASE)
 SHARD = re.compile(r"(removed-)?(\d{4}-\d{2}-\d{2})\.txt")
 LICENSES = {"apache-2.0", "mit", "wtfpl", "openmdw-1.1"}
-FORMAT_NAMES = {".gguf": "GGUF", ".safetensors": "Safetensors", ".onnx": "ONNX", ".bin": "PyTorch"}
+FORMAT_NAMES = {".gguf": "GGUF", ".safetensors": "Safetensors", ".onnx": "ONNX", ".pt": "PyTorch", ".pth": "PyTorch"}
 PUBLIC_TRACKERS = (
     "udp://tracker.pirateface.co:6969/announce",
     "http://tracker.pirateface.co:6969/announce",
@@ -176,6 +176,11 @@ def catalogue_entry(listing, source, index=None):
         sizes.append(reference.get("size"))
     extensions = {Path(path).suffix.lower() for path in paths}
     model_format = next((label for ext, label in FORMAT_NAMES.items() if ext in extensions), None)
+    files = {Path(path).name.lower() for path in paths}
+    if model_format is None and {"openvino_model.xml", "openvino_model.bin"} <= files:
+        model_format = "OpenVINO"
+    if model_format is None and any(name.startswith("pytorch_model") and name.endswith(".bin") for name in files):
+        model_format = "PyTorch"
     seeders = listing.get("seeders")
     magnet = "magnet:?" + "&".join(f"xt={kind}:{hashes[kind]}" for kind in sorted(hashes))
     entry = {

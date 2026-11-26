@@ -25,7 +25,7 @@
     },
     {
       "name": "AIFunOver/SmolLM2-360M-Instruct-openvino-8bit",
-      "format": "PyTorch",
+      "format": "OpenVINO",
       "bytes": 370248965,
       "seeders": 3,
       "license": "apache-2.0",
@@ -751,7 +751,7 @@
     },
     {
       "name": "OpenVINO/Qwen2.5-Coder-7B-Instruct-int8-ov",
-      "format": "PyTorch",
+      "format": "OpenVINO",
       "bytes": 7647665456,
       "seeders": 5,
       "license": "apache-2.0",

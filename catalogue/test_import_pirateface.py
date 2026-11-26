@@ -41,6 +41,12 @@ class ImportTests(unittest.TestCase):
             MAGNET + "&tr=udp%3A%2F%2Ftracker.pirateface.co%3A6969%2Fannounce",
         )
 
+    def test_identifies_openvino_from_the_torrent_file_paths(self):
+        files = ["openvino_model.xml", "openvino_model.bin"]
+        listing = {**LISTING, "files": [{"path": path, "sha256": DIGEST} for path in files]}
+        source = {**SOURCE, "siblings": [{"rfilename": path, "size": 128} for path in files]}
+        self.assertEqual(catalogue_entry(listing, source)["format"], "OpenVINO")
+
     def test_rejects_unproven_revisions_licenses_and_access(self):
         for change in (
             {"sha": "0" * 40},
