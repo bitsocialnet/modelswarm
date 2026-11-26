@@ -25,6 +25,7 @@ import libtorrent as lt
 
 from modelswarm.cli import main, release_lock
 from modelswarm.engine import MIB, session_settings
+from modelswarm.view import PullView
 
 
 def gguf(path, size):
@@ -374,6 +375,28 @@ print(json.dumps({'snapshot':snapshot,'file':file}))
             self.assertIn('"event": "hash_failed"', logs)
             self.command("verify", self.manifest, result["snapshot"], "--file", "weights.gguf")
 
+    def test_human_progress_names_bad_sources_and_keeps_json_result(self):
+        with http_source(self.source, corrupt=True) as (bad, _), http_source(self.source, delay=0.003) as (good, _):
+            self.make("--http-base", bad, "--http-base", good)
+            result, logs = self.pull("--file", "weights.gguf", "--progress", "human")
+        bad_name, good_name = (urlsplit(url).netloc for url in (bad, good))
+        self.assertNotIn('{"event"', logs)
+        self.assertIn("unsigned local file", logs)
+        self.assertRegex(logs, rf"✗ piece #\d{{3}} from {re.escape(bad_name)} failed its hash check and was discarded")
+        self.assertRegex(logs, rf"✓ piece #\d{{3}} fetched again from {re.escape(good_name)}")
+        self.assertRegex(logs, rf"✓ weights\.gguf  6\.3 MB · 7 pieces · [\d.]+ s\n  from {re.escape(good_name)}\n")
+        self.assertIn(f"snapshot   {result['snapshot']}", logs)
+        self.command("verify", self.manifest, result["snapshot"], "--file", "weights.gguf")
+
+    def test_json_progress_reports_piece_totals_without_piece_events(self):
+        self.make()
+        with peers(json.loads(self.manifest.read_text()), self.source) as (peer, _):
+            _, logs = self.pull("--peer", peer, "--file", "weights.gguf", "--progress", "json")
+        events = [json.loads(line) for line in logs.splitlines()]
+        started = next(event for event in events if event["event"] == "file_started")
+        self.assertEqual((started["total_pieces"], started["piece_size"]), (7, MIB))
+        self.assertFalse(any(event["event"] == "piece_verified" for event in events))
+
     def test_manifest_digest_tampering_and_format_lie(self):
         with http_source(self.source) as (url, _):
             made = self.make("--http-base", url)
@@ -475,6 +498,101 @@ print(json.dumps({'snapshot':snapshot,'file':file}))
     @unittest.skipUnless(hasattr(signal, "SIGKILL"), "requires SIGKILL")
     def test_sigkill_resume_after_periodic_checkpoint(self):
         self.interrupt_and_resume(signal.SIGKILL)
+
+
+class TtyStream(io.StringIO):
+    def isatty(self):
+        return True
+
+
+class PullViewTests(unittest.TestCase):
+    def test_live_region_redraws_and_collapses_into_lasting_lines(self):
+        stream = TtyStream()
+        with patch.dict(os.environ, {"NO_COLOR": "1"}), patch("shutil.get_terminal_size", return_value=os.terminal_size((80, 40))):
+            view = PullView(stream)
+            view.start({"name": "example/model", "version": "v1", "license": "mit"}, "ab" * 32,
+                       [{"path": "model.gguf", "size": 4 * MIB}], [], {"signed": True, "publisher": "12D3KooW" + "x" * 44}, False)
+            view("file_started", path="model.gguf", size=4 * MIB, total_pieces=4, piece_size=MIB, pid=1)
+            view("file_ready", path="model.gguf", verified_pieces=1, have=bytes([1, 0, 0, 0]))
+            view("piece_verified", path="model.gguf", piece=1, source="peer 192.0.2.10:6881")
+            view("hash_failed", path="model.gguf", piece=2, source="mirror.example.org")
+            view("source_banned", path="model.gguf", source="mirror.example.org")
+            view("progress", path="model.gguf", verified_pieces=2, total_pieces=4, payload_bytes_since_resume=MIB)
+            live = stream.getvalue()
+            view("piece_verified", path="model.gguf", piece=2, source="peer 192.0.2.10:6881")
+            view("piece_verified", path="model.gguf", piece=3, source="huggingface.co")
+            view("file_complete", path="model.gguf", size=4 * MIB, seconds=1.25, hash_failures=1)
+            view.finish({"files": ["model.gguf"], "snapshot": "/cache/snapshots/abab"})
+        self.assertNotRegex(stream.getvalue(), r"\x1b\[[\d;]*m")
+        self.assertIn("publisher  12D3KooWxxxx…xxxx ✓ signature valid", live)
+        self.assertRegex(live, r"╭─ model\.gguf · 4\.2 MB ─+ ✗ bad piece ─╮\n")
+        # Without colour, glyphs alone tell verified, failed and missing pieces apart.
+        self.assertRegex(live, r"│ ■ ■ × · +│\n")
+        self.assertRegex(live, r"│ mirror\.example\.org +─+  dropped │\n")
+        self.assertIn("2/4 verified", live)
+        self.assertIn("\x1b[", live)
+        lines = live.splitlines()
+        self.assertEqual({len(line) for line in lines if line.startswith(("╭", "│", "╰"))}, {69})
+        final = stream.getvalue().rsplit("\x1b[J", 1)[1]
+        self.assertIn("✓ piece #002 fetched again from peer 192.0.2.10:6881\n", stream.getvalue())
+        self.assertEqual(final.splitlines(), [
+            "✓ model.gguf  4.2 MB · 4 pieces · 1.2 s",
+            "  from peer 192.0.2.10:6881 (2), huggingface.co (1)",
+            "",
+            "verified   ✓ 1 file",
+            "snapshot   /cache/snapshots/abab",
+        ])
+        self.assertEqual(view.drawn, 0)
+
+
+    def live_lines(self, columns, rows, sources):
+        stream = TtyStream()
+        with patch.dict(os.environ, {"NO_COLOR": "1"}), patch("shutil.get_terminal_size", return_value=os.terminal_size((columns, rows))):
+            view = PullView(stream)
+            view("file_started", path="model.gguf", size=64 * MIB, total_pieces=64, piece_size=MIB, pid=1)
+            view("file_ready", path="model.gguf", verified_pieces=0, have=bytes(64))
+            for piece, source in enumerate(sources):
+                view("piece_verified", path="model.gguf", piece=piece, source=source)
+            view("progress", path="model.gguf", payload_bytes_since_resume=MIB)
+        return view, stream.getvalue().rsplit("\x1b[J", 1)[1].splitlines()
+
+    def test_many_sources_fold_so_the_box_fits_the_terminal(self):
+        sources = [f"peer 192.0.2.{n}:6881" for n in range(1, 11) for _ in range(n)]
+        view, lines = self.live_lines(80, 24, sources)
+        self.assertLessEqual(len(lines), 23)
+        self.assertEqual(view.drawn, len(lines))
+        rows = [line for line in lines if "─" in line and ("peer" in line or "more" in line)]
+        # The four busiest peers stay, in arrival order; the other six fold into one row.
+        self.assertEqual([row.split()[2] for row in rows[:4]], [f"192.0.2.{n}:6881" for n in (7, 8, 9, 10)])
+        self.assertRegex(rows[4], r"│ \+6 more +[━╸─]+ +21 │")
+
+    def test_tiny_terminal_clips_the_box_instead_of_overflowing(self):
+        view, lines = self.live_lines(80, 10, ["peer 192.0.2.1:6881"])
+        self.assertEqual(len(lines), 9)
+        self.assertTrue(lines[-1].startswith("╰"))
+
+    def test_view_measures_the_terminal_it_draws_on(self):
+        import fcntl
+        import termios
+        primary, secondary = os.openpty()
+        fcntl.ioctl(secondary, termios.TIOCSWINSZ, struct.pack("HHHH", 30, 50, 0, 0))
+        with os.fdopen(secondary, "w", encoding="utf-8") as stream, patch("shutil.get_terminal_size", return_value=os.terminal_size((200, 60))):
+            view = PullView(stream, color=False)
+            self.assertEqual(tuple(view._terminal_size()), (50, 30))
+        os.close(primary)
+
+    def test_terminal_stdout_gets_a_readable_error_instead_of_json(self):
+        stdout, stderr = TtyStream(), TtyStream()
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            self.assertEqual(main(["pull", "/nonexistent/release.json", "--progress", "human"]), 1)
+            self.assertEqual(main(["pull", "/nonexistent/release.json", "--progress", "json"]), 1)
+        # A redirected stderr takes the view's lines away, so stdout keeps the JSON.
+        with redirect_stdout(stdout), redirect_stderr(io.StringIO()):
+            self.assertEqual(main(["pull", "/nonexistent/release.json", "--progress", "human"]), 1)
+        readable, data, redirected = stdout.getvalue().splitlines()
+        self.assertRegex(readable, r"^error     \S")
+        self.assertEqual(json.loads(data)["ok"], False)
+        self.assertEqual(json.loads(redirected)["ok"], False)
 
 
 if __name__ == "__main__":
