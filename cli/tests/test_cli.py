@@ -25,6 +25,7 @@ import libtorrent as lt
 
 from modelswarm.cli import main, release_lock
 from modelswarm.engine import MIB, session_settings
+from modelswarm.view import PullView
 
 
 def gguf(path, size):
@@ -374,6 +375,28 @@ print(json.dumps({'snapshot':snapshot,'file':file}))
             self.assertIn('"event": "hash_failed"', logs)
             self.command("verify", self.manifest, result["snapshot"], "--file", "weights.gguf")
 
+    def test_human_progress_names_bad_sources_and_keeps_json_result(self):
+        with http_source(self.source, corrupt=True) as (bad, _), http_source(self.source, delay=0.003) as (good, _):
+            self.make("--http-base", bad, "--http-base", good)
+            result, logs = self.pull("--file", "weights.gguf", "--progress", "human")
+        bad_name, good_name = (urlsplit(url).netloc for url in (bad, good))
+        self.assertNotIn('{"event"', logs)
+        self.assertIn("unsigned local file", logs)
+        self.assertRegex(logs, rf"fail  #\d{{3}}  {re.escape(bad_name)}  hash mismatch")
+        self.assertRegex(logs, rf"ok    #\d{{3}}  {re.escape(good_name)}  fetched again")
+        self.assertRegex(logs, rf"ok    weights\.gguf  6\.3 MB  7 pieces in [\d.]+ s  {re.escape(good_name)}\n")
+        self.assertIn(f"snapshot  {result['snapshot']}", logs)
+        self.command("verify", self.manifest, result["snapshot"], "--file", "weights.gguf")
+
+    def test_json_progress_reports_piece_totals_without_piece_events(self):
+        self.make()
+        with peers(json.loads(self.manifest.read_text()), self.source) as (peer, _):
+            _, logs = self.pull("--peer", peer, "--file", "weights.gguf", "--progress", "json")
+        events = [json.loads(line) for line in logs.splitlines()]
+        started = next(event for event in events if event["event"] == "file_started")
+        self.assertEqual((started["total_pieces"], started["piece_size"]), (7, MIB))
+        self.assertFalse(any(event["event"] == "piece_verified" for event in events))
+
     def test_manifest_digest_tampering_and_format_lie(self):
         with http_source(self.source) as (url, _):
             made = self.make("--http-base", url)
@@ -475,6 +498,46 @@ print(json.dumps({'snapshot':snapshot,'file':file}))
     @unittest.skipUnless(hasattr(signal, "SIGKILL"), "requires SIGKILL")
     def test_sigkill_resume_after_periodic_checkpoint(self):
         self.interrupt_and_resume(signal.SIGKILL)
+
+
+class TtyStream(io.StringIO):
+    def isatty(self):
+        return True
+
+
+class PullViewTests(unittest.TestCase):
+    def test_live_region_redraws_and_collapses_into_lasting_lines(self):
+        stream = TtyStream()
+        with patch.dict(os.environ, {"NO_COLOR": "1"}), patch("shutil.get_terminal_size", return_value=os.terminal_size((80, 40))):
+            view = PullView(stream)
+            view.start({"name": "example/model", "version": "v1", "license": "mit"}, "ab" * 32,
+                       [{"path": "model.gguf", "size": 4 * MIB}], [], {"signed": True, "publisher": "12D3KooW" + "x" * 44}, False)
+            view("file_started", path="model.gguf", size=4 * MIB, total_pieces=4, piece_size=MIB, pid=1)
+            view("file_ready", path="model.gguf", verified_pieces=1, have=[0])
+            view("piece_verified", path="model.gguf", piece=1, source="peer 192.0.2.10:6881")
+            view("hash_failed", path="model.gguf", piece=2, source="mirror.example.org")
+            view("source_banned", path="model.gguf", source="mirror.example.org")
+            view("progress", path="model.gguf", verified_pieces=2, total_pieces=4, payload_bytes_since_resume=MIB)
+            live = stream.getvalue()
+            view("piece_verified", path="model.gguf", piece=2, source="peer 192.0.2.10:6881")
+            view("piece_verified", path="model.gguf", piece=3, source="huggingface.co")
+            view("file_complete", path="model.gguf", size=4 * MIB, seconds=1.25, hash_failures=1)
+            view.finish({"files": ["model.gguf"], "snapshot": "/cache/snapshots/abab"})
+        self.assertNotRegex(stream.getvalue(), r"\x1b\[[\d;]*m")
+        self.assertIn("publisher 12D3KooWxxxx…xxxx  signature valid", live)
+        self.assertIn("▪▪×·\n", live)
+        self.assertIn("mirror.example.org    ░░░░░░░░░░░░  dropped", live)
+        self.assertIn("2/4 verified", live)
+        self.assertIn("\x1b[", live)
+        final = stream.getvalue().rsplit("\x1b[J", 1)[1]
+        self.assertIn("ok    #002  peer 192.0.2.10:6881  fetched again\n", stream.getvalue())
+        self.assertEqual(final.splitlines(), [
+            "ok    model.gguf  4.2 MB  4 pieces in 1.2 s  peer 192.0.2.10:6881 2, huggingface.co 1",
+            "",
+            "verified  1 file",
+            "snapshot  /cache/snapshots/abab",
+        ])
+        self.assertEqual(view.drawn, 0)
 
 
 if __name__ == "__main__":

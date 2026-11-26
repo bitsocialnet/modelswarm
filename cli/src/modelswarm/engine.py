@@ -146,8 +146,77 @@ def _atomic_checkpoint(path, data):
         Path(temporary).unlink(missing_ok=True)
 
 
-def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoint_interval, cancel, emit, allow_local_sources=True):
-    """Write only to private staging; expose bytes to consumers after validation."""
+def _endpoint_text(ip, port):
+    return f"[{ip}]:{port}" if ":" in ip else f"{ip}:{port}"
+
+
+class SourceNames:
+    """Name the sender behind a libtorrent endpoint: a peer address or an HTTP source host."""
+
+    def __init__(self, handle, entry):
+        self.handle = handle
+        self.names = {}
+        self.web = {}
+        self.addresses = {}
+        self.mirrors = []
+        for source in entry["sources"]:
+            parts = urlsplit(source["url"])
+            port = parts.port or (443 if parts.scheme == "https" else 80)
+            label = parts.hostname if parts.port is None else _endpoint_text(parts.hostname, parts.port)
+            self.mirrors.append((label, parts.hostname, port))
+
+    def observe(self):
+        # Remember connection types while peers are connected; a banned or
+        # finished connection is gone from the peer list by the time it is named.
+        for peer in self.handle.get_peer_info():
+            self.web[(str(peer.ip[0]), int(peer.ip[1]))] = peer.connection_type != lt.peer_info.standard_bittorrent
+
+    def _resolved(self, host, port):
+        if (host, port) not in self.addresses:
+            try:
+                self.addresses[(host, port)] = {info[4][0] for info in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)}
+            except OSError:
+                self.addresses[(host, port)] = set()
+        return self.addresses[(host, port)]
+
+    def __call__(self, endpoint):
+        key = (str(endpoint[0]), int(endpoint[1]))
+        if key not in self.names:
+            if key not in self.web:
+                self.observe()
+            web = self.web.get(key)
+            label = None
+            if web is not False:
+                labels = {mirror[0] for mirror in self.mirrors}
+                # A single HTTP source names every web connection, including
+                # redirects to a CDN address that differs from the source host.
+                if web and len(labels) == 1:
+                    label = labels.pop()
+                else:
+                    label = next((name for name, host, port in self.mirrors
+                                  if port == key[1] and key[0] in self._resolved(host, port)), None)
+            if label is None:
+                label = f"{'http' if web else 'peer'} {_endpoint_text(*key)}"
+            self.names[key] = label
+        return self.names[key]
+
+    def main(self, blocks):
+        """Name the source asked for most blocks of a piece, or None if unknown."""
+        if not blocks:
+            return None
+        counts = {}
+        for endpoint in blocks.values():
+            counts[endpoint] = counts.get(endpoint, 0) + 1
+        return self(max(counts, key=counts.get))
+
+
+def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoint_interval, cancel, emit,
+                  allow_local_sources=True, piece_events=False):
+    """Write only to private staging; expose bytes to consumers after validation.
+
+    With piece_events, also emit piece_verified for every verified piece and name
+    the source of failed pieces; this adds a native alert per requested block.
+    """
     payload_dir = directory / "payload"
     payload_dir.mkdir(exist_ok=True)
     destination = payload_dir / Path(entry["path"]).name
@@ -193,7 +262,16 @@ def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoi
     params.flags &= ~(lt.torrent_flags.paused | lt.torrent_flags.auto_managed)
     # Attach network sources only after any existing file has been rechecked.
     params.flags |= lt.torrent_flags.disable_dht
-    session = lt.session(session_settings(discovery, rate))
+    settings = session_settings(discovery, rate)
+    settings["alert_mask"] |= int(lt.alert.category_t.peer_notification)
+    if piece_events:
+        # libtorrent 2.1.1 posts no block_finished_alert, so a block's source is
+        # the last connection it was requested from. Raise the queue so these
+        # alerts cannot crowd out checkpoint alerts between polls.
+        settings["alert_mask"] |= int(lt.alert.category_t.piece_progress_notification
+                                      | lt.alert.category_t.block_progress_notification)
+        settings["alert_queue_size"] = 200000
+    session = lt.session(settings)
     if not allow_local_sources:
         # Applied by the native engine to actual connection endpoints;
         # a DNS preflight alone would leave a re-resolution race.
@@ -203,6 +281,8 @@ def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoi
     classes.add_rule("::", "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 1)
     session.set_peer_class_filter(classes)
     handle = session.add_torrent(params)
+    names = SourceNames(handle, entry)
+    requested = {}
     started = time.monotonic()
     stopping = None
     checkpoint_deadline = None
@@ -224,14 +304,26 @@ def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoi
             handle.connect_peer(peer)
 
     try:
-        emit("file_started", path=entry["path"], size=entry["size"], pid=os.getpid())
+        emit("file_started", path=entry["path"], size=entry["size"], total_pieces=info.num_pieces(),
+             piece_size=info.piece_length(), pid=os.getpid())
         while True:
             now = time.monotonic()
+            banned = []
             for alert in session.pop_alerts():
-                if isinstance(alert, lt.hash_failed_alert):
+                if isinstance(alert, lt.block_downloading_alert):
+                    requested.setdefault(alert.piece_index, {})[alert.block_index] = alert.endpoint
+                elif isinstance(alert, lt.piece_finished_alert):
+                    if piece_events:
+                        emit("piece_verified", path=entry["path"], piece=alert.piece_index,
+                             source=names.main(requested.pop(alert.piece_index, None)))
+                elif isinstance(alert, lt.hash_failed_alert):
                     hash_failures += 1
+                    named = {"source": names.main(requested.pop(alert.piece_index, None))} if piece_events else {}
                     emit("hash_failed", path=entry["path"], piece=alert.piece_index,
-                         payload_bytes_since_resume=handle.status().total_payload_download)
+                         payload_bytes_since_resume=handle.status().total_payload_download, **named)
+                elif isinstance(alert, lt.peer_ban_alert):
+                    # libtorrent posts the ban before the failure that caused it.
+                    banned.append(names(alert.endpoint))
                 elif isinstance(alert, lt.fastresume_rejected_alert):
                     emit("checkpoint_rejected", path=entry["path"])
                 elif isinstance(alert, lt.torrent_checked_alert) and recheck_requested:
@@ -261,6 +353,8 @@ def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoi
                     if stopping == "interrupted":
                         raise InterruptedDownload("interrupted; partial downloads retained for the next pull")
                     raise TimeoutError(f"timeout downloading {entry['path']}; partial download retained")
+            for source in banned:
+                emit("source_banned", path=entry["path"], source=source)
             status = handle.status()
             if status.errc.value():
                 raise RuntimeError(status.errc.message())
@@ -273,7 +367,8 @@ def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoi
                     handle.force_recheck()
                 elif not needs_recheck or recheck_finished:
                     ready = True
-                    emit("file_ready", path=entry["path"], verified_pieces=status.num_pieces)
+                    have = {"have": [piece for piece, done in enumerate(status.pieces) if done]} if piece_events else {}
+                    emit("file_ready", path=entry["path"], verified_pieces=status.num_pieces, **have)
                     connect_sources()
             # A terminal save starts after any active periodic save. Libtorrent
             # returns the same alert for both, so keep only one request in flight.
@@ -296,6 +391,7 @@ def download_file(entry, directory, *, peers, discovery, timeout, rate, checkpoi
                     checkpoint_deadline = now + 15
                     handle.save_resume_data(checkpoint_flags)
             if now - last_progress >= 2:
+                names.observe()
                 emit("progress", path=entry["path"], verified_pieces=status.num_pieces,
                      total_pieces=info.num_pieces(), payload_bytes_since_resume=status.total_payload_download)
                 last_progress = now

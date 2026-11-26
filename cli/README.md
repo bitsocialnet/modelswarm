@@ -38,6 +38,8 @@ Payload source URLs cannot contain a query delimiter (`?`) or query parameters: 
 
 Each command prints one JSON result to stdout; progress events go to stderr. Errors return status 1; an interrupted pull that saves its progress returns 130. `verify` checks all listed files by default, including flagged ones, without executing them. A missing file, changed size/hash/root or detected format mismatch makes verification fail.
 
+When stderr is a terminal, `pull` draws a live view instead of JSON events: the release header (with the publisher signature for `pkc://` pulls), a map of the current file's pieces, the latest verified pieces and their sources, a piece count per source, and the transfer rate. Bad pieces, sources dropped for sending one, refetched pieces and finished files stay in the scrollback. `--progress json` keeps the JSON events on a terminal; `--progress human` forces the view and, without a terminal, prints only those lasting lines. `NO_COLOR` turns off colour. A peer is named by its address and an HTTP source by its manifest host, including after a redirect when the file has one HTTP source. libtorrent 2.1.1 reports which connection each block was requested from, not which one delivered it, so a piece is credited to the source asked for most of its blocks. In JSON mode, `file_started` includes `total_pieces` and `piece_size`, and a `source_banned` event names a source libtorrent dropped after a bad piece.
+
 `make` builds one v2-only torrent per nonempty file and embeds complete metadata, including piece layers, into the JSON manifest. An empty file needs no torrent. The manifest is portable: neither relative `.torrent` paths nor online peers are needed to bootstrap an HTTP download.
 
 ### Select files and formats

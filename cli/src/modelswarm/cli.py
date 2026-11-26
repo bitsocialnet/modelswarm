@@ -174,10 +174,16 @@ def release_lock(directory, digest):
 
 
 def pull(args):
+    view = None
+    if args.progress == "human" or (args.progress == "auto" and sys.stderr.isatty()):
+        from .view import PullView
+        view = PullView(sys.stderr)
     provenance = {}
     if str(args.manifest).startswith("pkc://"):
         if args.manifest_sha256 is not None and not HEX256.fullmatch(args.manifest_sha256):
             raise ValueError("expected manifest SHA-256 must be 64 lowercase hexadecimal characters")
+        if view is not None:
+            view.resolving(str(args.manifest))
         from .releases import resolve
         manifest, digest, provenance = resolve(str(args.manifest), rpc=args.rpc,
             timeout=args.rpc_timeout, allow_local=args.allow_local_sources)
@@ -212,11 +218,15 @@ def pull(args):
     for signum in (signal.SIGINT, signal.SIGTERM):
         original_handlers[signum] = signal.signal(signum, lambda *_: cancel.set())
     try:
+        if view is not None:
+            view.start(manifest, digest, entries, skipped, provenance, pinned=args.manifest_sha256 is not None)
         result = pull_release(manifest, digest, entries, skipped, args.cache_dir, peers=peers,
                             discovery=not args.no_discovery, timeout=args.timeout,
                             rate=args.rate_limit, checkpoint_interval=args.checkpoint_interval,
-                            cancel=cancel, emit=progress,
-                            allow_local_sources=allow_local_sources)
+                            cancel=cancel, emit=progress if view is None else view,
+                            allow_local_sources=allow_local_sources, piece_events=view is not None)
+        if view is not None:
+            view.finish(result)
         return {**result, **provenance}
     finally:
         for signum, handler in original_handlers.items():
@@ -224,7 +234,7 @@ def pull(args):
 
 
 def pull_release(manifest, digest, entries, skipped, cache, *, peers, discovery,
-                 timeout, rate, checkpoint_interval, cancel, emit, allow_local_sources=True):
+                 timeout, rate, checkpoint_interval, cancel, emit, allow_local_sources=True, piece_events=False):
     """Pull a validated selection; reusable by worker threads without signal hooks."""
     root = ensure_directory(cache_root(cache))
     state = ensure_directory(root / ".modelswarm")
@@ -250,7 +260,7 @@ def pull_release(manifest, digest, entries, skipped, cache, *, peers, discovery,
             verified[entry["path"]] = download_file(entry, directory, peers=peers,
                 discovery=discovery, timeout=timeout, rate=rate,
                 checkpoint_interval=checkpoint_interval, cancel=cancel, emit=emit,
-                allow_local_sources=allow_local_sources)
+                allow_local_sources=allow_local_sources, piece_events=piece_events)
         if cancel.is_set():
             raise InterruptedDownload("interrupted before cache publication; verified data retained")
         snapshot = materialize(root, manifest, digest, verified)
@@ -295,6 +305,8 @@ def parser():
             command.add_argument("--timeout", type=float, default=300, help="seconds per file before saving progress and failing")
             command.add_argument("--rate-limit", type=int, default=0, help="download bytes/s; zero means unlimited")
             command.add_argument("--checkpoint-interval", type=float, default=15, help="seconds between flushed resume checkpoints; minimum one")
+            command.add_argument("--progress", choices=("auto", "human", "json"), default="auto",
+                                 help="stderr progress: auto draws a live piece map on a terminal and writes JSON events otherwise")
     command = commands.add_parser("serve", help="serve a loopback Hugging Face-compatible read-only model endpoint")
     command.add_argument("--manifest", type=Path, action="append", default=[], help="register a local manifest; repeat for different model names")
     command.add_argument("--release", action="append", default=[], help="register a signed pkc:// publisher release; repeat for different model names")
