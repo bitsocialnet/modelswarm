@@ -28,7 +28,7 @@ Before publishing:
 3. Run the relevant [repository checks](verification.md), including interrupt/resume and a signed, peer-only WAN pull with default checkpoint settings. Run the signed integration suite with its pinned Kubo version when verifying signed publishing or reading.
 4. Write release notes with installation commands, changes, supported platforms, and known limitations. Verify the published tag’s source and install path. Treat PyPI, standalone installers, and new platform support as separate distribution decisions.
 
-The 2026-11-26 checkpoint fix (commit `df10383`) passed a clean source install on macOS arm64. A [fresh Linux x86-64 runner](https://github.com/bitsocialnet/modelswarm/actions/runs/45834809533/job/139960727104) installed from source and verified the 491 MB signed model and license from a public peer with the default checkpoint interval and timeout. The release tag still needs its own install check.
+The 2026-11-26 checkpoint fix (commit `df10383`) passed a clean source install on macOS arm64. A [fresh Linux x86-64 runner](https://github.com/bitsocialnet/modelswarm/actions/runs/45834809533/job/139960727104) installed from source and verified the 491 MB signed model and license from a public peer with the default checkpoint interval and timeout. Use the same checks for the release tag.
 
 ## Readiness for 1.0
 

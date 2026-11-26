@@ -12,7 +12,7 @@ uv pip install --python cli/.venv/bin/python -e cli
 cli/.venv/bin/modelswarm --help
 ```
 
-This installs the `modelswarm` command only in the worktree's environment. Nothing is published to PyPI or installed globally. Native wheels were tested on macOS arm64; installation on other platforms remains unverified.
+This installs the `modelswarm` command only in the worktree's environment. Nothing is published to PyPI or installed globally. Source installation was tested on macOS arm64 and Linux x86-64. Other platforms remain unverified.
 
 ## Make, verify and pull
 
