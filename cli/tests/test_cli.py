@@ -382,10 +382,10 @@ print(json.dumps({'snapshot':snapshot,'file':file}))
         bad_name, good_name = (urlsplit(url).netloc for url in (bad, good))
         self.assertNotIn('{"event"', logs)
         self.assertIn("unsigned local file", logs)
-        self.assertRegex(logs, rf"fail  #\d{{3}}  {re.escape(bad_name)}  hash mismatch")
-        self.assertRegex(logs, rf"ok    #\d{{3}}  {re.escape(good_name)}  fetched again")
-        self.assertRegex(logs, rf"ok    weights\.gguf  6\.3 MB  7 pieces in [\d.]+ s  {re.escape(good_name)}\n")
-        self.assertIn(f"snapshot  {result['snapshot']}", logs)
+        self.assertRegex(logs, rf"✗ piece #\d{{3}} from {re.escape(bad_name)} failed its hash check and was discarded")
+        self.assertRegex(logs, rf"✓ piece #\d{{3}} fetched again from {re.escape(good_name)}")
+        self.assertRegex(logs, rf"✓ weights\.gguf  6\.3 MB · 7 pieces · [\d.]+ s\n  from {re.escape(good_name)}\n")
+        self.assertIn(f"snapshot   {result['snapshot']}", logs)
         self.command("verify", self.manifest, result["snapshot"], "--file", "weights.gguf")
 
     def test_json_progress_reports_piece_totals_without_piece_events(self):
@@ -524,18 +524,23 @@ class PullViewTests(unittest.TestCase):
             view("file_complete", path="model.gguf", size=4 * MIB, seconds=1.25, hash_failures=1)
             view.finish({"files": ["model.gguf"], "snapshot": "/cache/snapshots/abab"})
         self.assertNotRegex(stream.getvalue(), r"\x1b\[[\d;]*m")
-        self.assertIn("publisher 12D3KooWxxxx…xxxx  signature valid", live)
-        self.assertIn("▪▪×·\n", live)
-        self.assertIn("mirror.example.org    ░░░░░░░░░░░░  dropped", live)
+        self.assertIn("publisher  12D3KooWxxxx…xxxx ✓ signature valid", live)
+        self.assertRegex(live, r"╭─ model\.gguf · 4\.2 MB ─+ ✗ bad piece ─╮\n")
+        # Without colour, glyphs alone tell verified, failed and missing pieces apart.
+        self.assertRegex(live, r"│ ■ ■ × · +│\n")
+        self.assertRegex(live, r"│ mirror\.example\.org +─+  dropped │\n")
         self.assertIn("2/4 verified", live)
         self.assertIn("\x1b[", live)
+        lines = live.splitlines()
+        self.assertEqual({len(line) for line in lines if line.startswith(("╭", "│", "╰"))}, {69})
         final = stream.getvalue().rsplit("\x1b[J", 1)[1]
-        self.assertIn("ok    #002  peer 192.0.2.10:6881  fetched again\n", stream.getvalue())
+        self.assertIn("✓ piece #002 fetched again from peer 192.0.2.10:6881\n", stream.getvalue())
         self.assertEqual(final.splitlines(), [
-            "ok    model.gguf  4.2 MB  4 pieces in 1.2 s  peer 192.0.2.10:6881 2, huggingface.co 1",
+            "✓ model.gguf  4.2 MB · 4 pieces · 1.2 s",
+            "  from peer 192.0.2.10:6881 (2), huggingface.co (1)",
             "",
-            "verified  1 file",
-            "snapshot  /cache/snapshots/abab",
+            "verified   ✓ 1 file",
+            "snapshot   /cache/snapshots/abab",
         ])
         self.assertEqual(view.drawn, 0)
 

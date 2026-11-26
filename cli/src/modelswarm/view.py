@@ -5,13 +5,19 @@ import shutil
 import time
 
 
-LABEL = 10
+LABEL = 11
 LOG_LINES = 4
-MAP_COLUMNS = 64
+MAP_COLUMNS = 32
+# Wide enough for a full map row (a square and a gap per column) inside the borders.
+BOX_WIDTH = 2 * MAP_COLUMNS - 1 + 6
 MAP_ROWS = 8
-METER = 12
-REDRAW_SECONDS = 0.1
-BOLD, DIM, RED, GREEN, YELLOW = "1", "2", "31", "32", "33"
+FRESH_SECONDS = 0.6
+REDRAW_SECONDS = 1 / 15
+SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+# Plain SGR codes resolve to the terminal's own palette, so the view stays
+# readable on light and dark themes alike.
+BOLD, DIM, STRIKE = "1", "2", "2;9"
+RED, GREEN, YELLOW, BRIGHT = "31", "32", "33", "1;92"
 
 
 def size_text(size):
@@ -21,8 +27,27 @@ def size_text(size):
     return f"{size} B"
 
 
+def duration_text(seconds):
+    if seconds < 1:
+        return "<1 s"
+    if seconds < 60:
+        return f"{seconds:.0f} s"
+    if seconds < 3600:
+        return f"{seconds / 60:.0f} min"
+    return f"{seconds // 3600:.0f} h {seconds % 3600 / 60:.0f} min"
+
+
+def plural(count, word):
+    return f"{count} {word}{'s' * (count != 1)}"
+
+
 def short_key(value):
     return value if len(value) <= 20 else f"{value[:12]}…{value[-4:]}"
+
+
+def cell_of(piece, cells, total):
+    # Cell c covers pieces [c * total // cells, (c + 1) * total // cells).
+    return ((piece + 1) * cells - 1) // total
 
 
 class FileProgress:
@@ -32,6 +57,7 @@ class FileProgress:
         self.done = 0
         self.bad = set()
         self.failed = set()
+        self.fresh = {}
         self.sources = {}
         self.dropped = set()
         self.log = []
@@ -44,11 +70,11 @@ class FileProgress:
 
 
 class PullView:
-    """Draw a live piece map on a terminal; print only lasting lines elsewhere.
+    """Draw the current file in a live box on a terminal; print lasting lines above it.
 
     Lasting lines (the release header, bad pieces, dropped sources and file
-    summaries) scroll normally. The current file's map, recent pieces, sources
-    and status are redrawn in place below them.
+    summaries) scroll normally. The box holds the piece map, the latest pieces,
+    the sources and the status, and is redrawn in place.
     """
 
     def __init__(self, stream, *, live=None, color=None):
@@ -74,22 +100,21 @@ class PullView:
         self._draw(force=True)
 
     def start(self, manifest, digest, entries, skipped, provenance, pinned):
-        rows = [("release", [(f"{manifest['name']} {manifest['version']}", BOLD), (f"  {manifest['license']}", DIM)])]
+        rows = [("release", [(f"{manifest['name']} {manifest['version']}", BOLD), (f" · {manifest['license']}", DIM)])]
         if provenance.get("signed"):
-            rows.append(("publisher", [(short_key(provenance["publisher"]), ""), ("  signature valid", GREEN)]))
-            rows.append(("manifest", [(digest[:12], ""), ("  matches the signed release", GREEN)]))
+            rows.append(("publisher", [(short_key(provenance["publisher"]), ""), (" ✓ signature valid", GREEN)]))
+            rows.append(("manifest", [(digest[:12], ""), (" ✓ matches the signed release", GREEN)]))
         elif pinned:
-            rows.append(("manifest", [(digest[:12], ""), ("  unsigned, matches --manifest-sha256", DIM)]))
+            rows.append(("manifest", [(digest[:12], ""), (" unsigned · matches --manifest-sha256", DIM)]))
         else:
-            rows.append(("manifest", [(digest[:12], ""), ("  unsigned local file", YELLOW)]))
-        rows.append(("files", [(f"{len(entries)} selected, {size_text(sum(entry['size'] for entry in entries))}", "")]))
-        rows.extend(("skipped", [(path, ""), ("  flagged format; --allow-unsafe downloads it", DIM)]) for path in skipped)
+            rows.append(("manifest", [(digest[:12], ""), (" ! unsigned local file", YELLOW)]))
+        rows.append(("files", [(f"{len(entries)} selected · {size_text(sum(entry['size'] for entry in entries))}", "")]))
+        rows.extend(("skipped", [(path, ""), (" flagged format; --allow-unsafe downloads it", DIM)]) for path in skipped)
         self.transient = None
         self._print(*([(label.ljust(LABEL), DIM), *segments] for label, segments in rows), [])
 
     def finish(self, result):
-        count = len(result["files"])
-        self._print([], [("verified".ljust(LABEL), DIM), (f"{count} file{'s' * (count != 1)}", "")],
+        self._print([], [("verified".ljust(LABEL), DIM), ("✓ ", GREEN), (plural(len(result["files"]), "file"), BOLD)],
                     [("snapshot".ljust(LABEL), DIM), (result["snapshot"], "")])
 
     # Engine events.
@@ -107,7 +132,7 @@ class PullView:
                 file.done += 1
         file.ready = True
         if verified_pieces:
-            self._print([("resume", DIM), (f"  {file.path}  {verified_pieces} piece{'s' * (verified_pieces != 1)} already verified on disk", DIM)])
+            self._print([("· ", DIM), (f"resuming {file.path}: {plural(verified_pieces, 'piece')} already verified on disk", DIM)])
         self._draw(force=True)
 
     def _on_piece_verified(self, piece, source, **_):
@@ -118,27 +143,28 @@ class PullView:
             if source:
                 file.sources[source] = file.sources.get(source, 0) + 1
         file.bad.discard(piece)
-        line = [("ok    ", GREEN), (f"{file.piece(piece)}  ", ""), (source or "staged data", DIM)]
+        file.fresh[piece] = time.monotonic()
         if piece in file.failed:
             file.failed.discard(piece)
-            self._print(line + [("  fetched again", GREEN)])
+            self._print([("✓ ", GREEN), (f"piece {file.piece(piece)} fetched again from ", ""), (source or "staged data", BOLD)])
             return
-        file.log = (file.log + [line])[-LOG_LINES:]
+        file.log = (file.log + [(piece, source or "staged data")])[-LOG_LINES:]
         self._draw()
 
     def _on_hash_failed(self, piece, source=None, **_):
         file = self.file
         file.bad.add(piece)
         file.failed.add(piece)
-        self._print([("fail  ", RED), (f"{file.piece(piece)}  ", ""), (source or "unknown source", ""), ("  hash mismatch, piece discarded", RED)])
+        self._print([("✗ ", RED), (f"piece {file.piece(piece)} from ", ""), (source or "an unknown source", BOLD),
+                     (" failed its hash check and was discarded", RED)])
 
     def _on_source_banned(self, source, **_):
         self.file.dropped.add(source)
         self.file.sources.setdefault(source, 0)
-        self._print([("drop  ", YELLOW), (source, ""), ("  sent a bad piece; no more requests", DIM)])
+        self._print([("! ", YELLOW), ("dropped ", ""), (source, BOLD), (" for sending a bad piece", DIM)])
 
     def _on_checkpoint_ignored(self, reason, **_):
-        self._print([("resume", DIM), (f"  checkpoint ignored: {reason}", DIM)])
+        self._print([("· ", DIM), (f"checkpoint ignored: {reason}", DIM)])
 
     def _on_progress(self, payload_bytes_since_resume, **_):
         file = self.file
@@ -151,28 +177,30 @@ class PullView:
         if self.live:
             self._draw(force=True)
         else:
-            self._print([(file.path, ""), ("  ", ""), *self._status(file)])
+            self._print([("  ", ""), (file.path, ""), ("  ", ""), *self._status(file)])
 
     def _on_checkpoint_saved(self, reason, **_):
         if reason not in ("interrupted", "timeout") or self.file is None:
             return
         file, self.file = self.file, None
         why = "interrupted" if reason == "interrupted" else "timed out"
-        self._print([("stop  ", YELLOW), (file.path, BOLD),
-                     (f"  {why} at {file.done}/{file.total} pieces; checkpoint saved, rerun the same pull to resume", DIM)])
+        self._print([("■ ", YELLOW), (file.path, BOLD),
+                     (f" {why} at {file.done}/{file.total} pieces · checkpoint saved, rerun the same pull to resume", DIM)])
 
     def _on_file_complete(self, path, size, seconds, **_):
         file, self.file = self.file, None
+        lines = [[("✓ ", GREEN), (path, BOLD), (f"  {size_text(size)} · {plural(file.total, 'piece')} · {seconds:.1f} s", DIM)]]
         sources = [(name, count) for name, count in file.sources.items() if count]
-        named = "  " + ", ".join(name if len(sources) == 1 else f"{name} {count}" for name, count in sources) if sources else ""
-        pieces = f"{file.total} piece{'s' * (file.total != 1)}"
-        self._print([("ok    ", GREEN), (path, BOLD), (f"  {size_text(size)}  {pieces} in {seconds:.1f} s", DIM), (named, DIM)])
+        if sources:
+            named = ", ".join(name if len(sources) == 1 else f"{name} ({count})" for name, count in sources)
+            lines.append([("  from ", DIM), (named, DIM)])
+        self._print(*lines)
 
     def _on_file_cached(self, path, **_):
-        self._print([("ok    ", GREEN), (path, BOLD), ("  already in the cache", DIM)])
+        self._print([("✓ ", GREEN), (path, BOLD), ("  already in the cache", DIM)])
 
     def _on_file_reused(self, path, **_):
-        self._print([("ok    ", GREEN), (path, BOLD), ("  already downloaded and verified", DIM)])
+        self._print([("✓ ", GREEN), (path, BOLD), ("  already downloaded and verified", DIM)])
 
     # Drawing.
 
@@ -180,14 +208,21 @@ class PullView:
         return f"\x1b[{style}m{text}\x1b[0m" if self.color and style and text else text
 
     def _render(self, segments, width=None):
+        return "".join(self._paint(text, style) for text, style in self._fit(segments, width))
+
+    @staticmethod
+    def _fit(segments, width, pad=False):
+        """Cut segments to width with an ellipsis; pad with spaces when asked."""
         out, used = [], 0
         for text, style in segments:
             if width is not None and used + len(text) > width:
-                out.append(self._paint(text[:max(0, width - used - 1)] + "…", style))
-                break
-            out.append(self._paint(text, style))
+                out.append((text[:max(0, width - used - 1)] + "…", style))
+                return out
+            out.append((text, style))
             used += len(text)
-        return "".join(out)
+        if pad and width is not None and used < width:
+            out.append((" " * (width - used), ""))
+        return out
 
     def _print(self, *lines):
         text = "".join(self._render(line) + "\n" for line in lines)
@@ -207,57 +242,100 @@ class PullView:
         text, self.drawn = f"\x1b[{self.drawn}F\x1b[J", 0
         return text
 
+    def _spinner(self, now):
+        return SPINNER[int(now * 12) % len(SPINNER)]
+
     def _region(self):
         if not self.live:
             return ""
         columns, rows = shutil.get_terminal_size((80, 24))
         # One column short of the edge avoids an automatic wrap, which would
         # leave more physical lines than the eraser moves back over.
-        width = max(20, columns - 1)
-        lines = [[(self.transient, DIM)]] if self.transient else []
-        file = self.file
-        if file is not None:
-            lines.append([(file.path, BOLD), (f"  {size_text(file.size)}  {file.total} pieces", DIM)])
-            lines.extend(self._map(file, width, max(1, min(MAP_ROWS, rows - 12))))
-            lines.extend(file.log)
-            name_width = min(32, max((len(name) for name in file.sources), default=0))
-            for name, count in file.sources.items():
-                filled = min(METER, round(METER * count / file.total))
-                tally = ("  dropped", RED) if name in file.dropped else (f"  {count}", "")
-                lines.append([(name[:name_width].ljust(name_width) + "  ", ""), ("█" * filled, GREEN), ("░" * (METER - filled), DIM), tally])
-            lines.append(self._status(file))
+        width = max(24, columns - 1)
+        now = time.monotonic()
+        lines = [[(self._spinner(now) + " ", GREEN), (self.transient, DIM)]] if self.transient else []
+        if self.file is not None:
+            lines.extend(self._box(self.file, min(BOX_WIDTH, width), rows, now))
         self.drawn = len(lines)
-        self.last_draw = time.monotonic()
+        self.last_draw = now
         return "".join(self._render(line, width) + "\n" for line in lines)
+
+    def _box(self, file, box, rows, now):
+        inner = box - 4
+        file.fresh = {piece: at for piece, at in file.fresh.items() if now - at < FRESH_SECONDS}
+        if not file.ready:
+            phase = [("· checking", DIM)]
+        elif file.bad:
+            phase = [("✗ bad piece", RED)]
+        else:
+            phase = [(f"{self._spinner(now)} pulling", GREEN)]
+        phase_width = sum(len(text) for text, _ in phase)
+        # ╭─ title ───── phase ─╮
+        title = self._fit([(file.path, BOLD), (f" · {size_text(file.size)}", DIM)], max(1, box - 9 - phase_width))
+        fill = box - 8 - sum(len(text) for text, _ in title) - phase_width
+        top = [("╭─ ", DIM), *title, (" " + "─" * fill + " ", DIM), *phase, (" ─╮", DIM)]
+
+        sources = list(file.sources.items())
+        # The box must fit on screen for the eraser to reach its first line.
+        map_rows = max(1, min(MAP_ROWS, rows - 12 - len(sources)))
+        body = [[], *self._map(file, inner, map_rows), []]
+        body.extend([("✓ ", GREEN), (f"{file.piece(piece)}  ", ""), (source, DIM)] for piece, source in file.log)
+        body.extend([] for _ in range(LOG_LINES - len(file.log)))
+        body.append([("┄" * inner, DIM)])
+        name_width = min(28, max((len(name) for name, _ in sources), default=0))
+        bar_width = inner - name_width - 11
+        for name, count in sources:
+            dropped = name in file.dropped
+            row = [(name[:name_width].ljust(name_width), STRIKE if dropped else ""), ("  ", "")]
+            if bar_width >= 6:
+                row.extend(self._bar(count / file.total, bar_width, DIM if dropped else GREEN))
+            row.append(("dropped".rjust(9), RED) if dropped else (str(count).rjust(9), ""))
+            body.append(row)
+        body.extend(([], self._status(file)))
+        return [top, *([("│ ", DIM), *self._fit(row, inner, pad=True), (" │", DIM)] for row in body),
+                [("╰" + "─" * (box - 2) + "╯", DIM)]]
+
+    @staticmethod
+    def _bar(fraction, width, style):
+        cells = fraction * width
+        filled = "━" * int(cells) + ("╸" if cells - int(cells) >= 0.5 else "")
+        return [(filled, style), ("─" * (width - len(filled)), DIM)]
 
     def _status(self, file):
         if not file.ready:
-            return [("checking staged data", DIM)]
-        status = [(f"{file.done}/{file.total} verified", "")]
+            return [("checking data already on disk", DIM)]
+        status = [(f"{file.done}/{file.total}", BOLD), (" verified", "")]
         if file.rate is not None:
-            status.append((f"  {size_text(file.rate)}/s", DIM))
+            status.append((f" · {size_text(file.rate)}/s", DIM))
+            if file.rate > 0 and file.done < file.total:
+                status.append((f" · {duration_text((file.total - file.done) * file.piece_size / file.rate)} left", DIM))
         return status
 
-    def _map(self, file, width, rows):
-        # Large files share cells: a full cell is all verified, a hollow one partly.
-        cells = min(file.total, min(MAP_COLUMNS, width) * rows)
-        columns = min(MAP_COLUMNS, width)
+    def _map(self, file, inner, rows):
+        # One square per piece; large files share squares, hollow while partly verified.
+        columns = max(1, min(MAP_COLUMNS, (inner + 1) // 2))
+        cells = min(file.total, columns * rows)
+        bad = {cell_of(piece, cells, file.total) for piece in file.bad}
+        fresh = {cell_of(piece, cells, file.total) for piece in file.fresh}
         lines, line = [], []
         for cell in range(cells):
             start, end = cell * file.total // cells, (cell + 1) * file.total // cells
             done = file.verified.count(1, start, end)
-            if any(start <= piece < end for piece in file.bad):
-                glyph = ("×", RED)
+            if cell in bad:
+                glyph = ("■" if self.color else "×", RED)
+            elif cell in fresh:
+                glyph = ("■", BRIGHT)
             elif done == end - start:
-                glyph = ("▪", GREEN)
+                glyph = ("■", GREEN)
             elif done:
-                glyph = ("▫", GREEN)
+                glyph = ("□", GREEN)
             else:
-                glyph = ("·", DIM)
+                glyph = ("■" if self.color else "·", DIM)
+            text = (" " if cell % columns else "") + glyph[0]
             if line and line[-1][1] == glyph[1]:
-                line[-1] = (line[-1][0] + glyph[0], glyph[1])
+                line[-1] = (line[-1][0] + text, glyph[1])
             else:
-                line.append(glyph)
+                line.append((text, glyph[1]))
             if (cell + 1) % columns == 0:
                 lines.append(line)
                 line = []
