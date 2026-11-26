@@ -14,7 +14,7 @@ function seeded(seed: number) {
 }
 
 // Rows of logo marks in loose perspective: small and dim at the back, larger toward the front,
-// with about one in nine lit like a verified piece. The centre of the front row is the full mark.
+// with about one in nine a shade brighter. The centre of the front row is the full mark.
 const MARKS: Mark[] = (() => {
   const random = seeded(17);
   const marks: Mark[] = [];

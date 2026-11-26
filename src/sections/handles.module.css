@@ -8,9 +8,7 @@
   padding: 3rem;
   border: 1px solid var(--rule-strong);
   border-radius: var(--radius);
-  background:
-    radial-gradient(40rem 20rem at 100% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%),
-    var(--console);
+  background: var(--console);
 }
 
 .claim {
@@ -66,7 +64,7 @@
 
 .suffix {
   padding: 0 1.1rem 0 0.15rem;
-  color: var(--accent);
+  color: var(--dim);
   font-size: 1.15rem;
 }
 
@@ -210,7 +208,8 @@
 .note {
   padding: 0.65rem 0.8rem;
   border-radius: 6px;
-  background: var(--accent-wash);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--rule);
   color: var(--dim);
   font-size: 0.75rem;
   line-height: 1.6;

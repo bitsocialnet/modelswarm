@@ -10,7 +10,7 @@
 }
 
 .on {
-  fill: var(--accent);
+  fill: var(--dim);
 }
 
 .off {
