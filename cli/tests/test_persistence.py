@@ -70,8 +70,7 @@ class PersistentNode(ReleaseCommands):
 
         Since pkc-js 0.0.154 the kernel holds the profile's start lock, so a
         killed process frees it as it dies and the restarted node hosts the
-        profile again by itself. A lock that outlives its process fails here
-        rather than being recovered with ``profile-start``.
+        profile again by itself. A lock that outlives its process fails here.
         """
         previous = self.fixture
         if abrupt:
@@ -82,16 +81,18 @@ class PersistentNode(ReleaseCommands):
         while alive(previous["pid"]) or alive(previous["kubo_pid"]):
             self.assertLess(time.monotonic(), deadline, "fixture processes survived shutdown")
             time.sleep(0.05)
-        logged = len(self.node.log_path.read_text())
         self.fixture = self.node.start(resume=True)
         self.assertTrue(self.fixture["resumed"])
         self.assertEqual(self.fixture["data_dir"], previous["data_dir"])
         deadline = time.monotonic() + 60
         while not (state := self.profile_state())["started"]:
-            held = "ERR_COMMUNITY_ALREADY_STARTED" in self.node.log_path.read_text()[logged:]
-            self.assertFalse(held, "auto-start hit a profile start lock left by the stopped process")
             self.assertLess(time.monotonic(), deadline, "restarted node did not resume hosting the profile")
             time.sleep(0.25)
+        # `started` would also read true under a start lock the stopped process
+        # still held. profile-start succeeds only by attaching to a profile this
+        # node runs; under another holder's lock it fails with ALREADY_STARTED.
+        started = self.command("profile-start", self.publisher, *self.rpc_options())
+        self.assertEqual(started["minter"], self.minter)
         return state
 
     def pull_when_discoverable(self, uri, **options):
