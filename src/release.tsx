@@ -78,6 +78,9 @@ function Release() {
             <span role='status'>{copyStatus}</span>
           </div>
           <p>
+            On a slower connection, add <code>--timeout 900</code>. Rerun the pull to resume from the saved checkpoint.
+          </p>
+          <p>
             Want to try the CLI without a reader node? <a href={doc('README.md#getting-started')}>Use the HTTP quickstart</a>.
           </p>
         </section>
