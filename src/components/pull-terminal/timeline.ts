@@ -31,6 +31,9 @@ const SOURCE_ROWS = 5;
 const MAP_COLUMNS = 32;
 const MAP_ROWS = 8;
 const BOX_WIDTH = 2 * MAP_COLUMNS - 1 + 6;
+const MIN_BOX = 24;
+/** The narrowest terminal that holds the box; view.py draws one status line below it. */
+export const MIN_COLUMNS = MIN_BOX + 1;
 const FRESH_MS = 600;
 
 type Tone = 'dim' | 'ok' | 'fail' | 'warn' | 'bold' | 'strike';
@@ -40,7 +43,7 @@ export type Line = Segment[];
 export type Phase = 'idle' | 'resolving' | 'pulling' | 'fault' | 'done';
 export type Cell = 'none' | 'part' | 'full' | 'fresh' | 'bad';
 export type Bar = { width: number; filled: number; half: boolean; dropped: boolean };
-export type SourceRow = { name: string; tone?: Tone; bar: Bar | null; count: Segment };
+export type SourceRow = { name: string; pad: string; tone?: Tone; bar: Bar | null; count: Segment };
 
 type FileProgress = {
   verified: boolean[];
@@ -243,27 +246,31 @@ export type Box = {
   status: Line;
 };
 
+const length = (line: Line) => line.reduce((sum, segment) => sum + segment.text.length, 0);
+
+// The example text is all single-width, so string length is its width in columns.
 const fit = (segments: Line, width: number): Line => {
+  if (length(segments) <= width) return segments;
   const out: Line = [];
+  const room = Math.max(0, width - 1);
   let used = 0;
   for (const segment of segments) {
-    if (used + segment.text.length > width) {
-      out.push({ ...segment, text: `${segment.text.slice(0, Math.max(0, width - used - 1))}…` });
-      return out;
+    const kept = segment.text.slice(0, room - used);
+    out.push({ ...segment, text: kept });
+    used += kept.length;
+    if (kept !== segment.text) {
+      out.push({ ...segment, text: '…' });
+      break;
     }
-    out.push(segment);
-    used += segment.text.length;
   }
   return out;
 };
-
-const length = (line: Line) => line.reduce((sum, segment) => sum + segment.text.length, 0);
 
 /** The live box view.py redraws in place, for a terminal of the given size. */
 export function region(state: State, columns: number, rows: number): Box | null {
   const file = state.file;
   if (!file) return null;
-  const width = Math.min(BOX_WIDTH, Math.max(24, columns - 1));
+  const width = Math.min(BOX_WIDTH, columns - 1);
   const inner = width - 4;
   const now = file.fresh.length ? file.fresh[file.fresh.length - 1][1] : 0;
 
@@ -317,34 +324,42 @@ export function region(state: State, columns: number, rows: number): Box | null 
     map[map.length - 1].push(value);
   }
 
-  const log: Line[] = file.log.map(([piece, source]) => [{ text: '✓ ', tone: 'ok' }, { text: `${pieceLabel(piece)}  ` }, { text: source, tone: 'dim' }]);
+  const log: Line[] = file.log.map(([piece, source]) => fit([{ text: '✓ ', tone: 'ok' }, { text: `${pieceLabel(piece)}  ` }, { text: source, tone: 'dim' }], inner));
   while (log.length < LOG_LINES) log.push([]);
 
-  const nameWidth = Math.min(28, Math.max(0, ...listed.map(([name]) => name.length)));
+  // Every row keeps two spaces and a nine-column count after the name.
+  const nameWidth = Math.min(28, inner - 11, Math.max(0, ...listed.map(([name]) => name.length)));
   const barWidth = inner - nameWidth - 11;
   const sources = listed.map(([name, count]): SourceRow => {
     const dropped = file.dropped.includes(name);
     const cellsFilled = (count / TOTAL) * barWidth;
+    const shownName = fit([{ text: name }], nameWidth)
+      .map((segment) => segment.text)
+      .join('');
     return {
-      name: name.slice(0, nameWidth).padEnd(nameWidth),
+      name: shownName,
+      pad: ' '.repeat(nameWidth - shownName.length),
       tone: dropped ? 'strike' : name === folded ? 'dim' : undefined,
       bar: barWidth >= 6 ? { width: barWidth, filled: Math.floor(cellsFilled), half: cellsFilled - Math.floor(cellsFilled) >= 0.5, dropped } : null,
       count: dropped ? { text: 'dropped'.padStart(9), tone: 'fail' } : { text: String(count).padStart(9) },
     };
   });
 
-  const status: Line = !file.ready
-    ? [{ text: 'checking data already on disk', tone: 'dim' }]
-    : [
-        { text: `${file.done}/${TOTAL}`, tone: 'bold' },
-        { text: ' verified' },
-        ...(file.rate === null
-          ? []
-          : [
-              { text: ` · ${sizeText(file.rate)}/s`, tone: 'dim' as const },
-              ...(file.done < TOTAL ? [{ text: ` · ${durationText(((TOTAL - file.done) * PIECE_SIZE) / file.rate)} left`, tone: 'dim' as const }] : []),
-            ]),
-      ];
+  const status: Line = fit(
+    !file.ready
+      ? [{ text: 'checking data already on disk', tone: 'dim' }]
+      : [
+          { text: `${file.done}/${TOTAL}`, tone: 'bold' },
+          { text: ' verified' },
+          ...(file.rate === null
+            ? []
+            : [
+                { text: ` · ${sizeText(file.rate)}/s`, tone: 'dim' as const },
+                ...(file.done < TOTAL ? [{ text: ` · ${durationText(((TOTAL - file.done) * PIECE_SIZE) / file.rate)} left`, tone: 'dim' as const }] : []),
+              ]),
+        ],
+    inner,
+  );
 
   return { width, inner, title, fill, phase, map, log, sources, status };
 }
@@ -403,7 +418,7 @@ export function buildTimeline(): Event[] {
     if (step % 30 === 29) {
       events.push({ at: clock, action: { type: 'rate', bytes: 31e6 + Math.floor(random() * 11e6) } });
     }
-    events.push({ at: clock, action: { type: 'verify', piece, source: pick(step > BAD_AT), at: clock } });
+    events.push({ at: clock, action: { type: 'verify', piece, source: pick(step >= BAD_AT), at: clock } });
     clock += 18 + Math.floor(random() * 10);
   });
 
